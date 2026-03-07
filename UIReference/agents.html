@@ -1,0 +1,244 @@
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI Agent Construction View | Pedagora</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0d968b",
+            "background-light": "#f6f8f8",
+            "background-dark": "#102220",
+          },
+          fontFamily: {
+            "display": ["Inter", "sans-serif"],
+            "mono": ["JetBrains Mono", "monospace"]
+          },
+          borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+        },
+      },
+    }
+  </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Header -->
+<header class="flex items-center justify-between border-b border-primary/10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md px-6 py-3 sticky top-0 z-50 lg:px-20">
+<div class="flex items-center gap-3">
+<div class="flex h-8 w-8 items-center justify-center rounded bg-primary text-white">
+<span class="material-symbols-outlined text-xl">auto_awesome</span>
+</div>
+<h2 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Pedagora</h2>
+</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#">Courses</a>
+<a class="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#">Library</a>
+<a class="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#">Settings</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="hidden sm:flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-all">
+          New Project
+        </button>
+<div class="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-2 ring-primary/20" data-alt="User profile avatar with minimalist abstract icon" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDxGoF_hJ9h9iKS0U3ltrK7Ci_lYjOFx4M36fry1nupDX0EOvA04jvvYpSYnhtFQHTrPdQSynGz1qUIrpK8MyGwReCagZ0UTWmGZWY_c-KV2hS7D_RzjIFtRYEYI2hLaKzcr1AxzI-Sxga9Y2F5zDQwXIq3yi0rjz_HQraBgQOCZt_8U72d2zPLEs7wYBF7UERKk570O1KlxSxwbbPSQlLsV2ri9iUMTaNeVUDXTs53xTuurcULLMeG1oCMmoxsN1onmu_-DZxmYg')"></div>
+</div>
+</header>
+<main class="flex-1 px-6 py-10 lg:px-20 max-w-7xl mx-auto w-full">
+<!-- Title & Progress Overview -->
+<div class="mb-12">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">Curriculum Synthesis</h1>
+<p class="text-slate-500 dark:text-slate-400 max-w-2xl">
+              Pedagora AI agents are collaborating to build your custom learning path. 
+              <span class="text-primary font-medium">Estimated 2:45 remaining.</span>
+</p>
+</div>
+<div class="flex items-center gap-2 text-sm font-medium text-slate-400 bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-primary/10">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+            System Live
+          </div>
+</div>
+</div>
+<!-- AI Agent Vertical Columns -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+<!-- Agent 1: Research -->
+<div class="group relative flex flex-col p-6 rounded-xl border border-primary/10 bg-white dark:bg-slate-900 shadow-sm transition-all hover:border-primary/30">
+<div class="mb-4 flex items-center justify-between">
+<span class="material-symbols-outlined text-primary text-3xl">search_insights</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Step 1</span>
+</div>
+<h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Research Agent</h2>
+<p class="text-sm text-slate-500 mb-6">Analyzing 12 verified sources and academic papers.</p>
+<div class="mt-auto">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-slate-400">COMPLETED</span>
+<span class="text-xs font-mono font-bold text-primary">100%</span>
+</div>
+<div class="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 100%;"></div>
+</div>
+</div>
+</div>
+<!-- Agent 2: Planning -->
+<div class="group relative flex flex-col p-6 rounded-xl border border-primary/10 bg-white dark:bg-slate-900 shadow-sm transition-all hover:border-primary/30">
+<div class="mb-4 flex items-center justify-between">
+<span class="material-symbols-outlined text-primary text-3xl">account_tree</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Step 2</span>
+</div>
+<h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Planning Agent</h2>
+<p class="text-sm text-slate-500 mb-6">Structuring learning modules and pedagogical flow.</p>
+<div class="mt-auto">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-slate-400">ACTIVE</span>
+<span class="text-xs font-mono font-bold text-primary">68%</span>
+</div>
+<div class="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all" style="width: 68%;"></div>
+</div>
+</div>
+</div>
+<!-- Agent 3: Visualization -->
+<div class="group relative flex flex-col p-6 rounded-xl border border-primary/10 bg-white dark:bg-slate-900 shadow-sm transition-all hover:border-primary/30">
+<div class="mb-4 flex items-center justify-between">
+<span class="material-symbols-outlined text-primary text-3xl">polyline</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Step 3</span>
+</div>
+<h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Visualization Agent</h2>
+<p class="text-sm text-slate-500 mb-6">Generating interactive diagrams and visual assets.</p>
+<div class="mt-auto">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-slate-400">QUEUED</span>
+<span class="text-xs font-mono font-bold text-slate-400">30%</span>
+</div>
+<div class="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-slate-300 dark:bg-slate-600 rounded-full transition-all" style="width: 30%;"></div>
+</div>
+</div>
+</div>
+<!-- Agent 4: Teaching -->
+<div class="group relative flex flex-col p-6 rounded-xl border border-primary/10 bg-white dark:bg-slate-900 shadow-sm transition-all hover:border-primary/30 opacity-70">
+<div class="mb-4 flex items-center justify-between">
+<span class="material-symbols-outlined text-primary text-3xl">record_voice_over</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Step 4</span>
+</div>
+<h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Teaching Agent</h2>
+<p class="text-sm text-slate-500 mb-6">Drafting instructional scripts and voiceovers.</p>
+<div class="mt-auto">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-slate-400">WAITING</span>
+<span class="text-xs font-mono font-bold text-slate-400">0%</span>
+</div>
+<div class="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-slate-300 dark:bg-slate-600 rounded-full" style="width: 0%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Agent Detailed Status Table -->
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-primary/10 overflow-hidden shadow-sm mb-12">
+<div class="px-6 py-4 border-b border-primary/5 flex items-center justify-between">
+<h3 class="font-bold text-slate-900 dark:text-white">Live Execution Pipeline</h3>
+<div class="flex gap-2">
+<div class="h-2 w-2 rounded-full bg-primary/20"></div>
+<div class="h-2 w-2 rounded-full bg-primary"></div>
+<div class="h-2 w-2 rounded-full bg-primary/20"></div>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-slate-50 dark:bg-slate-800/50">
+<tr>
+<th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Agent</th>
+<th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Focus</th>
+<th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Current Task</th>
+<th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Progress</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-primary/5">
+<tr>
+<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">Research</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">Academic Databases</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-primary font-medium">Verification complete</td>
+<td class="px-6 py-4 whitespace-nowrap text-right">
+<div class="flex items-center justify-end gap-3">
+<div class="w-24 bg-slate-100 dark:bg-slate-800 h-1 rounded-full"><div class="bg-primary h-full rounded-full" style="width: 100%"></div></div>
+<span class="text-xs font-mono font-bold text-primary">100%</span>
+</div>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">Planning</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">Learning Path</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">Optimizing module Bloom's Taxonomy...</td>
+<td class="px-6 py-4 whitespace-nowrap text-right">
+<div class="flex items-center justify-end gap-3">
+<div class="w-24 bg-slate-100 dark:bg-slate-800 h-1 rounded-full"><div class="bg-primary h-full rounded-full" style="width: 68%"></div></div>
+<span class="text-xs font-mono font-bold text-primary">68%</span>
+</div>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">Visualization</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">Infographic Engine</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">Awaiting curriculum structure</td>
+<td class="px-6 py-4 whitespace-nowrap text-right">
+<div class="flex items-center justify-end gap-3">
+<div class="w-24 bg-slate-100 dark:bg-slate-800 h-1 rounded-full"><div class="bg-slate-300 h-full rounded-full" style="width: 30%"></div></div>
+<span class="text-xs font-mono font-bold text-slate-400">30%</span>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- System Logs -->
+<div class="space-y-4">
+<h3 class="text-xs font-bold uppercase tracking-widest text-slate-400 px-1">System Execution Logs</h3>
+<div class="bg-slate-900 dark:bg-black p-6 rounded-lg border border-primary/20 font-mono text-[11px] leading-relaxed text-primary/80 overflow-y-auto max-h-48 scrollbar-hide">
+<div class="flex gap-4">
+<span class="text-slate-600">[12:44:01]</span>
+<span>RESEARCH_AGENT: Successfully indexed 245 candidate papers.</span>
+</div>
+<div class="flex gap-4">
+<span class="text-slate-600">[12:44:12]</span>
+<span>RESEARCH_AGENT: Cross-referencing findings with Oxford Learner's Corpus.</span>
+</div>
+<div class="flex gap-4">
+<span class="text-slate-600">[12:44:28]</span>
+<span class="text-white">SYSTEM: Initial research synthesis phase marked COMPLETED.</span>
+</div>
+<div class="flex gap-4">
+<span class="text-slate-600">[12:44:30]</span>
+<span>PLANNING_AGENT: Initializing learning objectives for Module 1-3.</span>
+</div>
+<div class="flex gap-4">
+<span class="text-slate-600">[12:44:35]</span>
+<span>PLANNING_AGENT: Mapping prerequisite nodes to knowledge graph.</span>
+</div>
+<div class="flex gap-4">
+<span class="text-slate-600">[12:45:01]</span>
+<span class="animate-pulse">PLANNING_AGENT: Optimizing path for cognitive load distribution...</span>
+</div>
+<div class="flex gap-4 mt-2">
+<span class="text-primary">_</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Space -->
+<footer class="mt-auto px-6 py-8 lg:px-20 text-center">
+<p class="text-xs text-slate-400">© 2024 Pedagora AI. Clean, Minimal, and Premium Education Intelligence.</p>
+</footer>
+</div>
+</body></html>

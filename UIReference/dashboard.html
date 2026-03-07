@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pedagora | Student Learning Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0d968b",
+                        "background-light": "#f6f8f8",
+                        "background-dark": "#0D1117",
+                        "card-dark": "#161b22",
+                        "border-dark": "#30363d",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="relative flex h-screen w-full overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="w-64 border-r border-slate-200 dark:border-border-dark flex flex-col bg-white dark:bg-background-dark h-full shrink-0">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-primary size-8 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-xl">auto_awesome</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-none tracking-tight">Pedagora</h1>
+<p class="text-slate-500 dark:text-primary text-xs font-medium uppercase tracking-widest mt-1">AI Academy</p>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-1 mt-4 custom-scrollbar overflow-y-auto">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary font-medium" href="#">
+<span class="material-symbols-outlined text-[22px]">dashboard</span>
+<span class="text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-card-dark transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">auto_stories</span>
+<span class="text-sm">My Courses</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-card-dark transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">event_repeat</span>
+<span class="text-sm">Sessions</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-card-dark transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">analytics</span>
+<span class="text-sm">Insights</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-card-dark transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">folder_open</span>
+<span class="text-sm">Resources</span>
+</a>
+<div class="pt-6 pb-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Support</div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-card-dark transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">settings</span>
+<span class="text-sm">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-card-dark transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">help_center</span>
+<span class="text-sm">Help Center</span>
+</a>
+</nav>
+<div class="p-4 mt-auto border-t border-slate-200 dark:border-border-dark">
+<button class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-lg h-11 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-lg">add_circle</span>
+<span class="text-sm font-semibold">New Inquiry</span>
+</button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 h-screen overflow-y-auto custom-scrollbar flex flex-col">
+<!-- Top Header -->
+<header class="h-16 border-b border-slate-200 dark:border-border-dark bg-white/50 dark:bg-background-dark/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-10">
+<div class="flex items-center gap-4 bg-slate-100 dark:bg-card-dark px-4 py-2 rounded-full border border-slate-200 dark:border-border-dark w-96">
+<span class="material-symbols-outlined text-slate-400 text-xl">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full text-slate-300" placeholder="Search topics, courses, or notes..." type="text"/>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative text-slate-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 size-2 bg-red-500 rounded-full border-2 border-background-dark"></span>
+</button>
+<div class="flex items-center gap-3 pl-6 border-l border-slate-200 dark:border-border-dark">
+<div class="flex flex-col items-end">
+<span class="text-sm font-semibold">Alex Sterling</span>
+<span class="text-[10px] text-primary font-bold uppercase tracking-wider">Pro Learner</span>
+</div>
+<div class="size-10 rounded-full bg-slate-200 dark:bg-border-dark bg-cover bg-center ring-2 ring-primary/20" data-alt="Profile avatar of Alex Sterling" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCq5dT1Kz1NB9h2l3iI_P0Y7dWf9JnFZN3bPC4vycephRqcrzYqu2arFsIaQ3sCdbmiKVwE6uY3XII1tabb9B_fLcUgxE1txQxRYFdtONvCV2XhOiEqtlS0BWppkMpyw9bmX_SwnM1NUbwNVZtSrnkItgqP2iGuF1i_4UomRfeO4As4jUlJ1VS38FOtF7QKoGUYNjoqhJ7QFWMaCXOQxavk7sDtX6yy3Z4UI-8ipFE8PlfPWaTbXgk1VPmSDBneCQeNPc7Z8al92w')"></div>
+</div>
+</div>
+</header>
+<div class="p-8 space-y-8 max-w-7xl mx-auto w-full">
+<!-- Welcome Section -->
+<div>
+<h2 class="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Welcome back, Alex</h2>
+<p class="text-slate-500 dark:text-slate-400 mt-1">You've completed 75% of your weekly goals. Keep the momentum!</p>
+</div>
+<!-- Hero: Resume Learning -->
+<section class="group relative overflow-hidden rounded-xl bg-slate-900 border border-border-dark shadow-2xl">
+<div class="absolute inset-0 opacity-20 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+<div class="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-0">
+<div class="p-10 flex flex-col justify-center">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-widest mb-4 w-fit">
+<span class="material-symbols-outlined text-sm">bolt</span>
+                                Active Now
+                            </div>
+<h3 class="text-2xl font-bold text-white mb-2 tracking-tight leading-tight">Resume Learning: Neural Networks</h3>
+<p class="text-slate-400 mb-8 max-w-sm">Module 4: Backpropagation and Gradient Descent. You're almost there!</p>
+<div class="flex flex-col gap-4 mb-8">
+<div class="flex justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
+<span>Progress</span>
+<span class="text-primary">75%</span>
+</div>
+<div class="w-full bg-slate-800 rounded-full h-1.5">
+<div class="bg-primary h-full rounded-full" style="width: 75%;"></div>
+</div>
+</div>
+<button class="w-fit flex items-center gap-3 bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-lg font-bold transition-all transform hover:translate-x-1">
+                                Continue Lesson
+                                <span class="material-symbols-outlined text-lg">arrow_forward</span>
+</button>
+</div>
+<div class="hidden md:block relative h-full min-h-[300px] overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-slate-900 via-transparent to-transparent z-10"></div>
+<div class="absolute inset-0 bg-cover bg-center scale-110 group-hover:scale-100 transition-transform duration-700" data-alt="Conceptual abstract visualization of neural networks" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCUt4jeYJzBf_mHZzYC42zIo2CGLwV_QdNSNpUBQogRWG9rguzmQMP8k5xIupE0GUPNbnNkzPWpO_iRwf2NFDf5duMmr2TQjGjNV9L3D3CxkANccIYrcQ6X0KGRBsbWw1HbMSAg-K1k6XOh8zHOuhf2qEMWmsQIXdvwueTPBqUCV-uvYSFTgP1ylgSmssus5rzBVEiyMFSHwG4VqX_wBpl01b1mWxAHLG-o8xs1eC-Nu20sTRg7u8upwbD03ZLbcs4HC6ANe80CjA')"></div>
+</div>
+</div>
+</section>
+<!-- Modular Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Progress Tracking -->
+<div class="lg:col-span-1 flex flex-col gap-6">
+<div class="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-border-dark flex flex-col">
+<div class="flex items-center justify-between mb-6">
+<h4 class="font-bold text-slate-800 dark:text-slate-100">Progress Tracking</h4>
+<span class="material-symbols-outlined text-slate-400">trending_up</span>
+</div>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="text-xs font-medium text-slate-500 dark:text-slate-400">Advanced Machine Learning</span>
+<span class="text-xs font-bold text-slate-800 dark:text-slate-200">65%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-border-dark rounded-full h-1.5">
+<div class="bg-primary h-full rounded-full" style="width: 65%;"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="text-xs font-medium text-slate-500 dark:text-slate-400">Natural Language Processing</span>
+<span class="text-xs font-bold text-slate-800 dark:text-slate-200">22%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-border-dark rounded-full h-1.5">
+<div class="bg-blue-400 h-full rounded-full" style="width: 22%;"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="text-xs font-medium text-slate-500 dark:text-slate-400">Data Visualization</span>
+<span class="text-xs font-bold text-slate-800 dark:text-slate-200">91%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-border-dark rounded-full h-1.5">
+<div class="bg-amber-400 h-full rounded-full" style="width: 91%;"></div>
+</div>
+</div>
+</div>
+<button class="mt-8 w-full py-2 text-sm font-semibold text-primary hover:bg-primary/5 rounded-lg transition-colors border border-primary/20">
+                                View Full Analytics
+                            </button>
+</div>
+<div class="bg-primary/5 dark:bg-primary/10 p-6 rounded-xl border border-primary/20 flex flex-col gap-4">
+<h4 class="font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">lightbulb</span>
+                                Weekly Tip
+                            </h4>
+<p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed italic">
+                                "Spaced repetition for Neural Network architecture memorization is 3x more effective than cramming."
+                            </p>
+</div>
+</div>
+<!-- Upcoming Sessions & Recommended -->
+<div class="lg:col-span-2 space-y-6">
+<!-- Upcoming Sessions -->
+<div class="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-border-dark">
+<div class="flex items-center justify-between mb-6">
+<h4 class="font-bold text-slate-800 dark:text-slate-100">Upcoming Sessions</h4>
+<a class="text-xs font-bold text-primary hover:underline" href="#">See Calendar</a>
+</div>
+<div class="space-y-4">
+<div class="flex items-center gap-4 p-4 rounded-lg bg-slate-50 dark:bg-background-dark border border-slate-100 dark:border-border-dark">
+<div class="flex flex-col items-center justify-center size-12 bg-white dark:bg-card-dark rounded-lg border border-slate-200 dark:border-border-dark shrink-0">
+<span class="text-xs font-black text-primary">OCT</span>
+<span class="text-lg font-bold leading-none">24</span>
+</div>
+<div class="flex-1">
+<h5 class="text-sm font-bold">1-on-1 AI Mentorship</h5>
+<p class="text-xs text-slate-500 dark:text-slate-400">With Dr. Julian Thorne • 10:00 AM EST</p>
+</div>
+<button class="text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined">video_call</span>
+</button>
+</div>
+<div class="flex items-center gap-4 p-4 rounded-lg bg-slate-50 dark:bg-background-dark border border-slate-100 dark:border-border-dark opacity-75">
+<div class="flex flex-col items-center justify-center size-12 bg-white dark:bg-card-dark rounded-lg border border-slate-200 dark:border-border-dark shrink-0">
+<span class="text-xs font-black text-slate-400">OCT</span>
+<span class="text-lg font-bold leading-none">26</span>
+</div>
+<div class="flex-1">
+<h5 class="text-sm font-bold">Workshop: Transformers 101</h5>
+<p class="text-xs text-slate-500 dark:text-slate-400">Group Session • 2:30 PM EST</p>
+</div>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications_active</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Recommended Topics -->
+<div class="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-border-dark">
+<h4 class="font-bold text-slate-800 dark:text-slate-100 mb-6">Recommended for You</h4>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl border border-slate-200 dark:border-border-dark hover:border-primary/50 transition-colors group cursor-pointer">
+<div class="size-10 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-4">
+<span class="material-symbols-outlined">psychology</span>
+</div>
+<h5 class="font-bold text-sm group-hover:text-primary transition-colors">Attention Mechanisms</h5>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">Deep dive into self-attention and cross-attention in modern LLMs.</p>
+<div class="flex items-center gap-2 mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">schedule</span>
+                                        45 MINS
+                                    </div>
+</div>
+<div class="p-4 rounded-xl border border-slate-200 dark:border-border-dark hover:border-primary/50 transition-colors group cursor-pointer">
+<div class="size-10 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-4">
+<span class="material-symbols-outlined">database</span>
+</div>
+<h5 class="font-bold text-sm group-hover:text-primary transition-colors">Vector Databases</h5>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">How to store and retrieve high-dimensional embeddings efficiently.</p>
+<div class="flex items-center gap-2 mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm">schedule</span>
+                                        30 MINS
+                                    </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer-ish padding -->
+<div class="mt-auto py-8 text-center text-slate-500 dark:text-slate-600 text-xs">
+                © 2024 Pedagora AI Learning Platform. All rights reserved.
+            </div>
+</main>
+</div>
+</body></html>

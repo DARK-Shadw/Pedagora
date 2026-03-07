@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-primary: #0d968b;
+  --color-primary-foreground: #ffffff;
+  --color-background-light: #fafafa;
+  --color-background-dark: #0D1117;
+  --color-card-dark: #161b22;
+  --color-border-dark: #30363d;
+  --color-charcoal: #1A1A2E;
+
+  --font-display: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --radius-DEFAULT: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  --animate-ping: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@layer base {
+  :root {
+    --background: #fafafa;
+    --foreground: #1A1A2E;
+    --card: #ffffff;
+    --card-foreground: #1A1A2E;
+    --popover: #ffffff;
+    --popover-foreground: #1A1A2E;
+    --primary: #0d968b;
+    --primary-foreground: #ffffff;
+    --secondary: #f1f5f9;
+    --secondary-foreground: #1A1A2E;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --accent: #f1f5f9;
+    --accent-foreground: #1A1A2E;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+    --ring: #0d968b;
+  }
+
+  .dark {
+    --background: #0D1117;
+    --foreground: #e2e8f0;
+    --card: #161b22;
+    --card-foreground: #e2e8f0;
+    --popover: #161b22;
+    --popover-foreground: #e2e8f0;
+    --primary: #0d968b;
+    --primary-foreground: #ffffff;
+    --secondary: #1e293b;
+    --secondary-foreground: #e2e8f0;
+    --muted: #1e293b;
+    --muted-foreground: #94a3b8;
+    --accent: #1e293b;
+    --accent-foreground: #e2e8f0;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --border: #30363d;
+    --input: #30363d;
+    --ring: #0d968b;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-display);
+  }
+}
+
+/* Soft shadow from UI reference */
+.soft-shadow {
+  box-shadow: 0 4px 20px -2px rgba(13, 150, 139, 0.05);
+}
+
+/* Hero gradient from landing reference */
+.hero-gradient {
+  background: radial-gradient(
+    circle at top right,
+    rgba(13, 150, 139, 0.05) 0%,
+    transparent 70%
+  );
+}
+
+/* Custom scrollbar for sidebar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 10px;
+}
+
+/* Technical label style from onboarding reference */
+.technical-label {
+  font-family: var(--font-mono);
+}
