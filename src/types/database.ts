@@ -15,6 +15,7 @@ import type {
   ConfidenceLevel,
   ReadinessLevel,
   SessionFrequency,
+  ResourceStatus,
 } from "./index";
 
 export interface Profile {
@@ -145,4 +146,75 @@ export interface AgentLog {
   agent: string;
   message: string;
   level: "info" | "success" | "error" | "system";
+}
+
+export interface ResearchSource {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  topic_group: string;
+  source_type: string;
+  title: string;
+  url: string | null;
+  author: string | null;
+  summary: string | null;
+  key_concepts: string[];
+  relevance_score: number;
+  credibility_score: number;
+  content_extract: string | null;
+  metadata: Record<string, unknown>;
+  // v2 deep extraction
+  extracted_content: {
+    detailed_summary?: string;
+    prerequisites_mentioned?: string[];
+    difficulty_level?: string;
+    formulas?: { latex: string; plain_text: string; description: string; variables?: Record<string, string> }[];
+    code_snippets?: { language: string; code: string; description: string; is_runnable?: boolean }[];
+    numerical_examples?: { value: string; context: string; unit?: string }[];
+    misconceptions?: { misconception: string; correction: string; why_common?: string }[];
+    analogies?: { concept: string; analogy: string; limitations?: string }[];
+  } | null;
+  formulas: Record<string, unknown>[] | null;
+  code_snippets: Record<string, unknown>[] | null;
+  numerical_examples: Record<string, unknown>[] | null;
+  difficulty_level: string | null;
+  created_at: string;
+}
+
+export interface ResearchResult {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  topic_tree: Record<string, unknown>;
+  synthesis: Record<string, unknown>;
+  source_count: number;
+  // v2 synthesis
+  teaching_notes: Record<string, string>;
+  demo_codebases: Record<string, unknown>[];
+  coding_exercises: Record<string, unknown>[];
+  cross_topic_formulas: Record<string, unknown>[];
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserResource {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  file_name: string;
+  file_type: string;
+  file_size_bytes: number;
+  storage_path: string;
+  status: ResourceStatus;
+  error_message: string | null;
+  page_count: number | null;
+  toc_structure: Record<string, unknown> | null;
+  relevant_sections: Record<string, unknown> | null;
+  chunk_count: number;
+  figure_count: number;
+  processed_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
 }

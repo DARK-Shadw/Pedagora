@@ -64,10 +64,22 @@ export interface OnboardingAssessmentData {
   answers: AssessmentAnswer[];
 }
 
+export interface ResourceFileInfo {
+  id: string;
+  fileName: string;
+  fileType: 'pdf' | 'pptx' | 'docx';
+  fileSizeBytes: number;
+}
+
+export interface OnboardingResourcesData {
+  files: ResourceFileInfo[];
+}
+
 export interface OnboardingData {
   goal: OnboardingGoalData;
   preferences: OnboardingPreferencesData;
   prerequisites: OnboardingPrerequisitesData;
   timeline: OnboardingTimelineData;
   assessment: OnboardingAssessmentData;
+  resources: OnboardingResourcesData;
 }

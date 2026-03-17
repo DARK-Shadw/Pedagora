@@ -56,6 +56,15 @@ export const assessmentSchema = z.object({
   answers: z.array(assessmentAnswerSchema).min(1),
 });
 
+export const resourcesSchema = z.object({
+  files: z.array(z.object({
+    id: z.string().uuid(),
+    fileName: z.string().min(1),
+    fileType: z.enum(["pdf", "pptx", "docx"]),
+    fileSizeBytes: z.number().max(50 * 1024 * 1024, "File must be under 50MB"),
+  })).max(5, "Maximum 5 files"),
+});
+
 export type GoalInput = z.infer<typeof goalSchema>;
 export type PreferencesInput = z.infer<typeof preferencesSchema>;
 export type PrerequisiteItemInput = z.infer<typeof prerequisiteItemSchema>;

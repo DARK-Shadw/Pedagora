@@ -6,6 +6,7 @@ import type {
   OnboardingPrerequisitesData,
   OnboardingTimelineData,
   OnboardingAssessmentData,
+  OnboardingResourcesData,
 } from "@/types/onboarding";
 
 interface OnboardingState {
@@ -15,11 +16,13 @@ interface OnboardingState {
   prerequisites: OnboardingPrerequisitesData;
   timeline: OnboardingTimelineData;
   assessment: OnboardingAssessmentData;
+  resources: OnboardingResourcesData;
   setGoal: (data: OnboardingGoalData) => void;
   setPreferences: (data: OnboardingPreferencesData) => void;
   setPrerequisites: (data: OnboardingPrerequisitesData) => void;
   setTimeline: (data: OnboardingTimelineData) => void;
   setAssessment: (data: OnboardingAssessmentData) => void;
+  setResources: (data: OnboardingResourcesData) => void;
   setCurrentStep: (step: number) => void;
   reset: () => void;
 }
@@ -62,6 +65,10 @@ const initialAssessment: OnboardingAssessmentData = {
   answers: [],
 };
 
+const initialResources: OnboardingResourcesData = {
+  files: [],
+};
+
 export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set) => ({
@@ -71,11 +78,13 @@ export const useOnboardingStore = create<OnboardingState>()(
       prerequisites: initialPrerequisites,
       timeline: initialTimeline,
       assessment: initialAssessment,
+      resources: initialResources,
       setGoal: (data) => set({ goal: data }),
       setPreferences: (data) => set({ preferences: data }),
       setPrerequisites: (data) => set({ prerequisites: data }),
       setTimeline: (data) => set({ timeline: data }),
       setAssessment: (data) => set({ assessment: data }),
+      setResources: (data) => set({ resources: data }),
       setCurrentStep: (step) => set({ currentStep: step }),
       reset: () =>
         set({
@@ -85,6 +94,7 @@ export const useOnboardingStore = create<OnboardingState>()(
           prerequisites: initialPrerequisites,
           timeline: initialTimeline,
           assessment: initialAssessment,
+          resources: initialResources,
         }),
     }),
     {

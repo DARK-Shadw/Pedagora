@@ -3,17 +3,17 @@
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAgentStore } from "@/stores/agent-store";
-import type { AgentTask } from "@/types/database";
+import type { AgentTask, ResearchResult } from "@/types/database";
 
 export function useAgentRealtime(userId: string | undefined) {
-  const { updateTask } = useAgentStore();
+  const { updateTask, setResearchResult } = useAgentStore();
 
   useEffect(() => {
     if (!userId) return;
 
     const supabase = createClient();
 
-    const channel = supabase
+    const taskChannel = supabase
       .channel("agent-tasks")
       .on(
         "postgres_changes",
@@ -29,8 +29,25 @@ export function useAgentRealtime(userId: string | undefined) {
       )
       .subscribe();
 
+    const resultChannel = supabase
+      .channel("research-results")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "research_results",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          setResearchResult(payload.new as ResearchResult);
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(taskChannel);
+      supabase.removeChannel(resultChannel);
     };
-  }, [userId, updateTask]);
+  }, [userId, updateTask, setResearchResult]);
 }

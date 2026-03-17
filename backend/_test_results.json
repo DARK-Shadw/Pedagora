@@ -1,0 +1,401 @@
+[
+  {
+    "id": "049fd1fc-e9ce-4fd4-a7f0-31a4fa0536d2",
+    "goal_id": "322b0fa5-ab09-4996-a890-db636874f46b",
+    "user_id": "85d19d84-3580-4a52-8c45-d94673bf7e9c",
+    "topic_tree": {
+      "goal_summary": "Master the theoretical foundations and practical implementation of Diffusion models for high-quality video generation.",
+      "topic_groups": [
+        {
+          "name": "Foundations of Diffusion Models",
+          "order": 1,
+          "importance": "Essential for understanding how diffusion models convert noise into structured data.",
+          "description": "The mathematical and conceptual basis of denoising diffusion probabilistic models (DDPMs).",
+          "content_needs": {
+            "priority": "high",
+            "needs_formulas": true,
+            "needs_code_examples": false,
+            "needs_numerical_data": false,
+            "needs_conceptual_depth": true,
+            "needs_working_codebase": false
+          },
+          "search_queries": [
+            {
+              "query": "Denoising Diffusion Probabilistic Models explained",
+              "search_type": "web"
+            },
+            {
+              "query": "Deep Unsupervised Learning using Nonequilibrium Thermodynamics paper",
+              "search_type": "scholar"
+            }
+          ]
+        },
+        {
+          "name": "Image Generation with Diffusion",
+          "order": 2,
+          "importance": "Bridges the gap between theory and coding practice before moving to video.",
+          "description": "Implementing and training a basic image-based diffusion model on a dataset like MNIST or CIFAR-10.",
+          "content_needs": {
+            "priority": "high",
+            "needs_formulas": false,
+            "needs_code_examples": true,
+            "needs_numerical_data": false,
+            "needs_conceptual_depth": false,
+            "needs_working_codebase": true
+          },
+          "search_queries": [
+            {
+              "query": "PyTorch tutorial implement DDPM",
+              "search_type": "web"
+            },
+            {
+              "query": "diffusion models github repo for beginners",
+              "search_type": "github"
+            }
+          ]
+        },
+        {
+          "name": "Latent Diffusion Architectures",
+          "order": 3,
+          "importance": "Modern video generation is almost exclusively done in latent space for computational efficiency.",
+          "description": "Understanding Latent Diffusion Models (LDM) which perform diffusion in a compressed latent space rather than pixel space.",
+          "content_needs": {
+            "priority": "high",
+            "needs_formulas": true,
+            "needs_code_examples": false,
+            "needs_numerical_data": false,
+            "needs_conceptual_depth": true,
+            "needs_working_codebase": false
+          },
+          "search_queries": [
+            {
+              "query": "High-Resolution Image Synthesis with Latent Diffusion Models paper",
+              "search_type": "scholar"
+            },
+            {
+              "query": "how latent diffusion models work intuitively",
+              "search_type": "web"
+            }
+          ]
+        },
+        {
+          "name": "Temporal Modeling and Video Attention",
+          "order": 4,
+          "importance": "Without temporal modeling, video generation is just a slide show of independent images.",
+          "description": "Techniques to add temporal coherence, such as 3D convolutions and temporal attention layers, to allow models to understand motion across video frames.",
+          "content_needs": {
+            "priority": "high",
+            "needs_formulas": false,
+            "needs_code_examples": false,
+            "needs_numerical_data": false,
+            "needs_conceptual_depth": true,
+            "needs_working_codebase": false
+          },
+          "search_queries": [
+            {
+              "query": "Video Diffusion Models temporal attention mechanism",
+              "search_type": "scholar"
+            },
+            {
+              "query": "video generation temporal coherence architectures",
+              "search_type": "web"
+            }
+          ]
+        },
+        {
+          "name": "Video Diffusion Architectures (SVD, AnimateDiff)",
+          "order": 5,
+          "importance": "Provides a blueprint for current industry-standard video generation pipelines.",
+          "description": "Exploring popular architectures like AnimateDiff, Stable Video Diffusion (SVD), and Sora-like approaches.",
+          "content_needs": {
+            "priority": "high",
+            "needs_formulas": false,
+            "needs_code_examples": true,
+            "needs_numerical_data": true,
+            "needs_conceptual_depth": false,
+            "needs_working_codebase": false
+          },
+          "search_queries": [
+            {
+              "query": "Stable Video Diffusion architecture explained",
+              "search_type": "web"
+            },
+            {
+              "query": "AnimateDiff github repository",
+              "search_type": "github"
+            }
+          ]
+        },
+        {
+          "name": "Controllability and Prompting",
+          "order": 6,
+          "importance": "Practical video generation requires controllable inputs rather than random generation.",
+          "description": "Methods to control video generation using text, image-to-video, or motion brushes.",
+          "content_needs": {
+            "priority": "medium",
+            "needs_formulas": false,
+            "needs_code_examples": true,
+            "needs_numerical_data": false,
+            "needs_conceptual_depth": false,
+            "needs_working_codebase": true
+          },
+          "search_queries": [
+            {
+              "query": "ControlNet for video generation tutorial",
+              "search_type": "web"
+            },
+            {
+              "query": "text-to-video diffusion control techniques",
+              "search_type": "scholar"
+            }
+          ]
+        }
+      ],
+      "prerequisite_chain": [
+        "Python Programming",
+        "Linear Algebra (Matrix operations, Calculus)",
+        "Foundations of Neural Networks (Backpropagation, Gradient Descent)",
+        "Basic Computer Vision (Image representations, Convolutional Neural Networks)"
+      ]
+    },
+    "synthesis": {
+      "key_themes": [
+        "Iterative Denoising (Noise to Data)",
+        "Latent Space Compression (Efficiency)",
+        "Temporal Coherence and Consistency",
+        "Conditioning Mechanisms (ControlNet/Cross-Attention)"
+      ],
+      "total_sources": 31,
+      "demo_codebases": [
+        {
+          "stars": 0,
+          "repo_url": "https://github.com/TheDenk/ControledAnimateDiff",
+          "key_files": [],
+          "repo_name": "ControledAnimateDiff",
+          "description": "Integration of ControlNet and AnimateDiff for controllable video synthesis.",
+          "main_language": "Python",
+          "suitability_score": 0.9,
+          "setup_instructions": "",
+          "architecture_summary": "Uses ControlNet for structural guidance and AnimateDiff for temporal motion modules. Highly extensible for video-to-video tasks."
+        },
+        {
+          "stars": 0,
+          "repo_url": "https://github.com/guoyww/AnimateDiff",
+          "key_files": [],
+          "repo_name": "AnimateDiff",
+          "description": "Framework for animating stable diffusion images.",
+          "main_language": "Python",
+          "suitability_score": 0.8,
+          "setup_instructions": "",
+          "architecture_summary": "Uses temporal layers injected into a U-Net to maintain consistency in video synthesis."
+        }
+      ],
+      "teaching_notes": {
+        "Controllability_and_Prompting": "Use the analogy of a 'sketch-to-painting' workflow. Emphasize that ControlNet is like providing a structural map, while the diffusion model provides the texture and detail. Clarify that ControlNet is a plug-in, not a replacement.",
+        "Latent_Diffusion_Architectures": "Use the analogy of 'compressing a high-res image into a thumbnail to work faster, then reconstructing it.' Address the misconception that latent diffusion is lower quality; explain that it optimizes compute, not necessarily final quality. Focus on the VAE's role as a compressor first.",
+        "Foundations_of_Diffusion_Models": "Use the 'thermodynamics/ink-in-water' analogy for diffusion. Address the common misconception that diffusion models generate data instantly; emphasize the iterative denoising process. Start with the forward noise addition before moving to the reverse generation.",
+        "Temporal_Modeling_and_Video_Attention": "Use the 'film-strip' analogy: spatial coherence is each frame's quality, temporal coherence is how they relate across the strip. Explain that temporal layers are like 'linking' neurons across frames. Start with why simple image-to-video fails (flickering).",
+        "Video_Diffusion_Architectures_SVD_AnimateDiff": "Contrast 'static image' generation with 'motion injection' using modules. Explain that SVD treats time as a dimension to be denoised, whereas AnimateDiff 'bakes' motion into an existing U-Net. Focus on the 'Motion Bucket ID' as a tool for controlling intensity."
+      },
+      "gaps_identified": [
+        {
+          "topic": "Video Diffusion Architectures",
+          "severity": "moderate",
+          "description": "While we have architectural theory, there is a lack of end-to-end tutorial code specifically showing the transition from static Latent Diffusion to Video Diffusion implementation.",
+          "missing_content_type": "code_examples"
+        }
+      ],
+      "overall_summary": "This research identifies a clear progression from foundational Denoising Diffusion Probabilistic Models (DDPM) to Latent Diffusion Models (LDM), and finally to specialized video architectures like Stable Video Diffusion (SVD) and AnimateDiff. The key challenge in video generation is maintaining temporal coherence, which is addressed through temporal layers, motion modules, and structural conditioning (ControlNet). The student should focus on understanding the transition from pixel-space noise modeling to latent-space temporal modeling.",
+      "coding_exercises": [
+        {
+          "hints": [],
+          "title": "Implement Linear Noise Scheduler",
+          "difficulty": "beginner",
+          "description": "Implement a linear noise scheduler to calculate beta values and alpha cumulative products for a given number of timesteps T.",
+          "starter_code": "",
+          "concepts_tested": [
+            "Forward Diffusion",
+            "Noise Schedules"
+          ],
+          "expected_output": null
+        },
+        {
+          "hints": [],
+          "title": "Latent Space Encoding of Video Frames",
+          "difficulty": "intermediate",
+          "description": "Using a pre-trained VAE, encode a short video sequence into latent space and visualize the latent representation of the first frame.",
+          "starter_code": "",
+          "concepts_tested": [
+            "Latent Space Compression",
+            "Diffusion Process"
+          ],
+          "expected_output": null
+        },
+        {
+          "hints": [],
+          "title": "Temporal Attention Block Implementation",
+          "difficulty": "advanced",
+          "description": "Create a custom PyTorch module that introduces a simple temporal attention mechanism between frames in a U-Net block.",
+          "starter_code": "",
+          "concepts_tested": [
+            "Temporal Layers",
+            "Attention Mechanisms"
+          ],
+          "expected_output": null
+        }
+      ],
+      "cross_topic_formulas": [
+        {
+          "latex": "q(x_t|x_0) = \\mathcal{N}(x_t; \\sqrt{\\bar{\\alpha}_t}x_0, (1-\\bar{\\alpha}_t)\\mathbf{I})",
+          "context": "Forward diffusion process",
+          "variables": {},
+          "plain_text": "x_t = \\sqrt{\\bar{\\alpha}_t}x_0 + \\sqrt{1-\\bar{\\alpha}_t}\\epsilon",
+          "description": "The closed-form expression to sample the noisy state at time t directly from the original data x0."
+        },
+        {
+          "latex": "L = \\mathbb{E}_{t, x_0, \\epsilon} [||\\epsilon - \\epsilon_\\theta(x_t, t)||^2]",
+          "context": "Training objective",
+          "variables": {},
+          "plain_text": "Minimize the squared difference between the actual added noise and the noise predicted by the model.",
+          "description": "The MSE loss function used to train the model to predict the noise component."
+        },
+        {
+          "latex": "p_\\theta(x_{t-1}|x_t) = \\mathcal{N}(x_{t-1}; \\mu_\\theta(x_t, t), \\Sigma_\\theta(x_t, t))",
+          "context": "Reverse diffusion process",
+          "variables": {},
+          "plain_text": "The model approximates the reverse transition using a Gaussian distribution.",
+          "description": "The reverse step probability distribution, where the model learns the mean and variance."
+        }
+      ],
+      "estimated_difficulty": "intermediate",
+      "recommended_learning_path": [
+        {
+          "order": 1,
+          "topic": "Foundations of Diffusion Models",
+          "reason": "Foundational understanding of how diffusion models work (probability distributions, forward/reverse processes) is non-negotiable.",
+          "estimated_hours": 10.0
+        },
+        {
+          "order": 2,
+          "topic": "Latent Diffusion Architectures",
+          "reason": "Moving to latent space is necessary to handle the computational demands of video frames.",
+          "estimated_hours": 10.0
+        },
+        {
+          "order": 3,
+          "topic": "Temporal Modeling and Video Attention",
+          "reason": "The core challenge of video: adding time-awareness to spatial models.",
+          "estimated_hours": 15.0
+        },
+        {
+          "order": 4,
+          "topic": "Video Diffusion Architectures (SVD, AnimateDiff)",
+          "reason": "Practical application using industry-standard tools like SVD and AnimateDiff.",
+          "estimated_hours": 15.0
+        },
+        {
+          "order": 5,
+          "topic": "Controllability and Prompting",
+          "reason": "Applying user-defined structure to video generation (ControlNet).",
+          "estimated_hours": 10.0
+        }
+      ]
+    },
+    "source_count": 31,
+    "created_at": "2026-03-07T12:17:52.184802+00:00",
+    "updated_at": "2026-03-07T12:17:52.184802+00:00",
+    "teaching_notes": {
+      "Controllability_and_Prompting": "Use the analogy of a 'sketch-to-painting' workflow. Emphasize that ControlNet is like providing a structural map, while the diffusion model provides the texture and detail. Clarify that ControlNet is a plug-in, not a replacement.",
+      "Latent_Diffusion_Architectures": "Use the analogy of 'compressing a high-res image into a thumbnail to work faster, then reconstructing it.' Address the misconception that latent diffusion is lower quality; explain that it optimizes compute, not necessarily final quality. Focus on the VAE's role as a compressor first.",
+      "Foundations_of_Diffusion_Models": "Use the 'thermodynamics/ink-in-water' analogy for diffusion. Address the common misconception that diffusion models generate data instantly; emphasize the iterative denoising process. Start with the forward noise addition before moving to the reverse generation.",
+      "Temporal_Modeling_and_Video_Attention": "Use the 'film-strip' analogy: spatial coherence is each frame's quality, temporal coherence is how they relate across the strip. Explain that temporal layers are like 'linking' neurons across frames. Start with why simple image-to-video fails (flickering).",
+      "Video_Diffusion_Architectures_SVD_AnimateDiff": "Contrast 'static image' generation with 'motion injection' using modules. Explain that SVD treats time as a dimension to be denoised, whereas AnimateDiff 'bakes' motion into an existing U-Net. Focus on the 'Motion Bucket ID' as a tool for controlling intensity."
+    },
+    "demo_codebases": [
+      {
+        "stars": 0,
+        "repo_url": "https://github.com/TheDenk/ControledAnimateDiff",
+        "key_files": [],
+        "repo_name": "ControledAnimateDiff",
+        "description": "Integration of ControlNet and AnimateDiff for controllable video synthesis.",
+        "main_language": "Python",
+        "suitability_score": 0.9,
+        "setup_instructions": "",
+        "architecture_summary": "Uses ControlNet for structural guidance and AnimateDiff for temporal motion modules. Highly extensible for video-to-video tasks."
+      },
+      {
+        "stars": 0,
+        "repo_url": "https://github.com/guoyww/AnimateDiff",
+        "key_files": [],
+        "repo_name": "AnimateDiff",
+        "description": "Framework for animating stable diffusion images.",
+        "main_language": "Python",
+        "suitability_score": 0.8,
+        "setup_instructions": "",
+        "architecture_summary": "Uses temporal layers injected into a U-Net to maintain consistency in video synthesis."
+      }
+    ],
+    "coding_exercises": [
+      {
+        "hints": [],
+        "title": "Implement Linear Noise Scheduler",
+        "difficulty": "beginner",
+        "description": "Implement a linear noise scheduler to calculate beta values and alpha cumulative products for a given number of timesteps T.",
+        "starter_code": "",
+        "concepts_tested": [
+          "Forward Diffusion",
+          "Noise Schedules"
+        ],
+        "expected_output": null
+      },
+      {
+        "hints": [],
+        "title": "Latent Space Encoding of Video Frames",
+        "difficulty": "intermediate",
+        "description": "Using a pre-trained VAE, encode a short video sequence into latent space and visualize the latent representation of the first frame.",
+        "starter_code": "",
+        "concepts_tested": [
+          "Latent Space Compression",
+          "Diffusion Process"
+        ],
+        "expected_output": null
+      },
+      {
+        "hints": [],
+        "title": "Temporal Attention Block Implementation",
+        "difficulty": "advanced",
+        "description": "Create a custom PyTorch module that introduces a simple temporal attention mechanism between frames in a U-Net block.",
+        "starter_code": "",
+        "concepts_tested": [
+          "Temporal Layers",
+          "Attention Mechanisms"
+        ],
+        "expected_output": null
+      }
+    ],
+    "cross_topic_formulas": [
+      {
+        "latex": "q(x_t|x_0) = \\mathcal{N}(x_t; \\sqrt{\\bar{\\alpha}_t}x_0, (1-\\bar{\\alpha}_t)\\mathbf{I})",
+        "context": "Forward diffusion process",
+        "variables": {},
+        "plain_text": "x_t = \\sqrt{\\bar{\\alpha}_t}x_0 + \\sqrt{1-\\bar{\\alpha}_t}\\epsilon",
+        "description": "The closed-form expression to sample the noisy state at time t directly from the original data x0."
+      },
+      {
+        "latex": "L = \\mathbb{E}_{t, x_0, \\epsilon} [||\\epsilon - \\epsilon_\\theta(x_t, t)||^2]",
+        "context": "Training objective",
+        "variables": {},
+        "plain_text": "Minimize the squared difference between the actual added noise and the noise predicted by the model.",
+        "description": "The MSE loss function used to train the model to predict the noise component."
+      },
+      {
+        "latex": "p_\\theta(x_{t-1}|x_t) = \\mathcal{N}(x_{t-1}; \\mu_\\theta(x_t, t), \\Sigma_\\theta(x_t, t))",
+        "context": "Reverse diffusion process",
+        "variables": {},
+        "plain_text": "The model approximates the reverse transition using a Gaussian distribution.",
+        "description": "The reverse step probability distribution, where the model learns the mean and variance."
+      }
+    ],
+    "version": 2
+  }
+]

@@ -3,14 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboardingStore } from "@/stores/onboarding-store";
+import { getAllPendingFiles, clearPendingFiles } from "@/stores/pending-files";
 import { ProgressHeader } from "@/components/onboarding/progress-header";
 import { Button } from "@/components/ui/button";
 import { MaterialIcon } from "@/components/shared/material-icon";
 import { createClient } from "@/lib/supabase/client";
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function ReviewPage() {
   const router = useRouter();
-  const { goal, preferences, prerequisites, timeline, assessment, reset } =
+  const { goal, preferences, prerequisites, timeline, assessment, resources, reset } =
     useOnboardingStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,13 +134,77 @@ export default function ReviewPage() {
         }))
       );
 
-      // 7. Mark onboarding as completed
+      // 6.5. Upload resource files to Supabase Storage + insert user_resources records
+      const pendingFiles = getAllPendingFiles();
+      if (resources.files.length > 0 && pendingFiles.size > 0) {
+        for (const fileInfo of resources.files) {
+          const file = pendingFiles.get(fileInfo.id);
+          if (!file) continue;
+
+          const storagePath = `${user.id}/${goalData.id}/${fileInfo.id}_${fileInfo.fileName}`;
+
+          // Upload to Supabase Storage
+          const { error: uploadError } = await supabase.storage
+            .from("user-resources")
+            .upload(storagePath, file);
+
+          if (uploadError) {
+            console.error(`Failed to upload ${fileInfo.fileName}:`, uploadError);
+            continue;
+          }
+
+          // Insert user_resources record
+          await supabase.from("user_resources").insert({
+            id: fileInfo.id,
+            goal_id: goalData.id,
+            user_id: user.id,
+            file_name: fileInfo.fileName,
+            file_type: fileInfo.fileType,
+            file_size_bytes: fileInfo.fileSizeBytes,
+            storage_path: storagePath,
+            status: "uploaded",
+          });
+        }
+
+        clearPendingFiles();
+      }
+
+      // 7. Trigger research agent (fire-and-forget)
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session?.access_token) {
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/research`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+          body: JSON.stringify({ goal_id: goalData.id }),
+        }).catch(() => {
+          // Non-blocking — research will be retried from agents page if needed
+        });
+
+        // 7.5. Trigger resource processing (fire-and-forget)
+        if (resources.files.length > 0) {
+          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/resources/process`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${sessionData.session.access_token}`,
+            },
+            body: JSON.stringify({ goal_id: goalData.id }),
+          }).catch(() => {
+            // Non-blocking — resources will be processed later if needed
+          });
+        }
+      }
+
+      // 8. Mark onboarding as completed
       await supabase
         .from("profiles")
         .update({ onboarding_status: "completed" })
         .eq("id", user.id);
 
-      // 8. Clear onboarding store and redirect
+      // 9. Clear onboarding store and redirect
       reset();
       router.push("/agents");
       router.refresh();
@@ -146,7 +217,7 @@ export default function ReviewPage() {
 
   return (
     <>
-      <ProgressHeader currentStep={5} />
+      <ProgressHeader currentStep={6} />
 
       <div className="text-center space-y-4">
         <h1 className="text-slate-900 dark:text-slate-100 text-4xl md:text-5xl font-bold tracking-tight leading-tight">
@@ -293,6 +364,28 @@ export default function ReviewPage() {
             )}
           </div>
         </ReviewSection>
+
+        {/* Resources Summary */}
+        <ReviewSection
+          title="Study Materials"
+          icon="folder_open"
+          editHref="/onboarding/resources"
+        >
+          {resources.files.length > 0 ? (
+            <div className="space-y-2">
+              {resources.files.map((f) => (
+                <div key={f.id} className="flex items-center justify-between text-sm">
+                  <span className="truncate flex-1 mr-4">{f.fileName}</span>
+                  <span className="text-slate-500 shrink-0">
+                    {f.fileType.toUpperCase()} &middot; {formatFileSize(f.fileSizeBytes)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">No materials uploaded</p>
+          )}
+        </ReviewSection>
       </div>
 
       {error && (
@@ -319,7 +412,7 @@ export default function ReviewPage() {
           )}
         </Button>
         <button
-          onClick={() => router.push("/onboarding/assessment")}
+          onClick={() => router.push("/onboarding/resources")}
           className="w-full py-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-sm font-medium"
         >
           Back to previous step

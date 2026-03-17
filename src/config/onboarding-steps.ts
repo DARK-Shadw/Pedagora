@@ -30,6 +30,12 @@ export const onboardingSteps = [
     path: "/onboarding/assessment",
   },
   {
+    id: "resources",
+    title: "Resources",
+    description: "Upload your study materials",
+    path: "/onboarding/resources",
+  },
+  {
     id: "review",
     title: "Review",
     description: "Confirm your learning plan",

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAgentStore } from "@/stores/agent-store";
 import { useUser } from "@/hooks/use-user";
 import { useAgentRealtime } from "@/hooks/use-realtime";
-import type { AgentTask, AgentLog } from "@/types/database";
+import type { AgentTask, AgentLog, ResearchResult } from "@/types/database";
 
 const agentConfig: Record<
   string,
@@ -101,10 +101,117 @@ const demoTasks: AgentTask[] = [
   },
 ];
 
+async function handleRetry(goalId: string) {
+  const supabase = createClient();
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session?.access_token) return;
+
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/research`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${sessionData.session.access_token}`,
+    },
+    body: JSON.stringify({ goal_id: goalId }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.detail || "Failed to retry research");
+  }
+}
+
+function ResearchResultsPanel({ result }: { result: ResearchResult }) {
+  const topicTree = result.topic_tree as { topic_groups?: { name: string }[] };
+  const synthesis = result.synthesis as {
+    learning_path?: string[];
+    key_themes?: string[];
+  };
+
+  const topicCount = topicTree.topic_groups?.length ?? 0;
+  const formulaCount = result.cross_topic_formulas?.length ?? 0;
+  const exerciseCount = result.coding_exercises?.length ?? 0;
+  const learningPath = synthesis.learning_path ?? [];
+  const keyThemes = synthesis.key_themes ?? [];
+
+  const stats = [
+    { icon: "topic", label: "Topics", value: topicCount },
+    { icon: "source", label: "Sources", value: result.source_count },
+    { icon: "function", label: "Formulas", value: formulaCount },
+    { icon: "code", label: "Exercises", value: exerciseCount },
+  ];
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-primary/10 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-primary/5 flex items-center gap-3">
+        <MaterialIcon name="labs" className="text-primary text-xl" />
+        <h3 className="font-bold">Research Results</h3>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="flex flex-col items-center p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50"
+            >
+              <MaterialIcon name={stat.icon} className="text-primary text-2xl mb-1" />
+              <span className="text-2xl font-black text-primary">{stat.value}</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                {stat.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Learning path */}
+        {learningPath.length > 0 && (
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
+              Learning Path
+            </h4>
+            <ol className="space-y-2">
+              {learningPath.map((topic, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0">
+                    {i + 1}
+                  </span>
+                  <span className="text-slate-700 dark:text-slate-300">{topic}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {/* Key themes */}
+        {keyThemes.length > 0 && (
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
+              Key Themes
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {keyThemes.map((theme, i) => (
+                <span
+                  key={i}
+                  className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                >
+                  {theme}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AgentsPage() {
   const { user } = useUser();
-  const { tasks, setTasks } = useAgentStore();
+  const { tasks, setTasks, researchResult, setResearchResult } = useAgentStore();
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
 
   useAgentRealtime(user?.id);
 
@@ -125,6 +232,19 @@ export default function AgentsPage() {
 
       if (data && data.length > 0) {
         setTasks(data as AgentTask[]);
+
+        // Check for completed research and fetch results
+        const researchTask = data.find(
+          (t: AgentTask) => t.agent_type === "research" && t.status === "completed"
+        );
+        if (researchTask) {
+          const { data: result } = await supabase
+            .from("research_results")
+            .select("*")
+            .eq("goal_id", researchTask.goal_id)
+            .single();
+          if (result) setResearchResult(result as ResearchResult);
+        }
       } else {
         setTasks(demoTasks);
       }
@@ -132,7 +252,7 @@ export default function AgentsPage() {
     }
 
     fetchTasks();
-  }, [user, setTasks]);
+  }, [user, setTasks, setResearchResult]);
 
   // Collect all logs from all tasks
   const allLogs: AgentLog[] = tasks
@@ -143,6 +263,16 @@ export default function AgentsPage() {
     (t) => t.status === "active" || t.status === "queued"
   );
   const hasActive = activeTasks.length > 0;
+
+  const researchTask = tasks.find((t) => t.agent_type === "research");
+  const researchFailed = researchTask?.status === "failed";
+
+  async function onRetry() {
+    if (!researchTask || retrying) return;
+    setRetrying(true);
+    await handleRetry(researchTask.goal_id);
+    setRetrying(false);
+  }
 
   if (loading) {
     return (
@@ -192,37 +322,45 @@ export default function AgentsPage() {
           const config = agentConfig[task.agent_type];
           if (!config) return null;
           const isWaiting = task.status === "queued" && task.progress_percentage === 0;
+          const isFailed = task.status === "failed";
+          const isResearch = task.agent_type === "research";
 
           return (
             <div
               key={task.id}
-              className={`group relative flex flex-col p-6 rounded-xl border border-primary/10 bg-white dark:bg-slate-900 shadow-sm transition-all hover:border-primary/30 ${
-                isWaiting ? "opacity-70" : ""
-              }`}
+              className={`group relative flex flex-col p-6 rounded-xl border bg-white dark:bg-slate-900 shadow-sm transition-all hover:border-primary/30 ${
+                isFailed
+                  ? "border-red-500/30"
+                  : "border-primary/10"
+              } ${isWaiting ? "opacity-70" : ""}`}
             >
               <div className="mb-4 flex items-center justify-between">
                 <MaterialIcon
                   name={config.icon}
-                  className="text-primary text-3xl"
+                  className={`text-3xl ${isFailed ? "text-red-400" : "text-primary"}`}
                 />
                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                   Step {config.step}
                 </span>
               </div>
               <h2 className="text-lg font-bold mb-1">{config.label}</h2>
-              <p className="text-sm text-slate-500 mb-6">
-                {task.current_task ?? "Waiting..."}
+              <p className={`text-sm mb-6 ${isFailed ? "text-red-400" : "text-slate-500"}`}>
+                {isFailed
+                  ? task.error_message || "Research failed"
+                  : task.current_task ?? "Waiting..."}
               </p>
               <div className="mt-auto">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-slate-400">
+                  <span className={`text-xs font-bold ${isFailed ? "text-red-400" : "text-slate-400"}`}>
                     {statusLabels[task.status] ?? task.status.toUpperCase()}
                   </span>
                   <span
                     className={`text-xs font-mono font-bold ${
-                      task.status === "completed" || task.status === "active"
-                        ? "text-primary"
-                        : "text-slate-400"
+                      isFailed
+                        ? "text-red-400"
+                        : task.status === "completed" || task.status === "active"
+                          ? "text-primary"
+                          : "text-slate-400"
                     }`}
                   >
                     {task.progress_percentage}%
@@ -231,18 +369,37 @@ export default function AgentsPage() {
                 <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      task.status === "completed" || task.status === "active"
-                        ? "bg-primary"
-                        : "bg-slate-300 dark:bg-slate-600"
+                      isFailed
+                        ? "bg-red-500"
+                        : task.status === "completed" || task.status === "active"
+                          ? "bg-primary"
+                          : "bg-slate-300 dark:bg-slate-600"
                     }`}
                     style={{ width: `${task.progress_percentage}%` }}
                   />
                 </div>
+                {/* Retry button for failed research */}
+                {isFailed && isResearch && (
+                  <button
+                    onClick={onRetry}
+                    disabled={retrying}
+                    className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    <MaterialIcon
+                      name="refresh"
+                      className={`text-base ${retrying ? "animate-spin" : ""}`}
+                    />
+                    {retrying ? "Retrying..." : "Retry Research"}
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Research Results Panel */}
+      {researchResult && <ResearchResultsPanel result={researchResult} />}
 
       {/* Pipeline Table */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-primary/10 overflow-hidden shadow-sm">
@@ -278,6 +435,7 @@ export default function AgentsPage() {
                 if (!config) return null;
                 const isActive =
                   task.status === "active" || task.status === "completed";
+                const isFailed = task.status === "failed";
 
                 return (
                   <tr key={task.id}>
@@ -285,13 +443,15 @@ export default function AgentsPage() {
                       {config.label.replace(" Agent", "")}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {task.focus ?? "—"}
+                      {task.focus ?? "\u2014"}
                     </td>
                     <td
                       className={`px-6 py-4 whitespace-nowrap text-sm ${
-                        task.status === "completed"
-                          ? "text-primary font-medium"
-                          : "text-slate-600 dark:text-slate-400"
+                        isFailed
+                          ? "text-red-400 font-medium"
+                          : task.status === "completed"
+                            ? "text-primary font-medium"
+                            : "text-slate-600 dark:text-slate-400"
                       }`}
                     >
                       {task.current_task ?? "Waiting..."}
@@ -301,7 +461,11 @@ export default function AgentsPage() {
                         <div className="w-24 bg-slate-100 dark:bg-slate-800 h-1 rounded-full">
                           <div
                             className={`h-full rounded-full ${
-                              isActive ? "bg-primary" : "bg-slate-300"
+                              isFailed
+                                ? "bg-red-500"
+                                : isActive
+                                  ? "bg-primary"
+                                  : "bg-slate-300"
                             }`}
                             style={{
                               width: `${task.progress_percentage}%`,
@@ -310,7 +474,11 @@ export default function AgentsPage() {
                         </div>
                         <span
                           className={`text-xs font-mono font-bold ${
-                            isActive ? "text-primary" : "text-slate-400"
+                            isFailed
+                              ? "text-red-400"
+                              : isActive
+                                ? "text-primary"
+                                : "text-slate-400"
                           }`}
                         >
                           {task.progress_percentage}%

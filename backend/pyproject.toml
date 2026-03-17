@@ -1,0 +1,21 @@
+[project]
+name = "pedagora-backend"
+version = "0.1.0"
+description = "Pedagora AI Agent Backend"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic-ai[google,groq,openai]>=0.1.0",
+    "pydantic-settings>=2.7.0",
+    "supabase>=2.0.0",
+    "tavily-python>=0.5.0",
+    "httpx>=0.28.0",
+    "python-jose[cryptography]>=3.3.0",
+    "python-dotenv>=1.0.0",
+    "docling>=2.0.0",
+    "python-pptx>=1.0.0",
+    "Pillow>=10.0.0",
+    "langchain-text-splitters>=0.3.0",
+    "tiktoken>=0.8.0",
+]

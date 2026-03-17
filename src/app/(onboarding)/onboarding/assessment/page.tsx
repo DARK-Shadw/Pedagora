@@ -81,7 +81,7 @@ export default function AssessmentPage() {
 
     setAssessment({ questions, answers: answerList });
     setCurrentStep(5);
-    router.push("/onboarding/review");
+    router.push("/onboarding/resources");
   }
 
   function handleBack() {
