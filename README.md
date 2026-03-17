@@ -5,7 +5,7 @@ AI-powered education platform with interactive, visual teaching — not just tex
 ## Prerequisites
 
 - **Node.js** >= 18 and **pnpm** (frontend)
-- **Python** >= 3.12 (backend)
+- **Python** >= 3.12 and **uv** (backend)
 - **Supabase** project (Auth + PostgreSQL + Storage)
 
 ## Environment Setup
@@ -64,13 +64,11 @@ Runs on [http://localhost:3000](http://localhost:3000) with Turbopack.
 
 ```bash
 cd backend
-pip install -e .
-uvicorn app.main:app --reload
+uv sync
+uv run uvicorn app.main:app --reload
 ```
 
-Runs on [http://localhost:8000](http://localhost:8000).
-
-> **Tip:** Use a Python virtual environment (`python -m venv .venv && source .venv/bin/activate` or `.venv\Scripts\activate` on Windows) before installing dependencies.
+Runs on [http://localhost:8000](http://localhost:8000). `uv sync` creates a virtual environment and installs all dependencies automatically.
 
 ## Database
 
