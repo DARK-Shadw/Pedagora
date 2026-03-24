@@ -58,15 +58,22 @@ def _build_research_data_for_lesson(
                 var_str = ", ".join(f"{k}={v}" for k, v in list(variables.items())[:5])
                 lines.append(f"    Variables: {var_str}")
 
-        # Code snippets (top 2)
+        # Code snippets (top 3, longer for animation reference_code)
         code_snippets = s.get("code_snippets", [])
-        for cs in code_snippets[:2]:
+        for cs in code_snippets[:3]:
             lines.append(
-                f"  Code [{cs.get('language', '?')}]: {cs.get('description', '')[:100]}"
+                f"  Code [{cs.get('language', '?')}]: {cs.get('description', '')[:150]}"
             )
-            code_preview = cs.get("code", "")[:300]
+            code_preview = cs.get("code", "")[:500]
             if code_preview:
                 lines.append(f"    ```\n    {code_preview}\n    ```")
+
+        # Numerical examples (for animation reference_values)
+        numerical = extracted.get("numerical_examples", [])
+        for n in numerical[:3]:
+            lines.append(f"  Numerical: {n.get('description', '')[:120]}")
+            if n.get("values"):
+                lines.append(f"    Values: {n['values']}")
 
         # Misconceptions and analogies from extracted content
         misconceptions = extracted.get("misconceptions", [])
@@ -186,11 +193,11 @@ async def run_lesson_detail(
         # Ensure lesson_id matches
         plan.lesson_id = lesson.lesson_id
         plan.title = lesson.title
-        # Reject empty plans — triggers PydanticAI retry
-        if len(plan.segments) < 3:
+        # Reject shallow plans — triggers retry
+        if len(plan.segments) < 8:
             raise ValueError(
                 f"Lesson '{lesson.title}' produced only {len(plan.segments)} segments "
-                f"(minimum 3 required)"
+                f"(minimum 8 required)"
             )
         return plan
 

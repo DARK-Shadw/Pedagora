@@ -106,6 +106,28 @@ class AnimationSpec(BaseModel):
     duration_seconds: float = Field(default=10.0, ge=2.0, le=60.0)
     trigger: Literal["auto", "on_teacher_cue", "on_student_request"] = "auto"
 
+    # Research data passthrough for Animation Agent
+    reference_code: str = Field(
+        default="",
+        description="Code snippet from research that implements this concept",
+    )
+    reference_formula_latex: str = Field(
+        default="",
+        description="LaTeX formula being visualized",
+    )
+    reference_formula_vars: dict[str, str] = Field(
+        default_factory=dict,
+        description="Variable names and descriptions from the formula",
+    )
+    reference_values: dict[str, str | float | int] = Field(
+        default_factory=dict,
+        description="Numerical values from research (lr, batch_size, timesteps, etc.)",
+    )
+    data_requirements: str = Field(
+        default="",
+        description="What data the animation needs: 'MNIST digit', '8-frame video clip', etc.",
+    )
+
 
 class ResourceReference(BaseModel):
     """Reference to student's uploaded material."""
