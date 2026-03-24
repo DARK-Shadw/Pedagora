@@ -21,3 +21,4 @@ export type ConfidenceLevel = "none" | "beginner" | "intermediate" | "advanced";
 export type ReadinessLevel = "not_ready" | "needs_review" | "ready";
 export type SessionFrequency = "daily" | "every_other_day" | "three_per_week" | "weekly";
 export type ResourceStatus = 'uploaded' | 'processing' | 'ready' | 'failed';
+export type EffortTier = "light" | "standard" | "deep";

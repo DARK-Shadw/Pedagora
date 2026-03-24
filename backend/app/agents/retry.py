@@ -10,19 +10,21 @@ MAX_RETRIES = 3
 
 
 async def run_with_retry(fn: Callable[[], Awaitable[T]], max_retries: int = MAX_RETRIES) -> T:
-    """Run an async function with exponential backoff on 429 rate limit errors."""
+    """Run an async function with exponential backoff on 429/503 errors."""
     for attempt in range(max_retries + 1):
         try:
             return await fn()
         except Exception as e:
             error_str = str(e)
-            if "429" not in error_str or attempt == max_retries:
+            is_retryable = "429" in error_str or "503" in error_str
+            if not is_retryable or attempt == max_retries:
                 raise
 
             # Extract retry delay from error if available
             delay = _extract_retry_delay(error_str)
             if delay is None:
-                delay = 15 * (2 ** attempt)  # 15s, 30s, 60s
+                # 503 = server overload, use shorter initial delay
+                delay = (10 if "503" in error_str else 15) * (2 ** attempt)
 
             logger.warning(
                 f"Rate limited (attempt {attempt + 1}/{max_retries + 1}), "

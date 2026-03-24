@@ -5,12 +5,18 @@ from app.config import get_settings
 SERPER_SCHOLAR_URL = "https://google.serper.dev/scholar"
 
 
-async def serper_scholar_search(query: str, num_results: int = 5) -> list[dict]:
+async def serper_scholar_search(
+    query: str, num_results: int = 5, year_low: int | None = None
+) -> list[dict]:
     """Search Google Scholar via Serper. Returns list of results or [] on failure."""
     try:
         settings = get_settings()
         if not settings.serper_api_key:
             return []
+
+        body: dict = {"q": query, "num": num_results}
+        if year_low:
+            body["yearLow"] = year_low
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(
@@ -19,7 +25,7 @@ async def serper_scholar_search(query: str, num_results: int = 5) -> list[dict]:
                     "X-API-KEY": settings.serper_api_key,
                     "Content-Type": "application/json",
                 },
-                json={"q": query, "num": num_results},
+                json=body,
             )
             response.raise_for_status()
             data = response.json()
@@ -32,7 +38,11 @@ async def serper_scholar_search(query: str, num_results: int = 5) -> list[dict]:
                     "url": r.get("link", ""),
                     "snippet": r.get("snippet", ""),
                     "year": r.get("year"),
-                    "cited_by": r.get("citedBy", {}).get("total"),
+                    "cited_by": (
+                        r["citedBy"].get("total")
+                        if isinstance(r.get("citedBy"), dict)
+                        else r.get("citedBy")
+                    ),
                 }
             )
         return results

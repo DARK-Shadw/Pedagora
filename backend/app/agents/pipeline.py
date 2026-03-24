@@ -2,7 +2,7 @@
 
 Stage 1: DECOMPOSE — break goal into topic groups with content_needs
 Stage 2: SEARCH   — deterministic search across all APIs, dedup
-Stage 3: EXTRACT  — LLM-powered deep extraction per topic
+Stage 3: EXTRACT  — LLM-powered deep extraction per topic (parallel)
 Stage 4: SYNTHESIZE — cross-reference all extractions into learning plan
 Stage 5: GAP_FILL — conditional targeted search for critical gaps
 """
@@ -12,10 +12,14 @@ import logging
 import traceback
 
 from app.agents.decompose import run_decompose
+from app.agents.effort import get_effort_profile
 from app.agents.search import run_search
 from app.agents.extract import run_extract_for_topic
 from app.agents.synthesize import run_synthesize
 from app.agents.gap_fill import run_gap_fill
+from app.agents.model_pool import ModelPool
+from app.agents.progress import ParallelProgressTracker
+from app.agents.rate_limiter import get_rate_limiter
 from app.config import get_settings
 from app.models.domain import TopicResearchResult, SynthesisGap
 from app.services.agent_task import (
@@ -34,12 +38,20 @@ AGENT_TYPE = "research"
 async def run_research_pipeline(goal_id: str, user_id: str) -> None:
     """Full 5-stage research pipeline v2."""
     try:
-        # Dynamic inter-topic delay based on extract model provider
         settings = get_settings()
-        if settings.effective_extract_model.startswith("google-gla:"):
-            inter_topic_delay = 15  # Gemini: 15 RPM
-        else:
-            inter_topic_delay = 3  # Groq/Pollinations: generous RPM
+
+        # ── Initialize model pool + rate limiter ──
+        pool_configs = settings.get_extract_pool_configs()
+        model_pool: ModelPool | None = None
+        if pool_configs:
+            rate_limiter = await get_rate_limiter()
+            for cfg in pool_configs:
+                rate_limiter.register(cfg)
+            model_pool = ModelPool(pool_configs)
+            logger.info(
+                f"Extract model pool: {[c.name for c in pool_configs]} "
+                f"(max {settings.extract_max_parallel_topics} parallel topics)"
+            )
 
         # Mark as active
         await update_agent_task(
@@ -70,14 +82,22 @@ async def run_research_pipeline(goal_id: str, user_id: str) -> None:
         )
 
         topic_tree = await run_decompose(onboarding_data)
+        effort_profile = get_effort_profile(topic_tree.effort_tier)
 
         await update_agent_task(
             goal_id,
             AGENT_TYPE,
             progress=8,
-            current_task=f"Identified {len(topic_tree.topic_groups)} topic groups",
-            log_message=f"Decomposition complete: {len(topic_tree.topic_groups)} topics with content needs",
+            current_task=f"Identified {len(topic_tree.topic_groups)} topic groups [{topic_tree.effort_tier}]",
+            log_message=(
+                f"Decomposition complete: {len(topic_tree.topic_groups)} topics "
+                f"[effort: {topic_tree.effort_tier}] — {topic_tree.effort_rationale}"
+            ),
             log_level="success",
+            metadata={
+                "effort_tier": topic_tree.effort_tier,
+                "effort_rationale": topic_tree.effort_rationale,
+            },
         )
 
         # ===== STAGE 2: SEARCH (8-25%) =====
@@ -90,7 +110,9 @@ async def run_research_pipeline(goal_id: str, user_id: str) -> None:
             log_message="Starting multi-source search (no LLM, deterministic)",
         )
 
-        raw_results = await run_search(topic_tree, goal_id=goal_id, user_id=user_id)
+        raw_results = await run_search(
+            topic_tree, goal_id=goal_id, user_id=user_id, goal_title=goal_title,
+        )
 
         total_raw = sum(len(v) for v in raw_results.values())
         await update_agent_task(
@@ -103,65 +125,140 @@ async def run_research_pipeline(goal_id: str, user_id: str) -> None:
         )
 
         # ===== STAGE 3: EXTRACT (25-80%) =====
-        topic_results: list[TopicResearchResult] = []
         total_topics = len(topic_tree.topic_groups)
         education_level = onboarding_data.get("profile", {}).get(
             "education_level", "self_learner"
         )
 
-        for i, topic_group in enumerate(topic_tree.topic_groups):
-            progress_start = 25 + (55 * i / total_topics)
-            progress_end = 25 + (55 * (i + 1) / total_topics)
+        if model_pool:
+            # ── Parallel extraction ──
+            topic_semaphore = asyncio.Semaphore(settings.extract_max_parallel_topics)
+            progress_tracker = ParallelProgressTracker(
+                total=total_topics,
+                range_start=25.0,
+                range_end=80.0,
+                goal_id=goal_id,
+                agent_type=AGENT_TYPE,
+            )
 
             await update_agent_task(
                 goal_id,
                 AGENT_TYPE,
-                progress=round(progress_start, 1),
-                current_task=f"Deep extraction: {topic_group.name}",
-                focus=topic_group.name,
-                log_message=f"Extracting topic {i + 1}/{total_topics}: {topic_group.name}",
+                progress=25,
+                current_task=f"Parallel extraction of {total_topics} topics across {model_pool.model_count} models...",
+                focus="extract",
+                log_message=(
+                    f"Starting parallel extraction of {total_topics} topics "
+                    f"across {model_pool.model_count} models"
+                ),
             )
 
-            topic_raw = raw_results.get(topic_group.name, [])
+            async def extract_one_topic(
+                i: int, topic_group,
+            ) -> TopicResearchResult | None:
+                async with topic_semaphore:
+                    await progress_tracker.report_start(topic_group.name, i)
+                    topic_raw = raw_results.get(topic_group.name, [])
+                    try:
+                        result = await run_extract_for_topic(
+                            topic_group=topic_group,
+                            raw_results=topic_raw,
+                            goal_title=goal_title,
+                            education_level=education_level,
+                            max_sources=effort_profile["max_sources_per_topic"],
+                            max_codebase_analyses=effort_profile["max_codebase_analyses"],
+                            model_pool=model_pool,
+                        )
+                        # Save sources immediately (atomic DB insert)
+                        sources_dicts = [s.model_dump() for s in result.sources]
+                        await save_research_sources(goal_id, user_id, sources_dicts)
 
-            try:
-                result = await run_extract_for_topic(
-                    topic_group=topic_group,
-                    raw_results=topic_raw,
-                    goal_title=goal_title,
-                    education_level=education_level,
-                )
-                topic_results.append(result)
+                        await progress_tracker.mark_completed(
+                            topic_group.name,
+                            success=True,
+                            detail=(
+                                f"{len(result.sources)} sources "
+                                f"(formulas: {len(result.topic_formulas)}, "
+                                f"codebases: {len(result.codebase_references)})"
+                            ),
+                        )
+                        return result
+                    except Exception as e:
+                        logger.error(f"Extraction failed for topic {topic_group.name}: {e}")
+                        await progress_tracker.mark_completed(
+                            topic_group.name,
+                            success=False,
+                            detail=str(e)[:100],
+                        )
+                        return None
 
-                # Save sources for this topic immediately
-                sources_dicts = [s.model_dump() for s in result.sources]
-                await save_research_sources(goal_id, user_id, sources_dicts)
+            parallel_results = await asyncio.gather(
+                *[
+                    extract_one_topic(i, tg)
+                    for i, tg in enumerate(topic_tree.topic_groups)
+                ]
+            )
+            topic_results: list[TopicResearchResult] = [
+                r for r in parallel_results if r is not None
+            ]
+
+        else:
+            # ── Sequential fallback (no model pool) ──
+            topic_results: list[TopicResearchResult] = []
+            for i, topic_group in enumerate(topic_tree.topic_groups):
+                progress_start = 25 + (55 * i / total_topics)
+                progress_end = 25 + (55 * (i + 1) / total_topics)
 
                 await update_agent_task(
                     goal_id,
                     AGENT_TYPE,
-                    progress=round(progress_end, 1),
-                    log_message=(
-                        f"Extracted {len(result.sources)} sources for {topic_group.name} "
-                        f"(formulas: {len(result.topic_formulas)}, "
-                        f"codebases: {len(result.codebase_references)})"
-                    ),
-                    log_level="success",
+                    progress=round(progress_start, 1),
+                    current_task=f"Deep extraction: {topic_group.name}",
+                    focus=topic_group.name,
+                    log_message=f"Extracting topic {i + 1}/{total_topics}: {topic_group.name}",
                 )
-            except Exception as e:
-                logger.error(f"Extraction failed for topic {topic_group.name}: {e}")
-                await update_agent_task(
-                    goal_id,
-                    AGENT_TYPE,
-                    progress=round(progress_end, 1),
-                    log_message=f"Extraction partially failed for {topic_group.name}: {str(e)[:100]}",
-                    log_level="error",
-                )
-                # Continue with next topic — don't kill the pipeline
 
-            # Pace requests to stay within LLM rate limits
-            if i < total_topics - 1:
-                await asyncio.sleep(inter_topic_delay)
+                topic_raw = raw_results.get(topic_group.name, [])
+
+                try:
+                    result = await run_extract_for_topic(
+                        topic_group=topic_group,
+                        raw_results=topic_raw,
+                        goal_title=goal_title,
+                        education_level=education_level,
+                        max_sources=effort_profile["max_sources_per_topic"],
+                        max_codebase_analyses=effort_profile["max_codebase_analyses"],
+                    )
+                    topic_results.append(result)
+
+                    sources_dicts = [s.model_dump() for s in result.sources]
+                    await save_research_sources(goal_id, user_id, sources_dicts)
+
+                    await update_agent_task(
+                        goal_id,
+                        AGENT_TYPE,
+                        progress=round(progress_end, 1),
+                        log_message=(
+                            f"Extracted {len(result.sources)} sources for {topic_group.name} "
+                            f"(formulas: {len(result.topic_formulas)}, "
+                            f"codebases: {len(result.codebase_references)})"
+                        ),
+                        log_level="success",
+                    )
+                except Exception as e:
+                    logger.error(f"Extraction failed for topic {topic_group.name}: {e}")
+                    await update_agent_task(
+                        goal_id,
+                        AGENT_TYPE,
+                        progress=round(progress_end, 1),
+                        log_message=f"Extraction partially failed for {topic_group.name}: {str(e)[:100]}",
+                        log_level="error",
+                    )
+
+                # Pace requests to stay within LLM rate limits
+                if i < total_topics - 1:
+                    delay = 15 if settings.effective_extract_model.startswith("google-gla:") else 3
+                    await asyncio.sleep(delay)
 
         # ===== STAGE 4: SYNTHESIZE (80-92%) =====
         await update_agent_task(
@@ -174,6 +271,29 @@ async def run_research_pipeline(goal_id: str, user_id: str) -> None:
         )
 
         synthesis = await run_synthesize(topic_results, onboarding_data)
+
+        # --- False-positive gap suppression ---
+        validated_gaps = []
+        suppressed = 0
+        for gap in synthesis.gaps_identified:
+            topic_result = next((tr for tr in topic_results if tr.topic_group == gap.topic), None)
+            if topic_result:
+                has_formulas = len(topic_result.topic_formulas) > 0
+                has_code = any(
+                    s.extracted_content and len(s.extracted_content.code_snippets) > 0
+                    for s in topic_result.sources if s.extracted_content
+                )
+                if gap.missing_content_type == "formulas" and has_formulas:
+                    suppressed += 1
+                    continue
+                if gap.missing_content_type == "code_examples" and has_code:
+                    suppressed += 1
+                    continue
+            validated_gaps.append(gap)
+
+        if suppressed:
+            logger.info(f"Suppressed {suppressed} false-positive gaps")
+        synthesis.gaps_identified = validated_gaps
 
         # Programmatic gap severity override based on actual data
         for gap in synthesis.gaps_identified:
@@ -195,7 +315,7 @@ async def run_research_pipeline(goal_id: str, user_id: str) -> None:
 
         # Programmatic fallback: if synthesis returned too few cross-topic formulas,
         # collect top formulas from individual topic results
-        if len(synthesis.cross_topic_formulas) < 3:
+        if len(synthesis.cross_topic_formulas) < effort_profile["synthesize_formula_target"]:
             all_topic_formulas = []
             for tr in topic_results:
                 for f in tr.topic_formulas:
@@ -242,7 +362,7 @@ async def run_research_pipeline(goal_id: str, user_id: str) -> None:
             g for g in synthesis.gaps_identified if g.severity == "critical"
         ]
 
-        if critical_gaps:
+        if effort_profile["gap_fill_enabled"] and critical_gaps:
             await update_agent_task(
                 goal_id,
                 AGENT_TYPE,
@@ -253,7 +373,12 @@ async def run_research_pipeline(goal_id: str, user_id: str) -> None:
             )
 
             gap_results = await run_gap_fill(
-                critical_gaps, topic_tree, topic_results, onboarding_data
+                critical_gaps,
+                topic_tree,
+                topic_results,
+                onboarding_data,
+                max_gap_topics=effort_profile["max_gap_topics"],
+                model_pool=model_pool,
             )
 
             if gap_results:
@@ -279,6 +404,14 @@ async def run_research_pipeline(goal_id: str, user_id: str) -> None:
                 progress=98,
                 log_message=f"Gap-fill complete. Added {sum(len(gr.sources) for gr in gap_results)} sources.",
                 log_level="success",
+            )
+        elif not effort_profile["gap_fill_enabled"]:
+            await update_agent_task(
+                goal_id,
+                AGENT_TYPE,
+                progress=98,
+                log_message=f"Gap-fill skipped — disabled for [{topic_tree.effort_tier}] effort tier",
+                log_level="info",
             )
         else:
             await update_agent_task(
@@ -307,8 +440,8 @@ async def run_research_pipeline(goal_id: str, user_id: str) -> None:
             current_task="Research complete!",
             focus=None,
             log_message=(
-                f"Research pipeline v2 completed. {total_sources} sources across "
-                f"{len(topic_results)} topics. "
+                f"[{topic_tree.effort_tier}] Research pipeline v2 completed. "
+                f"{total_sources} sources across {len(topic_results)} topics. "
                 f"Formulas: {sum(len(tr.topic_formulas) for tr in topic_results)}, "
                 f"Codebases: {sum(len(tr.codebase_references) for tr in topic_results)}, "
                 f"Exercises: {sum(len(tr.coding_exercises) for tr in topic_results)}"

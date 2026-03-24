@@ -14,17 +14,26 @@ def _get_client() -> AsyncTavilyClient:
 
 
 async def tavily_search(
-    query: str, max_results: int = 5, search_depth: str = "basic"
+    query: str,
+    max_results: int = 5,
+    search_depth: str = "basic",
+    include_domains: list[str] | None = None,
+    exclude_domains: list[str] | None = None,
 ) -> list[dict]:
     """Search the web using Tavily. Returns list of results or [] on failure."""
     try:
         client = _get_client()
-        response = await client.search(
-            query=query,
-            search_depth=search_depth,
-            max_results=max_results,
-            include_answer=False,
-        )
+        kwargs: dict = {
+            "query": query,
+            "search_depth": search_depth,
+            "max_results": max_results,
+            "include_answer": False,
+        }
+        if include_domains:
+            kwargs["include_domains"] = include_domains
+        if exclude_domains:
+            kwargs["exclude_domains"] = exclude_domains
+        response = await client.search(**kwargs)
         results = []
         for r in response.get("results", []):
             results.append(

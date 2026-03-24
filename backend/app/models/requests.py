@@ -5,5 +5,9 @@ class ResearchRequest(BaseModel):
     goal_id: str
 
 
+class CoursePlanRequest(BaseModel):
+    goal_id: str
+
+
 class ProcessResourcesRequest(BaseModel):
     goal_id: str

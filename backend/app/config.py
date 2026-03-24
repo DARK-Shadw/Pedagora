@@ -43,6 +43,20 @@ class Settings(BaseSettings):
     # Legacy fallback (used if per-stage model fails or for backwards compat)
     gemini_model: str = "google-gla:gemini-2.0-flash"
 
+    # Extract model pool — round-robin across multiple free-tier models
+    extract_model_pool: str = "qwen-coder,mistral,openai"  # comma-separated names
+    extract_pool_max_concurrent: str = "2,2,2"  # per-model concurrency caps
+    extract_pool_rpm: str = "10,10,10"  # per-model RPM limits
+    extract_max_parallel_topics: int = 7  # max topics extracted concurrently
+
+    # Course Planner models
+    planner_structure_model: str = "pollinations:mistral"
+    planner_detail_model: str = "pollinations:mistral"
+    planner_model_pool: str = "mistral"
+    planner_pool_max_concurrent: str = "2"
+    planner_pool_rpm: str = "10"
+    planner_max_parallel_lessons: int = 2
+
     # Frontend
     frontend_url: str = "http://localhost:3000"
 
@@ -56,6 +70,81 @@ class Settings(BaseSettings):
         if self.extract_model.startswith("pollinations:") and not self.pollinations_api_key:
             return self.gemini_model
         return self.extract_model
+
+    def get_extract_pool_configs(self) -> list:
+        """Parse pool config strings into a list of ModelConfig objects.
+
+        Returns an empty list if extract_model_pool is empty/blank,
+        which signals the pipeline to fall back to single-model sequential mode.
+        """
+        from app.agents.rate_limiter import ModelConfig
+
+        pool_str = self.extract_model_pool.strip()
+        if not pool_str:
+            return []
+
+        names = [n.strip() for n in pool_str.split(",") if n.strip()]
+        concurrents = [int(c.strip()) for c in self.extract_pool_max_concurrent.split(",")]
+        rpms = [float(r.strip()) for r in self.extract_pool_rpm.split(",")]
+
+        # Name-to-model-string mapping for known free-tier models
+        model_strings = {
+            "qwen-coder": "pollinations:qwen-coder",
+            "claude-fast": "pollinations:claude-fast",
+            "kimi": "pollinations:kimi",
+            "openai": "pollinations:openai",
+            "deepseek": "pollinations:deepseek",
+            "mistral": "pollinations:mistral",
+        }
+
+        configs = []
+        for i, name in enumerate(names):
+            model_string = model_strings.get(name, f"pollinations:{name}")
+            configs.append(
+                ModelConfig(
+                    name=name,
+                    model_string=model_string,
+                    max_concurrent=concurrents[i] if i < len(concurrents) else 2,
+                    requests_per_minute=rpms[i] if i < len(rpms) else 10.0,
+                    priority=i,
+                )
+            )
+        return configs
+
+    def get_planner_pool_configs(self) -> list:
+        """Parse planner pool config strings into ModelConfig objects."""
+        from app.agents.rate_limiter import ModelConfig
+
+        pool_str = self.planner_model_pool.strip()
+        if not pool_str:
+            return []
+
+        names = [n.strip() for n in pool_str.split(",") if n.strip()]
+        concurrents = [int(c.strip()) for c in self.planner_pool_max_concurrent.split(",")]
+        rpms = [float(r.strip()) for r in self.planner_pool_rpm.split(",")]
+
+        model_strings = {
+            "qwen-coder": "pollinations:qwen-coder",
+            "claude-fast": "pollinations:claude-fast",
+            "kimi": "pollinations:kimi",
+            "openai": "pollinations:openai",
+            "deepseek": "pollinations:deepseek",
+            "mistral": "pollinations:mistral",
+        }
+
+        configs = []
+        for i, name in enumerate(names):
+            model_string = model_strings.get(name, f"pollinations:{name}")
+            configs.append(
+                ModelConfig(
+                    name=name,
+                    model_string=model_string,
+                    max_concurrent=concurrents[i] if i < len(concurrents) else 2,
+                    requests_per_minute=rpms[i] if i < len(rpms) else 10.0,
+                    priority=i,
+                )
+            )
+        return configs
 
 
 @lru_cache()

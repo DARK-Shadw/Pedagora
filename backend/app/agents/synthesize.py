@@ -59,6 +59,17 @@ async def run_synthesize(
             exercises = [f"{e.title} ({e.difficulty})" for e in tr.coding_exercises[:3]]
             research_lines.append(f"  Exercises: {'; '.join(exercises)}")
 
+        # Explicit content status so the LLM can't miss what exists
+        code_count = sum(
+            len(s.extracted_content.code_snippets)
+            for s in tr.sources if s.extracted_content
+        )
+        research_lines.append(
+            f"  >>> CONTENT STATUS: formulas={len(tr.topic_formulas)}, "
+            f"code_snippets={code_count}, exercises={len(tr.coding_exercises)}, "
+            f"codebases={len(tr.codebase_references)}, sources={len(tr.sources)}"
+        )
+
         total_sources += len(tr.sources)
 
     system_prompt = SYNTHESIZE_SYSTEM_PROMPT.format(

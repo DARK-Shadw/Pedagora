@@ -16,6 +16,7 @@ import type {
   ReadinessLevel,
   SessionFrequency,
   ResourceStatus,
+  EffortTier,
 } from "./index";
 
 export interface Profile {
@@ -135,6 +136,10 @@ export interface AgentTask {
   focus: string | null;
   logs: AgentLog[];
   error_message: string | null;
+  metadata: {
+    effort_tier?: EffortTier;
+    effort_rationale?: string;
+  } | null;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;

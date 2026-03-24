@@ -42,6 +42,7 @@ const demoTasks: AgentTask[] = [
       { timestamp: "12:44:28", agent: "SYSTEM", message: "Initial research synthesis phase marked COMPLETED.", level: "success" },
     ],
     error_message: null,
+    metadata: null,
     started_at: null,
     completed_at: null,
     created_at: "",
@@ -62,6 +63,7 @@ const demoTasks: AgentTask[] = [
       { timestamp: "12:45:01", agent: "PLANNING_AGENT", message: "Optimizing path for cognitive load distribution...", level: "info" },
     ],
     error_message: null,
+    metadata: null,
     started_at: null,
     completed_at: null,
     created_at: "",
@@ -78,6 +80,7 @@ const demoTasks: AgentTask[] = [
     focus: "Infographic Engine",
     logs: [],
     error_message: null,
+    metadata: null,
     started_at: null,
     completed_at: null,
     created_at: "",
@@ -94,6 +97,7 @@ const demoTasks: AgentTask[] = [
     focus: "Script Generation",
     logs: [],
     error_message: null,
+    metadata: null,
     started_at: null,
     completed_at: null,
     created_at: "",
@@ -122,11 +126,12 @@ async function handleRetry(goalId: string) {
 }
 
 function ResearchResultsPanel({ result }: { result: ResearchResult }) {
-  const topicTree = result.topic_tree as { topic_groups?: { name: string }[] };
+  const topicTree = result.topic_tree as { topic_groups?: { name: string }[]; effort_tier?: string };
   const synthesis = result.synthesis as {
     learning_path?: string[];
     key_themes?: string[];
   };
+  const effortTier = topicTree.effort_tier;
 
   const topicCount = topicTree.topic_groups?.length ?? 0;
   const formulaCount = result.cross_topic_formulas?.length ?? 0;
@@ -146,6 +151,13 @@ function ResearchResultsPanel({ result }: { result: ResearchResult }) {
       <div className="px-6 py-4 border-b border-primary/5 flex items-center gap-3">
         <MaterialIcon name="labs" className="text-primary text-xl" />
         <h3 className="font-bold">Research Results</h3>
+        {effortTier && (
+          <span className={`ml-auto px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+            effortTier === "light" ? "bg-emerald-500/10 text-emerald-400"
+              : effortTier === "deep" ? "bg-amber-500/10 text-amber-400"
+              : "bg-primary/10 text-primary"
+          }`}>{effortTier} effort</span>
+        )}
       </div>
 
       <div className="p-6 space-y-6">
@@ -343,7 +355,16 @@ export default function AgentsPage() {
                   Step {config.step}
                 </span>
               </div>
-              <h2 className="text-lg font-bold mb-1">{config.label}</h2>
+              <h2 className="text-lg font-bold mb-1">
+                {config.label}
+                {task.agent_type === "research" && task.metadata?.effort_tier && (
+                  <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    task.metadata.effort_tier === "light" ? "bg-emerald-500/10 text-emerald-400"
+                      : task.metadata.effort_tier === "deep" ? "bg-amber-500/10 text-amber-400"
+                      : "bg-primary/10 text-primary"
+                  }`}>{task.metadata.effort_tier}</span>
+                )}
+              </h2>
               <p className={`text-sm mb-6 ${isFailed ? "text-red-400" : "text-slate-500"}`}>
                 {isFailed
                   ? task.error_message || "Research failed"

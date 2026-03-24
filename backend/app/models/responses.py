@@ -7,6 +7,12 @@ class ResearchAccepted(BaseModel):
     task_id: str
 
 
+class CoursePlanAccepted(BaseModel):
+    message: str = "Course planner pipeline started"
+    goal_id: str
+    task_id: str
+
+
 class AgentStatusResponse(BaseModel):
     goal_id: str
     agent_type: str

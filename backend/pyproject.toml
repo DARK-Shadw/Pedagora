@@ -12,6 +12,7 @@ dependencies = [
     "tavily-python>=0.5.0",
     "httpx>=0.28.0",
     "python-jose[cryptography]>=3.3.0",
+    "PyJWT[crypto]>=2.8.0",
     "python-dotenv>=1.0.0",
     "docling>=2.0.0",
     "python-pptx>=1.0.0",

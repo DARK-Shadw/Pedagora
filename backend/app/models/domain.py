@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -140,8 +142,16 @@ class TopicTree(BaseModel):
     goal_summary: str = Field(
         description="One-sentence summary of the learning goal"
     )
+    effort_tier: Literal["light", "standard", "deep"] = Field(
+        default="standard",
+        description="Research effort level based on goal complexity",
+    )
+    effort_rationale: str = Field(
+        default="",
+        description="Brief explanation of why this effort tier was chosen",
+    )
     topic_groups: list[TopicGroup] = Field(
-        description="5-10 topic groups covering the full scope of the goal"
+        description="Topic groups covering the full scope of the goal"
     )
     prerequisite_chain: list[str] = Field(
         description="Ordered list of prerequisites the student should know"

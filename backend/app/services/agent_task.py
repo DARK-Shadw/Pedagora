@@ -82,6 +82,7 @@ async def update_agent_task(
     log_message: str | None = None,
     log_level: str = "info",
     error_message: str | None = None,
+    metadata: dict | None = None,
 ) -> None:
     """Update agent_tasks row — triggers Supabase Realtime for frontend."""
     sb = get_supabase()
@@ -107,30 +108,29 @@ async def update_agent_task(
     if error_message is not None:
         update_data["error_message"] = error_message
 
-    # Append to logs array if a log message is provided
-    if log_message is not None:
-        existing = (
-            sb.table("agent_tasks")
-            .select("logs")
-            .eq("goal_id", goal_id)
-            .eq("agent_type", agent_type)
-            .single()
-            .execute()
-        )
-        logs = existing.data.get("logs", []) if existing.data else []
-        logs.append(
-            {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "agent": "research",
-                "message": log_message,
-                "level": log_level,
-            }
-        )
-        update_data["logs"] = logs
+    if metadata is not None:
+        update_data["metadata"] = metadata
 
+    # Update fields (excluding logs — those use atomic append)
     if update_data:
         sb.table("agent_tasks").update(update_data).eq("goal_id", goal_id).eq(
             "agent_type", agent_type
+        ).execute()
+
+    # Append to logs via atomic RPC (no read-modify-write race)
+    if log_message is not None:
+        sb.rpc(
+            "append_agent_task_log",
+            {
+                "p_goal_id": goal_id,
+                "p_agent_type": agent_type,
+                "p_log_entry": {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "agent": agent_type,
+                    "message": log_message,
+                    "level": log_level,
+                },
+            },
         ).execute()
 
 
@@ -208,3 +208,65 @@ async def cleanup_previous_research(goal_id: str) -> None:
     sb = get_supabase()
     sb.table("research_sources").delete().eq("goal_id", goal_id).execute()
     sb.table("research_results").delete().eq("goal_id", goal_id).execute()
+
+
+# ─── Course Planner helpers ───
+
+
+async def fetch_research_results(goal_id: str) -> dict | None:
+    """Fetch completed research results for the course planner."""
+    sb = get_supabase()
+    result = (
+        sb.table("research_results")
+        .select("*")
+        .eq("goal_id", goal_id)
+        .single()
+        .execute()
+    )
+    return result.data
+
+
+async def fetch_research_sources(goal_id: str) -> list[dict]:
+    """Fetch all research sources for a goal."""
+    sb = get_supabase()
+    result = (
+        sb.table("research_sources")
+        .select("*")
+        .eq("goal_id", goal_id)
+        .execute()
+    )
+    return result.data or []
+
+
+async def save_course_plan(
+    goal_id: str,
+    user_id: str,
+    course_structure: dict,
+    lesson_plans: dict,
+    student_resource_map: dict,
+    total_lessons: int,
+    total_modules: int,
+    total_estimated_minutes: int,
+) -> None:
+    """Save or update the course plan for a goal."""
+    sb = get_supabase()
+    sb.table("course_plans").upsert(
+        {
+            "goal_id": goal_id,
+            "user_id": user_id,
+            "course_structure": course_structure,
+            "lesson_plans": lesson_plans,
+            "student_resource_map": student_resource_map,
+            "total_lessons": total_lessons,
+            "total_modules": total_modules,
+            "total_estimated_minutes": total_estimated_minutes,
+            "version": 1,
+        },
+        on_conflict="goal_id",
+    ).execute()
+
+
+async def cleanup_previous_course_plan(goal_id: str) -> None:
+    """Remove previous course plan for retry scenarios."""
+    sb = get_supabase()
+    sb.table("course_plans").delete().eq("goal_id", goal_id).execute()

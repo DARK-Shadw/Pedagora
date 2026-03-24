@@ -6,6 +6,13 @@ Includes hybrid search integration for user-uploaded resources (RAG pipeline).
 import asyncio
 import logging
 
+from app.agents.search_domains import (
+    EXCLUDE_DOMAINS,
+    generate_bonus_queries,
+    get_github_qualifiers,
+    is_fast_moving_field,
+    query_mentions_year,
+)
 from app.models.domain import TopicTree, TopicGroup
 from app.tools.tavily import tavily_search
 from app.tools.serper import serper_scholar_search
@@ -22,22 +29,40 @@ async def _execute_search(
     query: str,
     search_type: str,
     search_depth: str = "basic",
+    include_domains: list[str] | None = None,
+    exclude_domains: list[str] | None = None,
+    year_low: int | None = None,
+    min_stars: int | None = None,
+    language: str | None = None,
 ) -> list[dict]:
     """Execute a single search query using the appropriate API."""
     if search_type == "web":
-        results = await tavily_search(query, max_results=5, search_depth=search_depth)
-        return [
-            {
+        results = await tavily_search(
+            query,
+            max_results=5,
+            search_depth=search_depth,
+            include_domains=include_domains,
+            exclude_domains=exclude_domains,
+        )
+        # Pre-filter low-quality results by Tavily relevance score
+        filtered = []
+        for r in results:
+            score = r.get("score", 1.0)
+            if score < 0.4:
+                logger.debug(f"Filtered low-score result ({score:.2f}): {r.get('url', '')}")
+                continue
+            filtered.append({
                 "title": r.get("title", ""),
                 "url": r.get("url", ""),
                 "snippet": r.get("content", ""),
                 "source": "tavily",
                 "search_type": "web",
-            }
-            for r in results
-        ]
+            })
+        return filtered
     elif search_type == "scholar":
-        results = await serper_scholar_search(query, num_results=5)
+        results = await serper_scholar_search(
+            query, num_results=5, year_low=year_low,
+        )
         return [
             {
                 "title": r.get("title", ""),
@@ -51,7 +76,9 @@ async def _execute_search(
             for r in results
         ]
     elif search_type == "github":
-        results = await github_repo_search(query, max_results=5)
+        results = await github_repo_search(
+            query, max_results=5, min_stars=min_stars, language=language,
+        )
         return [
             {
                 "title": r.get("name", ""),
@@ -88,6 +115,7 @@ async def run_search(
     topic_tree: TopicTree,
     goal_id: str | None = None,
     user_id: str | None = None,
+    goal_title: str = "",
 ) -> dict[str, list[dict]]:
     """Execute all search queries across all topics.
 
@@ -98,17 +126,39 @@ async def run_search(
     seen_urls: set[str] = set()
     results_by_topic: dict[str, list[dict]] = {}
 
+    # Cap GitHub results per topic to prevent repo flooding
+    MAX_GITHUB_PER_TOPIC = 3
+
     for topic_group in topic_tree.topic_groups:
         topic_results: list[dict] = []
+        github_count = 0
         is_high_priority = topic_group.content_needs.priority == "high"
+        content_needs = topic_group.content_needs
+        fast_moving = is_fast_moving_field(goal_title, topic_group.name)
+        gh_qualifiers = get_github_qualifiers(content_needs)
 
         for sq in topic_group.search_queries:
             # Use advanced search for high-priority web queries
             depth = "advanced" if (is_high_priority and sq.search_type == "web") else "basic"
 
-            search_results = await _execute_search(sq.query, sq.search_type, depth)
+            # Build quality-gate kwargs per search type
+            kwargs: dict = {}
+            if sq.search_type == "web":
+                kwargs["exclude_domains"] = EXCLUDE_DOMAINS
+            elif sq.search_type == "scholar":
+                # Only apply year filter for fast-moving fields AND when the
+                # query doesn't reference a specific year (e.g. "Ho 2020").
+                # Filtering by year would kill foundational paper lookups.
+                if fast_moving and not query_mentions_year(sq.query):
+                    kwargs["year_low"] = 2022
+            elif sq.search_type == "github":
+                kwargs.update(gh_qualifiers)
 
-            # Deduplicate across all topics
+            search_results = await _execute_search(
+                sq.query, sq.search_type, depth, **kwargs,
+            )
+
+            # Deduplicate across all topics, cap GitHub per topic
             for r in search_results:
                 url = r.get("url", "")
                 if not url:
@@ -116,11 +166,51 @@ async def run_search(
                 normalized = _normalize_url(url)
                 if normalized in seen_urls:
                     continue
+                if r.get("search_type") == "github" and github_count >= MAX_GITHUB_PER_TOPIC:
+                    continue
                 seen_urls.add(normalized)
                 topic_results.append(r)
+                if r.get("search_type") == "github":
+                    github_count += 1
 
             # Pace API calls
             await asyncio.sleep(SEARCH_DELAY_SECONDS)
+
+        # Execute bonus queries based on content_needs (0-2 extra queries)
+        bonus_queries = generate_bonus_queries(
+            topic_group.name, content_needs, goal_title,
+        )
+        for bonus_sq, bonus_domains in bonus_queries:
+            search_results = await _execute_search(
+                bonus_sq.query,
+                bonus_sq.search_type,
+                "basic",
+                include_domains=bonus_domains,
+                exclude_domains=EXCLUDE_DOMAINS,
+            )
+
+            for r in search_results:
+                url = r.get("url", "")
+                if not url:
+                    continue
+                normalized = _normalize_url(url)
+                if normalized in seen_urls:
+                    continue
+                if r.get("search_type") == "github" and github_count >= MAX_GITHUB_PER_TOPIC:
+                    continue
+                seen_urls.add(normalized)
+                topic_results.append(r)
+                if r.get("search_type") == "github":
+                    github_count += 1
+
+            await asyncio.sleep(SEARCH_DELAY_SECONDS)
+
+        if bonus_queries:
+            logger.info(
+                f"Bonus queries for '{topic_group.name}': {len(bonus_queries)} "
+                f"(code={content_needs.needs_code_examples}, "
+                f"formula={content_needs.needs_formulas})"
+            )
 
         results_by_topic[topic_group.name] = topic_results
         logger.info(
