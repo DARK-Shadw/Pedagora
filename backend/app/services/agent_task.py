@@ -270,3 +270,73 @@ async def cleanup_previous_course_plan(goal_id: str) -> None:
     """Remove previous course plan for retry scenarios."""
     sb = get_supabase()
     sb.table("course_plans").delete().eq("goal_id", goal_id).execute()
+
+
+# ─── Animation Agent helpers ───
+
+
+async def fetch_course_plan(goal_id: str) -> dict | None:
+    """Fetch the course plan for a goal."""
+    sb = get_supabase()
+    result = (
+        sb.table("course_plans")
+        .select("*")
+        .eq("goal_id", goal_id)
+        .single()
+        .execute()
+    )
+    return result.data
+
+
+async def save_animation_result(
+    goal_id: str,
+    user_id: str,
+    lesson_id: str,
+    animation_id: str,
+    animation_type: str,
+    status: str,
+    manim_code: str,
+    output_path: str,
+    output_url: str,
+    error_log: str | None,
+    render_time: float,
+) -> None:
+    """Save or update an animation result."""
+    sb = get_supabase()
+    sb.table("lesson_animations").upsert(
+        {
+            "goal_id": goal_id,
+            "user_id": user_id,
+            "lesson_id": lesson_id,
+            "animation_id": animation_id,
+            "animation_type": animation_type,
+            "status": status,
+            "manim_code": manim_code,
+            "output_path": output_path,
+            "output_url": output_url,
+            "error_log": error_log,
+            "render_time_seconds": render_time,
+        },
+        on_conflict="goal_id,lesson_id,animation_id",
+    ).execute()
+
+
+async def get_lesson_animations(goal_id: str, lesson_id: str) -> list[dict]:
+    """Get all animation results for a lesson."""
+    sb = get_supabase()
+    result = (
+        sb.table("lesson_animations")
+        .select("*")
+        .eq("goal_id", goal_id)
+        .eq("lesson_id", lesson_id)
+        .execute()
+    )
+    return result.data or []
+
+
+async def cleanup_lesson_animations(goal_id: str, lesson_id: str) -> None:
+    """Remove previous animation results for a lesson (retry scenario)."""
+    sb = get_supabase()
+    sb.table("lesson_animations").delete().eq(
+        "goal_id", goal_id
+    ).eq("lesson_id", lesson_id).execute()

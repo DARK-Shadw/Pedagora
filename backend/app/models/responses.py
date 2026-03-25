@@ -13,6 +13,12 @@ class CoursePlanAccepted(BaseModel):
     task_id: str
 
 
+class AnimateLessonAccepted(BaseModel):
+    message: str = "Animation pipeline started"
+    goal_id: str
+    lesson_id: str
+
+
 class AgentStatusResponse(BaseModel):
     goal_id: str
     agent_type: str

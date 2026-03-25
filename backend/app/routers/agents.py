@@ -1,11 +1,12 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from app.auth.dependencies import get_current_user
-from app.models.requests import ResearchRequest, CoursePlanRequest
-from app.models.responses import ResearchAccepted, CoursePlanAccepted, AgentStatusResponse
-from app.services.agent_task import get_agent_task, update_agent_task, cleanup_previous_research, fetch_research_results
+from app.models.requests import ResearchRequest, CoursePlanRequest, AnimateLessonRequest
+from app.models.responses import ResearchAccepted, CoursePlanAccepted, AnimateLessonAccepted, AgentStatusResponse
+from app.services.agent_task import get_agent_task, update_agent_task, cleanup_previous_research, fetch_research_results, fetch_course_plan, get_lesson_animations
 from app.agents.pipeline import run_research_pipeline
 from app.agents.course_planner.pipeline import run_course_planner_pipeline
+from app.agents.animation.pipeline import run_animation_pipeline
 
 router = APIRouter()
 
@@ -111,6 +112,56 @@ async def trigger_course_plan(
 
     background_tasks.add_task(run_course_planner_pipeline, goal_id, user_id)
     return CoursePlanAccepted(goal_id=goal_id, task_id=task["id"])
+
+
+@router.post("/animate-lesson", status_code=status.HTTP_202_ACCEPTED, response_model=AnimateLessonAccepted)
+async def trigger_animate_lesson(
+    request: AnimateLessonRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
+    """Trigger animation generation for a single lesson. Requires completed course plan."""
+    user_id = user["sub"]
+    goal_id = request.goal_id
+    lesson_id = request.lesson_id
+
+    # Verify course plan exists
+    course_plan = await fetch_course_plan(goal_id)
+    if not course_plan:
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="Course plan must be completed before generating animations",
+        )
+
+    # Verify lesson exists in the plan
+    lesson_plans = course_plan.get("lesson_plans", {})
+    if lesson_id not in lesson_plans:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Lesson '{lesson_id}' not found in course plan",
+        )
+
+    background_tasks.add_task(run_animation_pipeline, goal_id, user_id, lesson_id)
+    return AnimateLessonAccepted(goal_id=goal_id, lesson_id=lesson_id)
+
+
+@router.get("/animation-status/{goal_id}/{lesson_id}")
+async def get_animation_status(
+    goal_id: str,
+    lesson_id: str,
+    user: dict = Depends(get_current_user),
+):
+    """Get animation generation status for a lesson."""
+    animations = await get_lesson_animations(goal_id, lesson_id)
+    return {
+        "goal_id": goal_id,
+        "lesson_id": lesson_id,
+        "total": len(animations),
+        "completed": sum(1 for a in animations if a["status"] == "completed"),
+        "failed": sum(1 for a in animations if a["status"] == "failed"),
+        "pending": sum(1 for a in animations if a["status"] == "pending"),
+        "animations": animations,
+    }
 
 
 @router.get("/status/{goal_id}", response_model=AgentStatusResponse)
