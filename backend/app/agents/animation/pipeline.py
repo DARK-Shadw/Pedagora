@@ -12,6 +12,7 @@ import traceback
 from app.agents.animation.codegen import generate_manim_code, fix_manim_code
 from app.agents.animation.data_prep import prepare_animation_data
 from app.agents.animation.renderer import render_manim_scene
+from app.agents.animation.review import review_animation
 from app.agents.animation.search import search_manim_reference
 from app.config import get_settings
 from app.services.agent_task import (
@@ -156,19 +157,44 @@ async def run_animation_pipeline(
                     )
                     render_time = time.time() - t
 
-                    # Step 4: Validate
-                    if output_path and not render_error:
-                        # Upload to Supabase Storage
-                        output_url = await _upload_to_storage(
-                            output_path, goal_id, lesson_id, anim_id,
-                        )
-                        success = True
-                        break
-                    else:
+                    # Step 4: Validate render
+                    if not output_path or render_error:
                         error_log = render_error
                         logger.warning(
                             f"Render failed for {anim_id} (attempt {attempt+1}): "
                             f"{render_error[:200] if render_error else 'unknown'}"
+                        )
+                        continue
+
+                    # Step 5: Visual QA review (gemini-fast vision)
+                    review = await review_animation(
+                        video_path=output_path,
+                        animation_type=anim_type,
+                        description=spec.get("description", ""),
+                        manim_code=code,
+                    )
+
+                    if review["verdict"] == "PASS":
+                        output_url = await _upload_to_storage(
+                            output_path, goal_id, lesson_id, anim_id,
+                        )
+                        success = True
+                        logger.info(
+                            f"Animation {anim_id} passed review "
+                            f"(score: {review['score']}/10)"
+                        )
+                        break
+                    else:
+                        # Review failed — use feedback to fix the code
+                        error_log = (
+                            f"Visual review score: {review['score']}/10. "
+                            f"Issues: {'; '.join(review['issues'])}. "
+                            f"Fix: {review['feedback']}"
+                        )
+                        logger.warning(
+                            f"Animation {anim_id} failed review "
+                            f"(score: {review['score']}/10, attempt {attempt+1}): "
+                            f"{review['feedback'][:200]}"
                         )
 
                 except Exception as e:
