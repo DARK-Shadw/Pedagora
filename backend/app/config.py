@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     planner_max_parallel_lessons: int = 2
 
     # Animation Agent
-    animation_model: str = "pollinations:gemini-fast"
+    animation_model: str = "pollinations:kimi"
     animation_search_enabled: bool = True
     animation_max_retries: int = 3
     animation_render_quality: str = "h"

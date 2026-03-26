@@ -34,6 +34,14 @@ async def render_manim_scene(
     start = time.time()
 
     try:
+        # Ensure MiKTeX binaries are in PATH for LaTeX rendering
+        env = os.environ.copy()
+        miktex_bin = os.path.expanduser(
+            "~/AppData/Local/Programs/MiKTeX/miktex/bin/x64"
+        )
+        if os.path.isdir(miktex_bin) and miktex_bin not in env.get("PATH", ""):
+            env["PATH"] = miktex_bin + os.pathsep + env.get("PATH", "")
+
         proc = await asyncio.create_subprocess_exec(
             sys.executable, "-m", "manim", "render",
             f"-q{quality}", "--format", "mp4",
@@ -41,6 +49,7 @@ async def render_manim_scene(
             scene_file, "AnimationScene",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
 
         try:

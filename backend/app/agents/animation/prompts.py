@@ -42,12 +42,15 @@ Values: {reference_values}
 ## Style Rules
 - Use colors meaningfully: BLUE for signal/input, RED for noise/error, \
 GREEN for output/results, YELLOW for highlights, WHITE for text
-- CRITICAL: Do NOT use MathTex, Tex, or DecimalNumber — LaTeX is NOT installed.
-- Use Text() for ALL text. Use ONLY ASCII characters plus these safe symbols: \
-=, +, -, *, /, (, ), [, ], |, <, >. Write "beta_t" not "βₜ", "alpha" not "α", \
-"epsilon" not "ε". Do NOT use Unicode subscripts (ₜ, ₀, ₁) — they render as white boxes.
-- For updating numbers: create a new Text and use Transform(old, new) to replace.
+- LaTeX IS installed. You CAN use MathTex for beautiful formula rendering. \
+Use MathTex for equations: `MathTex(r"E = mc^2")`. Use Text() for plain labels. \
+Use DecimalNumber for animated counters. \
+For equation_reveal, MathTex is PREFERRED over Text() for proper math rendering.
+- For updating numbers: use DecimalNumber or create new Text and Transform.
 - Build animations progressively — show one thing at a time, not everything at once
+- READ THE DESCRIPTION CAREFULLY. If it says "reverse process" or "denoising", \
+start from NOISE and end with a CLEAR image. If it says "forward process" or \
+"adding noise", start CLEAR and end with NOISE. Do NOT mix these up.
 
 ## Layout Rules (CRITICAL for visual quality)
 
@@ -115,8 +118,34 @@ for i, noisy_path in enumerate(noisy_paths):
 - Labels/text go to edges, NOT in the center
 - ALWAYS use the file paths from the "Prepared Data Files" section
 
-**equation_reveal**: Show formula as Text, then highlight parts one by one \
-with different colors. Write "beta_t" not "βₜ". Build piece by piece.
+**equation_reveal**: Use MathTex for beautiful LaTeX rendering. \
+Show full formula greyed out, then highlight parts one by one. Example:
+```python
+# Show full formula greyed out
+formula = MathTex(
+    r"q(x_t | x_{{t-1}})", r"=", r"\mathcal{{N}}(",
+    r"\sqrt{{1-\beta_t}} x_{{t-1}}", r",", r"\beta_t I", r")"
+)
+formula.set_color(GRAY)
+formula.move_to(ORIGIN)
+self.play(Write(formula))
+self.wait(1)
+
+# Highlight signal term in blue
+self.play(formula[3].animate.set_color(BLUE))
+label1 = Text("signal preservation", font_size=18, color=BLUE).next_to(formula, DOWN)
+self.play(FadeIn(label1))
+self.wait(1)
+self.play(FadeOut(label1))
+
+# Highlight noise term in red
+self.play(formula[5].animate.set_color(RED))
+label2 = Text("noise injection", font_size=18, color=RED).next_to(formula, DOWN)
+self.play(FadeIn(label2))
+self.wait(1)
+```
+KEY: Split the formula into separate MathTex arguments so you can color each part \
+independently by index (formula[0], formula[1], etc.).
 
 **graph_plot**: Use Axes() with proper ranges, labels. Plot functions with \
 axes.plot(). Animate with ValueTracker for smooth parameter changes. \

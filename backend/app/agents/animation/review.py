@@ -57,7 +57,7 @@ SCORE: [1-10]
 ISSUES:
 - [issue description] (LINE: [line number or "N/A"])
 - [issue description] (LINE: [line number or "N/A"])
-VERDICT: [PASS if score >= 7, REGENERATE if score < 7]
+VERDICT: [PASS if score >= 6, REGENERATE if score < 6]
 FEEDBACK: [If REGENERATE, specific code-level instructions: "Change line X to Y", \
 "Move the label from ORIGIN to to_corner(DL)", etc.]"""
 
@@ -247,14 +247,11 @@ def _parse_review(raw: str) -> dict:
                 pass
         elif line.startswith("- ") and result["issues"] is not None:
             result["issues"].append(line[2:].strip())
-        elif line.startswith("VERDICT:"):
-            verdict = line.split(":")[1].strip().upper()
-            if "REGENERATE" in verdict:
-                result["verdict"] = "REGENERATE"
-            else:
-                result["verdict"] = "PASS"
         elif line.startswith("FEEDBACK:"):
             result["feedback"] = line.split(":", 1)[1].strip()
+
+    # Determine verdict from SCORE, not LLM text (LLM often contradicts itself)
+    result["verdict"] = "PASS" if result["score"] >= 6 else "REGENERATE"
 
     return result
 

@@ -15,24 +15,30 @@ import numpy as np
 
 ### Text & Formulas
 ```python
-# IMPORTANT: LaTeX is NOT installed. Do NOT use MathTex, Tex, or DecimalNumber.
-# Use Text() for everything. Use ONLY ASCII — no Unicode subscripts.
-
+# Plain text
 text = Text("Hello World", font_size=36, color=WHITE)
 text = Text("Bold text", weight=BOLD)
 
-# Formulas using Text (ASCII only, no Unicode subscripts):
-formula = Text("q(x_t | x_t-1) = N(sqrt(1-beta_t) * x_t-1, beta_t * I)", font_size=24)
-formula = Text("x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1-alpha_bar_t) * eps", font_size=24)
-formula = Text("L = E[ ||eps - eps_theta(x_t, t)||^2 ]", font_size=24)
+# LaTeX math formulas (LaTeX IS installed — use MathTex for equations)
+formula = MathTex(r"E = mc^2")
+formula = MathTex(r"q(x_t | x_{t-1}) = \mathcal{N}(\sqrt{1 - \beta_t} x_{t-1}, \beta_t I)")
+formula = MathTex(r"x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1 - \bar{\alpha}_t} \epsilon")
 
-# Color parts of text (by character index):
-formula[0:3].set_color(BLUE)
+# Color specific parts of formula (by sub-mobject index)
+formula[0][0:5].set_color(BLUE)  # Color first 5 chars
 
-# Updating numbers (no DecimalNumber — use Transform):
-old_text = Text(f"beta = 0.0010", font_size=24)
-new_text = Text(f"beta = 0.0100", font_size=24).move_to(old_text)
-self.play(Transform(old_text, new_text))
+# Morph between formulas
+new_formula = MathTex(r"L = \mathbb{E}[||\epsilon - \epsilon_\theta||^2]")
+self.play(TransformMatchingTex(formula, new_formula))
+
+# Animated number counter
+counter = DecimalNumber(0, num_decimal_places=4, font_size=24)
+counter.to_corner(DL)
+self.play(counter.animate.set_value(0.02), run_time=3)
+
+# Plain text for labels (not math)
+label = Text("beta_t = 0.001", font_size=20)
+label.to_corner(DL)
 ```
 
 ### Shapes & Objects
