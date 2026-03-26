@@ -146,9 +146,13 @@ class DagNavigator:
                     yield msg
 
             elif seg_type == "CHECK_UNDERSTANDING":
-                messages, next_id = await self._handle_check(segment)
-                for msg in messages:
-                    yield msg
+                next_id = None
+                async for result in self._handle_check_flow(segment):
+                    if isinstance(result, str):
+                        # It's the next segment ID (final yield)
+                        next_id = result
+                    else:
+                        yield result
                 if next_id:
                     self.state.complete_segment(current_id)
                     prev_title = seg_title
@@ -178,6 +182,22 @@ class DagNavigator:
             if self.hand_raised:
                 async for msg in self._handle_raised_hand(segment):
                     yield msg
+
+            # Check for "repeat" reactions — re-explain if requested
+            if self.state.reactions.get("repeat", 0) > 0 and seg_type == "TEACH":
+                # Reset repeat counter and re-explain
+                self.state.reactions["repeat"] = 0
+                repeat_speech = await speech_gen.generate_segment_speech(
+                    segment_title=segment.get("title", ""),
+                    key_points=segment.get("key_points", []),
+                    formulas=[],
+                    analogies=segment.get("analogies", []),
+                    misconceptions=[],
+                    recent_context=[{"role": "system", "content": "Student asked to repeat. Explain differently."}],
+                    teaching_style=self.teaching_style,
+                )
+                yield SpeakMessage(text=repeat_speech, segment_id=current_id, speech_type="teaching")
+                self.state.add_dialogue("teacher", f"[Repeat] {repeat_speech}")
 
             self.state.complete_segment(current_id)
             prev_title = seg_title
@@ -287,13 +307,17 @@ class DagNavigator:
         yield SpeakMessage(text=speech, segment_id=sid, speech_type="teaching")
         self.state.add_dialogue("teacher", speech)
 
-    async def _handle_check(self, segment: dict) -> tuple[list[TeacherMessage], str | None]:
-        """Handle CHECK_UNDERSTANDING. Returns (messages, next_segment_id)."""
-        messages: list[TeacherMessage] = []
+    async def _handle_check_flow(self, segment: dict) -> AsyncGenerator[TeacherMessage | str, None]:
+        """Handle CHECK_UNDERSTANDING as a flow.
+
+        Yields TeacherMessage objects, then yields the next segment_id as a string
+        as the final value.
+        """
         sid = segment.get("segment_id", "")
         interaction = segment.get("interaction", {})
         if not interaction:
-            return messages, segment.get("next_segment")
+            yield segment.get("next_segment", "")
+            return
 
         question = interaction.get("question", "")
         expected = interaction.get("expected_answer", "")
@@ -306,21 +330,21 @@ class DagNavigator:
             question_type=interaction.get("question_type", "conceptual"),
             teaching_style=self.teaching_style,
         )
-        messages.append(SpeakMessage(text=intro, segment_id=sid, speech_type="question"))
+        yield SpeakMessage(text=intro, segment_id=sid, speech_type="question")
         self.state.add_dialogue("teacher", intro)
 
         # Send the question to the frontend
-        messages.append(AskQuestionMessage(
+        yield AskQuestionMessage(
             question=question,
             question_type=interaction.get("question_type", "conceptual"),
             hints=hints,
             segment_id=sid,
-        ))
+        )
 
         # Strategic wait before expecting answer
-        messages.append(WaitMessage(seconds=4, reason="thinking_time"))
+        yield WaitMessage(seconds=4, reason="thinking_time")
 
-        # Wait for student response (with timeout)
+        # Wait for student response (with timeout + retry loop)
         hints_given = 0
         for attempt in range(1, max_attempts + 1):
             self._response_event.clear()
@@ -330,7 +354,8 @@ class DagNavigator:
                 await asyncio.wait_for(self._response_event.wait(), timeout=60)
             except asyncio.TimeoutError:
                 self.state.record_score(sid, "confused", attempt, hints_given, question)
-                return messages, interaction.get("if_confused") or segment.get("next_segment")
+                yield interaction.get("if_confused") or segment.get("next_segment", "")
+                return
 
             answer = self._student_response or ""
             self.state.add_dialogue("student", answer)
@@ -355,16 +380,18 @@ class DagNavigator:
                 remaining_hints=remaining_hints,
                 teaching_style=self.teaching_style,
             )
-            messages.append(SpeakMessage(text=feedback, segment_id=sid, speech_type="feedback"))
+            yield SpeakMessage(text=feedback, segment_id=sid, speech_type="feedback")
             self.state.add_dialogue("teacher", feedback)
 
             if evaluation.verdict == "correct":
                 self.state.record_score(sid, "correct", attempt, hints_given, question)
-                return messages, interaction.get("if_correct") or segment.get("next_segment")
+                yield interaction.get("if_correct") or segment.get("next_segment", "")
+                return
 
             if evaluation.verdict == "confused":
                 self.state.record_score(sid, "confused", attempt, hints_given, question)
-                return messages, interaction.get("if_confused") or segment.get("next_segment")
+                yield interaction.get("if_confused") or segment.get("next_segment", "")
+                return
 
             # Wrong — give hint if available
             if hints_given < len(hints):
@@ -372,11 +399,12 @@ class DagNavigator:
 
             if attempt >= max_attempts:
                 self.state.record_score(sid, "wrong", attempt, hints_given, question)
-                return messages, interaction.get("if_wrong") or segment.get("next_segment")
+                yield interaction.get("if_wrong") or segment.get("next_segment", "")
+                return
 
-            messages.append(WaitMessage(seconds=3, reason="retry_thinking_time"))
+            yield WaitMessage(seconds=3, reason="retry_thinking_time")
 
-        return messages, segment.get("next_segment")
+        yield segment.get("next_segment", "")
 
     async def _handle_practice(self, segment: dict) -> AsyncGenerator[TeacherMessage, None]:
         """Handle a PRACTICE segment."""

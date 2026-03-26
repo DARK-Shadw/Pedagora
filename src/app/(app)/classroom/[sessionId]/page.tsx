@@ -8,6 +8,7 @@ import { PresentationArea } from "../components/PresentationArea";
 import { InteractionPanel } from "../components/InteractionPanel";
 import { Controls } from "../components/Controls";
 import { useTeacherSession } from "../hooks/use-teacher-session";
+import { useSpeechSynthesis } from "../hooks/use-speech";
 import { useClassroomStore } from "../stores/classroom-store";
 
 export default function ClassroomPage() {
@@ -17,8 +18,25 @@ export default function ClassroomPage() {
   const [token, setToken] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const { status, errorMessage, sessionSummary } = useClassroomStore();
+  const { status, errorMessage, sessionSummary, teacherSpeech } =
+    useClassroomStore();
   const reset = useClassroomStore((s) => s.reset);
+  const setIsSpeaking = useClassroomStore((s) => s.setIsSpeaking);
+  const { speak: speakAloud, isSpeaking: ttsActive } = useSpeechSynthesis();
+
+  // Speak teacher speech aloud via browser TTS
+  useEffect(() => {
+    if (teacherSpeech?.text) {
+      speakAloud(teacherSpeech.text, 0.95);
+      setIsSpeaking(true);
+    }
+  }, [teacherSpeech, speakAloud, setIsSpeaking]);
+
+  useEffect(() => {
+    if (!ttsActive) {
+      setIsSpeaking(false);
+    }
+  }, [ttsActive, setIsSpeaking]);
 
   // Get auth token
   useEffect(() => {

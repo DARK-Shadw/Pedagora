@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useClassroomStore } from "../stores/classroom-store";
+import { useSpeechRecognition } from "../hooks/use-speech";
 
 interface InteractionPanelProps {
   onSubmitResponse: (text: string, segmentId?: string) => void;
@@ -23,6 +24,8 @@ export function InteractionPanel({
   } = useClassroomStore();
   const [inputText, setInputText] = useState("");
   const [questionText, setQuestionText] = useState("");
+  const { isListening, transcript, isSupported, startListening, stopListening } =
+    useSpeechRecognition();
 
   const handleSubmitResponse = () => {
     if (!inputText.trim()) return;
@@ -78,6 +81,13 @@ export function InteractionPanel({
           </div>
         )}
 
+        {/* Live transcription */}
+        {isListening && transcript && (
+          <div className="mb-2 px-3 py-2 bg-[#21262d] rounded text-xs text-[#8b949e] italic">
+            🎤 {transcript}...
+          </div>
+        )}
+
         {/* Answer input */}
         <div className="flex gap-2">
           <input
@@ -85,9 +95,36 @@ export function InteractionPanel({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSubmitResponse()}
-            placeholder="Type your answer..."
+            placeholder="Type or speak your answer..."
             className="flex-1 bg-[#21262d] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#0d968b]"
           />
+          {/* Mic button */}
+          {isSupported && (
+            <button
+              onClick={() => {
+                if (isListening) {
+                  stopListening();
+                } else {
+                  startListening((text) => {
+                    setInputText(text);
+                    // Auto-submit after speech recognition
+                    onSubmitResponse(text, currentQuestion?.segmentId);
+                    setInputText("");
+                  });
+                }
+              }}
+              className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                isListening
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse"
+                  : "bg-[#21262d] text-[#8b949e] hover:bg-[#30363d]"
+              }`}
+              title={isListening ? "Stop listening" : "Speak your answer"}
+            >
+              <span className="material-symbols-rounded text-sm">
+                {isListening ? "mic_off" : "mic"}
+              </span>
+            </button>
+          )}
           <button
             onClick={handleSubmitResponse}
             disabled={!inputText.trim()}
