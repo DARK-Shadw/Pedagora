@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     manim_output_dir: str = "media/animations"
     animation_storage_bucket: str = "animations"
 
+    # Teacher Agent
+    teacher_model: str = "groq:llama-3.3-70b-versatile"
+    teacher_fast_model: str = "groq:meta-llama/llama-4-scout-17b-16e-instruct"
+
     # Frontend
     frontend_url: str = "http://localhost:3000"
 

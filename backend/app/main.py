@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import health, agents, resources
+from app.routers import health, agents, resources, teacher
 
 
 @asynccontextmanager
@@ -32,3 +32,4 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(agents.router, prefix="/agents", tags=["agents"])
 app.include_router(resources.router, prefix="/resources", tags=["resources"])
+app.include_router(teacher.router, prefix="/teacher", tags=["teacher"])
