@@ -26,6 +26,8 @@ class DialogueState:
         }
         self.scaffold_level: float = 1.0
         # 1.0 = full scaffolding, 0.0 = no scaffolding
+        self.recent_opening_phrases: list[str] = []
+        # Tracks first ~10 words of recent teacher speech openings
         self.started_at: str = datetime.now(timezone.utc).isoformat()
         self.last_active_at: str = datetime.now(timezone.utc).isoformat()
         self._segment_start_time: float | None = None
@@ -40,6 +42,7 @@ class DialogueState:
             "time_per_segment": self.time_per_segment,
             "reactions": self.reactions,
             "scaffold_level": self.scaffold_level,
+            "recent_opening_phrases": self.recent_opening_phrases,
             "started_at": self.started_at,
             "last_active_at": self.last_active_at,
         }
@@ -57,6 +60,7 @@ class DialogueState:
             "got_it": 0, "confused": 0, "repeat": 0,
         })
         state.scaffold_level = data.get("scaffold_level", 1.0)
+        state.recent_opening_phrases = data.get("recent_opening_phrases", [])
         state.started_at = data.get("started_at", datetime.now(timezone.utc).isoformat())
         state.last_active_at = data.get("last_active_at", datetime.now(timezone.utc).isoformat())
         return state
@@ -112,7 +116,20 @@ class DialogueState:
         if reaction_type in self.reactions:
             self.reactions[reaction_type] += 1
 
-    def get_recent_context(self, n: int = 5) -> list[dict]:
+    def record_opening_phrase(self, speech: str) -> None:
+        """Extract and store the opening phrase from teacher speech."""
+        words = speech.strip().split()[:10]
+        if words:
+            phrase = " ".join(words)
+            self.recent_opening_phrases.append(phrase)
+            if len(self.recent_opening_phrases) > 5:
+                self.recent_opening_phrases = self.recent_opening_phrases[-5:]
+
+    def get_avoid_phrases(self) -> list[str]:
+        """Return recently used opening phrases for the LLM to avoid."""
+        return list(self.recent_opening_phrases)
+
+    def get_recent_context(self, n: int = 8) -> list[dict]:
         """Get the last N dialogue entries for LLM context."""
         return self.dialogue_history[-n:]
 

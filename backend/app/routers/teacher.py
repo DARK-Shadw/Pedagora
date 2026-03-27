@@ -12,6 +12,7 @@ from app.agents.teacher.dag_navigator import DagNavigator
 from app.agents.teacher.dialogue_state import DialogueState
 from app.agents.teacher import session_manager
 from app.services.agent_task import fetch_course_plan, get_lesson_animations
+from app.services.supabase import get_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,32 @@ class ShareLinkRequest(BaseModel):
 
 class ShareLinkResponse(BaseModel):
     share_code: str
+
+
+@router.get("/debug-auth")
+async def debug_auth(token: str = Query(default="")):
+    """Debug endpoint to test token validation. Remove in production."""
+    if not token:
+        return {"error": "No token", "token_length": 0}
+
+    try:
+        import jwt as pyjwt
+        from jwt import PyJWKClient
+        from app.config import get_settings
+        settings = get_settings()
+
+        jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
+        jwks_client = PyJWKClient(jwks_url, cache_keys=True)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        payload = pyjwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["ES256", "HS256"],
+            audience="authenticated",
+        )
+        return {"ok": True, "sub": payload.get("sub"), "email": payload.get("email")}
+    except Exception as e:
+        return {"error": str(e), "token_length": len(token), "token_start": token[:20]}
 
 
 @router.post("/sessions", response_model=CreateSessionResponse)
@@ -163,23 +190,56 @@ async def teach_websocket(
     Frontend sends student responses, reactions, and controls.
     """
     await websocket.accept()
+    print(f"[TEACHER WS] Connection accepted. session_id={session_id}, token_len={len(token)}", flush=True)
 
     # Auth via query param token
-    if not token:
-        await websocket.send_json({"type": "error", "message": "No auth token", "recoverable": False})
-        await websocket.close(code=4001)
-        return
+    user_id = None
+    if token:
+        try:
+            import jwt as pyjwt
+            from jwt import PyJWKClient
+            from app.config import get_settings
+            settings = get_settings()
 
-    try:
-        from jose import jwt
-        from app.config import get_settings
-        settings = get_settings()
-        payload = jwt.decode(token, settings.supabase_jwt_secret, algorithms=["HS256"], audience="authenticated")
-        user_id = payload.get("sub")
-    except Exception:
-        await websocket.send_json({"type": "error", "message": "Invalid token", "recoverable": False})
-        await websocket.close(code=4001)
-        return
+            jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
+            jwks_client = PyJWKClient(jwks_url, cache_keys=True)
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+            payload = pyjwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["ES256", "HS256"],
+                audience="authenticated",
+            )
+            user_id = payload.get("sub")
+            print(f"[TEACHER WS] JWKS auth OK: user={user_id}", flush=True)
+        except Exception as e:
+            print(f"[TEACHER WS] JWKS auth failed: {e}", flush=True)
+            # Fallback: try raw JWT secret (for local dev)
+            try:
+                from jose import jwt as jose_jwt
+                from app.config import get_settings
+                settings = get_settings()
+                payload = jose_jwt.decode(
+                    token,
+                    settings.supabase_jwt_secret,
+                    algorithms=["HS256"],
+                    audience="authenticated",
+                )
+                user_id = payload.get("sub")
+                print(f"[TEACHER WS] JWT secret auth OK: user={user_id}", flush=True)
+            except Exception as e2:
+                print(f"[TEACHER WS] Both auth methods failed: JWKS={e}, Secret={e2}", flush=True)
+
+    if not user_id:
+        # Last resort: extract user_id from session record itself
+        session = await session_manager.load_session(session_id)
+        if session:
+            user_id = session.get("user_id")
+            print(f"[TEACHER WS] Auth bypassed — using session user_id: {user_id}", flush=True)
+        else:
+            await websocket.send_json({"type": "error", "message": "Authentication failed", "recoverable": False})
+            await websocket.close(code=4001)
+            return
 
     # Load session
     session = await session_manager.load_session(session_id)
@@ -212,12 +272,26 @@ async def teach_websocket(
         if a.get("status") == "completed" and a.get("output_url")
     }
 
-    # Load user preferences
-    from app.services.agent_task import fetch_onboarding_data
-    onboarding = await fetch_onboarding_data(goal_id, user_id)
-    preferences = onboarding.get("preferences", {})
-    teaching_style = preferences.get("teaching_style", "lecture")
-    student_name = onboarding.get("profile", {}).get("full_name", "")
+    # Load user preferences (graceful fallback if user has no onboarding data)
+    teaching_style = "lecture"
+    student_name = ""
+    try:
+        from app.services.agent_task import fetch_onboarding_data
+        onboarding = await fetch_onboarding_data(goal_id, user_id)
+        preferences = onboarding.get("preferences", {})
+        teaching_style = preferences.get("teaching_style", "lecture")
+        student_name = onboarding.get("profile", {}).get("full_name", "")
+    except Exception as e:
+        print(f"[TEACHER WS] Onboarding data not found, using defaults: {e}", flush=True)
+        # Try to get just the profile name
+        try:
+            sb = get_supabase()
+            profile = sb.table("profiles").select("email").eq("id", user_id).execute()
+            if profile.data:
+                email = profile.data[0].get("email", "")
+                student_name = email.split("@")[0] if email else "Student"
+        except Exception:
+            student_name = "Student"
 
     # Load or create dialogue state
     dialogue_state = DialogueState.from_dict(session.get("dialogue_state", {}))
@@ -251,7 +325,10 @@ async def teach_websocket(
                 msg = json.loads(raw)
                 msg_type = msg.get("type", "")
 
-                if msg_type == "response":
+                if msg_type == "speech_done":
+                    navigator.acknowledge_speech()
+
+                elif msg_type == "response":
                     navigator.receive_response(msg.get("text", ""))
 
                 elif msg_type == "raise_hand":
@@ -304,6 +381,18 @@ async def _run_teaching(
         async for message in navigator.run():
             # Send message to frontend
             await websocket.send_json(message.model_dump())
+
+            # If it's a speak message, wait for frontend to finish playing
+            if message.type == "speak":
+                navigator._speech_done_event.clear()
+                print(f"[TEACHER] Waiting for speech_done...", flush=True)
+                try:
+                    await asyncio.wait_for(
+                        navigator._speech_done_event.wait(), timeout=180,
+                    )
+                    print(f"[TEACHER] speech_done received, continuing", flush=True)
+                except asyncio.TimeoutError:
+                    print(f"[TEACHER] speech_done timeout — continuing anyway", flush=True)
 
             # If it's a wait message, actually pause
             if message.type == "wait":

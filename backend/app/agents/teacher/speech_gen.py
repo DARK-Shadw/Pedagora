@@ -7,6 +7,7 @@ and takes 200-400ms on Groq.
 
 import json
 import logging
+import re
 
 from pydantic_ai import Agent
 
@@ -31,6 +32,65 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+def sanitize_for_tts(text: str) -> str:
+    """Convert math notation in speech text to spoken form for TTS.
+
+    Applied as post-processing on all LLM-generated speech to catch any
+    mathematical notation the prompt instructions didn't prevent.
+    """
+    # Step 1: LaTeX commands
+    text = re.sub(r'\\frac\{([^}]*)\}\{([^}]*)\}', r'\1 over \2', text)
+    text = re.sub(r'\\sqrt\{([^}]*)\}', r'square root of \1', text)
+    text = re.sub(r'\\text\{([^}]*)\}', r'\1', text)
+    text = re.sub(r'\\mathbb\{([^}]*)\}', r'\1', text)
+    text = re.sub(r'\\cdot', ' times ', text)
+    text = re.sub(r'\\times', ' times ', text)
+    text = re.sub(r'\\leq', ' less than or equal to ', text)
+    text = re.sub(r'\\geq', ' greater than or equal to ', text)
+    text = re.sub(r'\\neq', ' not equal to ', text)
+    text = re.sub(r'\\(?:rightarrow|to)\b', ' goes to ', text)
+    text = re.sub(r'\\infty', ' infinity ', text)
+    text = re.sub(r'\\approx', ' approximately ', text)
+    text = re.sub(r'\\sum', ' sum of ', text)
+    text = re.sub(r'\\prod', ' product of ', text)
+    text = re.sub(r'\\int', ' integral of ', text)
+    text = re.sub(r'\\partial', ' partial ', text)
+    # Greek letters — convert to spoken form before stripping
+    greek = {
+        'alpha': 'alpha', 'beta': 'beta', 'gamma': 'gamma',
+        'delta': 'delta', 'epsilon': 'epsilon', 'zeta': 'zeta',
+        'eta': 'eta', 'theta': 'theta', 'iota': 'iota',
+        'kappa': 'kappa', 'lambda': 'lambda', 'mu': 'mu',
+        'nu': 'nu', 'xi': 'xi', 'pi': 'pi', 'rho': 'rho',
+        'sigma': 'sigma', 'tau': 'tau', 'phi': 'phi',
+        'chi': 'chi', 'psi': 'psi', 'omega': 'omega',
+        'Alpha': 'Alpha', 'Beta': 'Beta', 'Gamma': 'Gamma',
+        'Delta': 'Delta', 'Sigma': 'Sigma', 'Omega': 'Omega',
+        'Pi': 'Pi', 'Theta': 'Theta', 'Lambda': 'Lambda',
+    }
+    for cmd, spoken in greek.items():
+        text = text.replace(f'\\{cmd}', f' {spoken} ')
+    # Strip remaining LaTeX commands
+    text = re.sub(r'\\[a-zA-Z]+', '', text)
+
+    # Step 2: Superscripts
+    text = re.sub(r'\^\{([^}]*)\}', r' to the \1', text)
+    text = re.sub(r'\^2\b', ' squared', text)
+    text = re.sub(r'\^3\b', ' cubed', text)
+    text = re.sub(r'\^([a-zA-Z0-9])', r' to the \1', text)
+
+    # Step 3: Subscripts
+    text = re.sub(r'_\{([^}]*)\}', r' \1', text)
+    text = re.sub(r'_([a-zA-Z0-9])', r' \1', text)
+
+    # Step 4: Cleanup
+    text = text.replace('$', '')
+    text = text.replace('{', '')
+    text = text.replace('}', '')
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
 def _get_personality(teaching_style: str) -> str:
     """Get the personality prompt for the given teaching style."""
     template = PERSONALITY_PROMPTS.get(teaching_style, PERSONALITY_PROMPTS["lecture"])
@@ -39,7 +99,13 @@ def _get_personality(teaching_style: str) -> str:
 
 async def _generate(prompt: str, model_string: str | None = None) -> str:
     """Run a single Groq LLM call and return the text."""
+    import os
     settings = get_settings()
+
+    # Ensure GROQ_API_KEY is in os.environ (PydanticAI reads it directly)
+    if settings.groq_api_key and not os.environ.get("GROQ_API_KEY"):
+        os.environ["GROQ_API_KEY"] = settings.groq_api_key
+
     model = model_string or settings.teacher_model
     agent = Agent(create_model(model), output_type=str)
 
@@ -63,7 +129,7 @@ async def generate_opening(
         opening_hook=opening_hook,
         lesson_title=lesson_title,
     )
-    return await _generate(prompt)
+    return sanitize_for_tts(await _generate(prompt))
 
 
 async def generate_segment_speech(
@@ -74,6 +140,8 @@ async def generate_segment_speech(
     misconceptions: list[str],
     recent_context: list[dict],
     teaching_style: str,
+    animations: list[dict] | None = None,
+    avoid_phrases: list[str] | None = None,
 ) -> str:
     """Convert a TEACH segment into natural speech."""
     formula_text = "\n".join(
@@ -86,6 +154,16 @@ async def generate_segment_speech(
         for d in recent_context
     ) if recent_context else "Start of lesson"
 
+    animation_text = "\n".join(
+        f"- [{a.get('animation_type', 'visual')}] {a.get('title', '')}: "
+        f"{a.get('description', '')[:100]}"
+        for a in animations
+    ) if animations else "None"
+
+    avoid_text = "\n".join(
+        f'- "{p}"' for p in avoid_phrases
+    ) if avoid_phrases else "None"
+
     prompt = SEGMENT_SPEECH_PROMPT.format(
         personality=_get_personality(teaching_style),
         segment_title=segment_title,
@@ -93,9 +171,11 @@ async def generate_segment_speech(
         formulas=formula_text,
         analogies="\n".join(f"- {a}" for a in analogies) if analogies else "None",
         misconceptions="\n".join(f"- {m}" for m in misconceptions) if misconceptions else "None",
+        animations=animation_text,
+        avoid_phrases=avoid_text,
         recent_context=context_text,
     )
-    return await _generate(prompt)
+    return sanitize_for_tts(await _generate(prompt))
 
 
 async def generate_question_intro(
@@ -109,7 +189,7 @@ async def generate_question_intro(
         question=question,
         question_type=question_type,
     )
-    return await _generate(prompt)
+    return sanitize_for_tts(await _generate(prompt))
 
 
 async def evaluate_response(
@@ -193,7 +273,7 @@ async def generate_feedback(
         remaining_hints=len(remaining_hints),
         feedback_instruction=instruction,
     )
-    return await _generate(prompt)
+    return sanitize_for_tts(await _generate(prompt))
 
 
 async def generate_transition(
@@ -209,7 +289,7 @@ async def generate_transition(
         prev_topic=prev_topic,
         next_topic=next_topic,
     )
-    return await _generate(prompt)
+    return sanitize_for_tts(await _generate(prompt))
 
 
 async def generate_closing(
@@ -226,7 +306,7 @@ async def generate_closing(
         questions_correct=scores.get("correct", 0),
         areas_for_review="\n".join(f"- {a}" for a in areas_for_review) if areas_for_review else "None",
     )
-    return await _generate(prompt)
+    return sanitize_for_tts(await _generate(prompt))
 
 
 async def handle_student_question(
@@ -249,7 +329,7 @@ async def handle_student_question(
         student_question=student_question,
         recent_context=context_text,
     )
-    return await _generate(prompt)
+    return sanitize_for_tts(await _generate(prompt))
 
 
 async def generate_welcome_back(
@@ -271,4 +351,4 @@ async def generate_welcome_back(
         correct=correct,
         total=total,
     )
-    return await _generate(prompt)
+    return sanitize_for_tts(await _generate(prompt))

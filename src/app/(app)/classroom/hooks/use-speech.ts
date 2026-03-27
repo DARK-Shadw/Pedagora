@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -89,35 +89,52 @@ export function useSpeechRecognition() {
  */
 export function useSpeechSynthesis() {
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const onEndCallbackRef = useRef<(() => void) | null>(null);
 
-  const speak = useCallback((text: string, rate: number = 1.0) => {
-    if (!window.speechSynthesis) return;
+  const speak = useCallback(
+    (text: string, rate: number = 1.0, onEnd?: () => void) => {
+      if (!window.speechSynthesis) {
+        onEnd?.();
+        return;
+      }
 
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = rate;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
 
-    // Try to find a natural-sounding voice
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(
-      (v) =>
-        v.lang.startsWith("en") &&
-        (v.name.includes("Google") ||
-          v.name.includes("Microsoft") ||
-          v.name.includes("Natural"))
-    );
-    if (preferred) utterance.voice = preferred;
+      // Try to find a natural-sounding voice
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(
+        (v) =>
+          v.lang.startsWith("en") &&
+          (v.name.includes("Google") ||
+            v.name.includes("Microsoft") ||
+            v.name.includes("Natural"))
+      );
+      if (preferred) utterance.voice = preferred;
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+      onEndCallbackRef.current = onEnd || null;
 
-    window.speechSynthesis.speak(utterance);
-  }, []);
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        onEndCallbackRef.current?.();
+        onEndCallbackRef.current = null;
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        onEndCallbackRef.current?.();
+        onEndCallbackRef.current = null;
+      };
+
+      window.speechSynthesis.speak(utterance);
+    },
+    []
+  );
 
   const stop = useCallback(() => {
     window.speechSynthesis?.cancel();

@@ -130,6 +130,13 @@ class StudentQuestion(StudentMessage):
     text: str
 
 
+class SpeechDone(StudentMessage):
+    """Frontend signals that TTS finished playing the last speech."""
+
+    type: Literal["speech_done"] = "speech_done"
+    segment_id: str = ""
+
+
 # ─── Internal Types ───
 
 

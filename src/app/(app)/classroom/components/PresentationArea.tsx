@@ -61,9 +61,9 @@ export function PresentationArea() {
 
       {/* Teacher speech subtitle */}
       {teacherSpeech && (
-        <div className="px-4 py-3 bg-[#161b22] border-t border-[#30363d]">
+        <div className="px-4 py-3 bg-[#161b22] border-t border-[#30363d] max-h-28 overflow-y-auto">
           <div className="flex items-start gap-2">
-            <span className="material-symbols-rounded text-[#0d968b] text-sm mt-0.5">
+            <span className="material-symbols-rounded text-[#0d968b] text-sm mt-0.5 shrink-0">
               {teacherSpeech.type === "question"
                 ? "help"
                 : teacherSpeech.type === "feedback"

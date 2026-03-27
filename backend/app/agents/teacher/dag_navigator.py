@@ -56,10 +56,16 @@ class DagNavigator:
         self.paused: bool = False
         self._student_response: str | None = None
         self._response_event = asyncio.Event()
+        self._speech_done_event = asyncio.Event()
+        self._speech_done_event.set()  # Start as "done" so first message sends immediately
 
     @property
     def total_segments(self) -> int:
         return len(self.segment_order)
+
+    def acknowledge_speech(self) -> None:
+        """Called by WebSocket handler when frontend finishes playing speech."""
+        self._speech_done_event.set()
 
     def receive_response(self, text: str) -> None:
         """Called by WebSocket handler when student responds."""
@@ -195,6 +201,7 @@ class DagNavigator:
                     misconceptions=[],
                     recent_context=[{"role": "system", "content": "Student asked to repeat. Explain differently."}],
                     teaching_style=self.teaching_style,
+                    avoid_phrases=self.state.get_avoid_phrases() or None,
                 )
                 yield SpeakMessage(text=repeat_speech, segment_id=current_id, speech_type="teaching")
                 self.state.add_dialogue("teacher", f"[Repeat] {repeat_speech}")
@@ -233,12 +240,19 @@ class DagNavigator:
         """Handle a TEACH segment."""
         sid = segment.get("segment_id", "")
 
-        # Show animations with auto trigger
+        # Collect animation metadata for speech context + show animations
+        active_animations: list[dict] = []
         for anim in segment.get("animations", []):
             if anim.get("trigger", "auto") == "auto":
                 anim_id = anim.get("animation_id", "")
                 url = self.animation_urls.get(anim_id, "")
                 if url:
+                    active_animations.append({
+                        "animation_type": anim.get("animation_type", "visual"),
+                        "title": anim.get("title", ""),
+                        "description": anim.get("description", "")[:100],
+                        "duration_seconds": anim.get("duration_seconds", 10),
+                    })
                     yield ShowAnimationMessage(
                         animation_id=anim_id,
                         animation_url=url,
@@ -246,7 +260,7 @@ class DagNavigator:
                         duration_seconds=anim.get("duration_seconds", 10),
                     )
 
-        # Generate speech from key points
+        # Generate speech with animation context + avoid repetition
         formulas = [f for f in segment.get("formulas", [])]
         speech = await speech_gen.generate_segment_speech(
             segment_title=segment.get("title", ""),
@@ -256,9 +270,12 @@ class DagNavigator:
             misconceptions=segment.get("misconceptions_to_address", []),
             recent_context=self.state.get_recent_context(),
             teaching_style=self.teaching_style,
+            animations=active_animations or None,
+            avoid_phrases=self.state.get_avoid_phrases() or None,
         )
         yield SpeakMessage(text=speech, segment_id=sid, speech_type="teaching")
         self.state.add_dialogue("teacher", speech)
+        self.state.record_opening_phrase(speech)
 
         # Strategic pause after teaching
         yield WaitMessage(seconds=3, reason="absorption_time")
@@ -267,12 +284,20 @@ class DagNavigator:
         """Handle a DEMONSTRATE segment."""
         sid = segment.get("segment_id", "")
 
-        # Show code walkthrough animation if available
+        # Collect animation metadata + show animations
+        active_animations: list[dict] = []
         for anim in segment.get("animations", []):
-            url = self.animation_urls.get(anim.get("animation_id", ""), "")
+            anim_id = anim.get("animation_id", "")
+            url = self.animation_urls.get(anim_id, "")
             if url:
+                active_animations.append({
+                    "animation_type": anim.get("animation_type", "visual"),
+                    "title": anim.get("title", ""),
+                    "description": anim.get("description", "")[:100],
+                    "duration_seconds": anim.get("duration_seconds", 10),
+                })
                 yield ShowAnimationMessage(
-                    animation_id=anim.get("animation_id", ""),
+                    animation_id=anim_id,
                     animation_url=url,
                     action="play",
                     duration_seconds=anim.get("duration_seconds", 10),
@@ -303,9 +328,12 @@ class DagNavigator:
             misconceptions=[],
             recent_context=self.state.get_recent_context(),
             teaching_style=self.teaching_style,
+            animations=active_animations or None,
+            avoid_phrases=self.state.get_avoid_phrases() or None,
         )
         yield SpeakMessage(text=speech, segment_id=sid, speech_type="teaching")
         self.state.add_dialogue("teacher", speech)
+        self.state.record_opening_phrase(speech)
 
     async def _handle_check_flow(self, segment: dict) -> AsyncGenerator[TeacherMessage | str, None]:
         """Handle CHECK_UNDERSTANDING as a flow.

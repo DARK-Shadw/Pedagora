@@ -34,6 +34,7 @@ export function useTeacherSession(sessionId: string, token: string) {
 
     ws.onopen = () => {
       console.log("[WS] Connected to teacher session");
+      console.log("[WS] Token length:", token?.length, "Token start:", token?.substring(0, 20));
       reconnectAttempts.current = 0;
       setStatus("active");
     };
@@ -41,6 +42,7 @@ export function useTeacherSession(sessionId: string, token: string) {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
+        console.log("[WS] Message received:", msg.type, msg);
         handleMessage(msg);
       } catch (e) {
         console.error("[WS] Failed to parse message:", e);
@@ -211,6 +213,13 @@ export function useTeacherSession(sessionId: string, token: string) {
     [sendMessage]
   );
 
+  const sendSpeechDone = useCallback(
+    (segmentId: string = "") => {
+      sendMessage({ type: "speech_done", segment_id: segmentId });
+    },
+    [sendMessage]
+  );
+
   const sendQuestion = useCallback(
     (text: string) => {
       sendMessage({ type: "question", text });
@@ -260,6 +269,7 @@ export function useTeacherSession(sessionId: string, token: string) {
 
   return {
     sendResponse,
+    sendSpeechDone,
     raiseHand,
     lowerHand,
     sendReaction,
