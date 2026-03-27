@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { useClassroomStore } from "../stores/classroom-store";
 
-export function PresentationArea() {
+export const PresentationArea = memo(function PresentationArea() {
   const { currentAnimation, teacherSpeech, isSpeaking } = useClassroomStore();
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -78,4 +78,4 @@ export function PresentationArea() {
       )}
     </div>
   );
-}
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useClassroomStore } from "../stores/classroom-store";
 
 interface ControlsProps {
@@ -11,7 +12,7 @@ interface ControlsProps {
   onLeave: () => void;
 }
 
-export function Controls({
+export const Controls = memo(function Controls({
   onRaiseHand,
   onLowerHand,
   onReaction,
@@ -108,4 +109,4 @@ export function Controls({
       </div>
     </div>
   );
-}
+});

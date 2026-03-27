@@ -182,6 +182,7 @@ async def teach_websocket(
     websocket: WebSocket,
     session_id: str,
     token: str = Query(default=""),
+    fresh: bool = Query(default=False),
 ):
     """Main WebSocket for live teaching sessions.
 
@@ -294,7 +295,11 @@ async def teach_websocket(
             student_name = "Student"
 
     # Load or create dialogue state
-    dialogue_state = DialogueState.from_dict(session.get("dialogue_state", {}))
+    if fresh:
+        dialogue_state = DialogueState()
+        print(f"[TEACHER WS] Fresh session requested — resetting dialogue state", flush=True)
+    else:
+        dialogue_state = DialogueState.from_dict(session.get("dialogue_state", {}))
 
     # Create DAG navigator
     navigator = DagNavigator(

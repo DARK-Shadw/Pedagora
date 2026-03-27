@@ -240,8 +240,9 @@ class DagNavigator:
         """Handle a TEACH segment."""
         sid = segment.get("segment_id", "")
 
-        # Collect animation metadata for speech context + show animations
+        # Collect animation metadata + prepare messages (don't yield yet)
         active_animations: list[dict] = []
+        animation_messages: list[ShowAnimationMessage] = []
         for anim in segment.get("animations", []):
             if anim.get("trigger", "auto") == "auto":
                 anim_id = anim.get("animation_id", "")
@@ -253,14 +254,14 @@ class DagNavigator:
                         "description": anim.get("description", "")[:100],
                         "duration_seconds": anim.get("duration_seconds", 10),
                     })
-                    yield ShowAnimationMessage(
+                    animation_messages.append(ShowAnimationMessage(
                         animation_id=anim_id,
                         animation_url=url,
                         action="play",
                         duration_seconds=anim.get("duration_seconds", 10),
-                    )
+                    ))
 
-        # Generate speech with animation context + avoid repetition
+        # Generate speech FIRST (pays Groq latency before yielding anything)
         formulas = [f for f in segment.get("formulas", [])]
         speech = await speech_gen.generate_segment_speech(
             segment_title=segment.get("title", ""),
@@ -273,6 +274,10 @@ class DagNavigator:
             animations=active_animations or None,
             avoid_phrases=self.state.get_avoid_phrases() or None,
         )
+
+        # NOW yield animation + speech back-to-back (no gap)
+        for msg in animation_messages:
+            yield msg
         yield SpeakMessage(text=speech, segment_id=sid, speech_type="teaching")
         self.state.add_dialogue("teacher", speech)
         self.state.record_opening_phrase(speech)
@@ -284,8 +289,9 @@ class DagNavigator:
         """Handle a DEMONSTRATE segment."""
         sid = segment.get("segment_id", "")
 
-        # Collect animation metadata + show animations
+        # Collect animation metadata + prepare messages (don't yield yet)
         active_animations: list[dict] = []
+        animation_messages: list[ShowAnimationMessage] = []
         for anim in segment.get("animations", []):
             anim_id = anim.get("animation_id", "")
             url = self.animation_urls.get(anim_id, "")
@@ -296,12 +302,12 @@ class DagNavigator:
                     "description": anim.get("description", "")[:100],
                     "duration_seconds": anim.get("duration_seconds", 10),
                 })
-                yield ShowAnimationMessage(
+                animation_messages.append(ShowAnimationMessage(
                     animation_id=anim_id,
                     animation_url=url,
                     action="play",
                     duration_seconds=anim.get("duration_seconds", 10),
-                )
+                ))
 
         # Generate explanation of the code demo
         code_demos = segment.get("code_demos", [])
@@ -331,6 +337,10 @@ class DagNavigator:
             animations=active_animations or None,
             avoid_phrases=self.state.get_avoid_phrases() or None,
         )
+
+        # Yield animation + speech back-to-back (no gap)
+        for msg in animation_messages:
+            yield msg
         yield SpeakMessage(text=speech, segment_id=sid, speech_type="teaching")
         self.state.add_dialogue("teacher", speech)
         self.state.record_opening_phrase(speech)

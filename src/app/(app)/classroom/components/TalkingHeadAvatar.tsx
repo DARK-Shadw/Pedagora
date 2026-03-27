@@ -63,12 +63,20 @@ const TalkingHeadAvatar = forwardRef<TalkingHeadAvatarHandle, TalkingHeadAvatarP
 
           if (disposed) return;
 
+          // Lower pixel ratio during construction to reduce GPU fill rate
+          const savedRatio = window.devicePixelRatio;
+          Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
+
           const head = new TalkingHead(containerRef.current!, {
             cameraView: "upper",
             cameraZoomEnable: false,
             cameraPanEnable: false,
             lipsyncModules: ["en"],
+            modelFPS: 15,
           });
+
+          // Restore original ratio
+          Object.defineProperty(window, 'devicePixelRatio', { value: savedRatio, configurable: true });
 
           // Use refs for callbacks so they always point to latest function
           head.onstartspeaking = () => onStartRef.current?.();

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { SessionHeader } from "../components/SessionHeader";
 import { PresentationArea } from "../components/PresentationArea";
 import { InteractionPanel } from "../components/InteractionPanel";
 import { Controls } from "../components/Controls";
-import { useTeacherSession } from "../hooks/use-teacher-session";
+import { useTeacherSession, type SpeechData } from "../hooks/use-teacher-session";
 import { useHeadTTS } from "../hooks/use-headtts";
 import { useClassroomStore } from "../stores/classroom-store";
 import TalkingHeadAvatar, {
@@ -22,18 +22,17 @@ export default function ClassroomPage() {
   const [loading, setLoading] = useState(true);
   const [started, setStarted] = useState(false); // User must click Start
   const speechQueueRef = useRef<
-    { text: string; segmentId: string }[]
+    { text: string; type: string; segmentId: string }[]
   >([]);
   const isSpeakingRef = useRef(false);
 
-  const {
-    status,
-    errorMessage,
-    sessionSummary,
-    teacherSpeech,
-  } = useClassroomStore();
+  const status = useClassroomStore((s) => s.status);
+  const errorMessage = useClassroomStore((s) => s.errorMessage);
+  const sessionSummary = useClassroomStore((s) => s.sessionSummary);
+  const teacherSpeech = useClassroomStore((s) => s.teacherSpeech);
   const reset = useClassroomStore((s) => s.reset);
   const setIsSpeaking = useClassroomStore((s) => s.setIsSpeaking);
+  const setTeacherSpeech = useClassroomStore((s) => s.setTeacherSpeech);
   const avatarHandleRef = useRef<TalkingHeadAvatarHandle>(null);
   const {
     isLoaded: ttsLoaded,
@@ -60,7 +59,15 @@ export default function ClassroomPage() {
     return () => reset();
   }, [router, reset]);
 
-  // Only connect WebSocket AFTER user clicks Start
+  // Speech callback — pushes to queue when WS receives speak messages
+  // Handle speech messages from WS — push to queue
+  const handleSpeech = useCallback((speech: SpeechData) => {
+    speechQueueRef.current.push(speech);
+    processQueue();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Only connect WebSocket AFTER user clicks Start (fresh=true to start new lesson)
   const {
     sendResponse,
     sendSpeechDone,
@@ -71,7 +78,7 @@ export default function ClassroomPage() {
     pauseSession,
     resumeSession,
     leaveSession,
-  } = useTeacherSession(started ? sessionId : "", token);
+  } = useTeacherSession(started ? sessionId : "", token, true, handleSpeech);
 
   // Process speech queue one at a time
   const processQueue = () => {
@@ -81,13 +88,24 @@ export default function ClassroomPage() {
     isSpeakingRef.current = true;
     setIsSpeaking(true);
 
-    speakAloud(next.text, () => {
-      isSpeakingRef.current = false;
-      setIsSpeaking(false);
-      sendSpeechDone(next.segmentId);
-      // Process next in queue
-      processQueue();
-    });
+    speakAloud(
+      next.text,
+      // onEnd — audio finished playing
+      () => {
+        isSpeakingRef.current = false;
+        setIsSpeaking(false);
+        sendSpeechDone(next.segmentId);
+        processQueue();
+      },
+      // onStart — audio starts playing, NOW show subtitle
+      () => {
+        setTeacherSpeech({
+          text: next.text,
+          type: next.type,
+          segmentId: next.segmentId,
+        });
+      }
+    );
   };
 
   // Connect avatar to HeadTTS for lip-synced audio routing
@@ -97,18 +115,6 @@ export default function ClassroomPage() {
     }
     return () => setAvatar(null);
   }, [ttsLoaded, usesFallback, setAvatar]);
-
-  // Queue teacher speech (don't play immediately — queue it)
-  useEffect(() => {
-    if (!teacherSpeech?.text || !started) return;
-
-    speechQueueRef.current.push({
-      text: teacherSpeech.text,
-      segmentId: teacherSpeech.segmentId,
-    });
-    processQueue();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherSpeech]);
 
   const handleStart = async () => {
     // Initialize HeadTTS (requires user gesture for AudioContext)
@@ -280,8 +286,8 @@ export default function ClassroomPage() {
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 flex gap-0 min-h-0 p-4">
           {/* Avatar zone */}
-          <div className="w-[35%] flex flex-col bg-[#161b22] rounded-lg mr-4 overflow-hidden">
-            <div className="flex-1 min-h-0">
+          <div className="w-[35%] flex flex-col bg-[#161b22] rounded-lg mr-4 overflow-hidden" style={{ contain: "layout style" }}>
+            <div className="flex-1 min-h-0 max-h-[500px]" style={{ willChange: "transform" }}>
               <TalkingHeadAvatar
                 ref={avatarHandleRef}
                 onStartSpeaking={() => setIsSpeaking(true)}

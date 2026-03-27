@@ -42,6 +42,15 @@ export function useHeadTTS() {
       setIsLoading(true);
       setLoadProgress(0);
 
+      // Skip HeadTTS entirely if no WebGPU — WASM fallback is unusably slow (10+ min)
+      if (!(navigator as any).gpu) {
+        console.warn("[HeadTTS] No WebGPU support — using browser TTS");
+        setUsesFallback(true);
+        setIsLoaded(true);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const { HeadTTS } = await import("@met4citizen/headtts");
 
@@ -59,7 +68,7 @@ export function useHeadTTS() {
           audioCtx,
           workerModule: `${CDN_BASE}/modules/worker-tts.mjs`,
           dictionaryURL: `${CDN_BASE}/dictionaries/`,
-          trace: 7, // 1=connection + 2=messages + 4=events
+          trace: 0,
         });
 
         headtts.onstart = () => setIsSpeaking(true);
@@ -110,9 +119,12 @@ export function useHeadTTS() {
     await initPromiseRef.current;
   }, []);
 
+  const onStartCallbackRef = useRef<(() => void) | null>(null);
+
   const speak = useCallback(
-    (text: string, onEnd?: () => void) => {
+    (text: string, onEnd?: () => void, onStart?: () => void) => {
       onEndCallbackRef.current = onEnd || null;
+      onStartCallbackRef.current = onStart || null;
 
       // HeadTTS path
       if (ttsRef.current && !usesFallback) {
@@ -120,13 +132,18 @@ export function useHeadTTS() {
           audioCtxRef.current.resume();
         }
 
-        console.log("[HeadTTS] Synthesizing:", text.slice(0, 60) + "...");
+        // Split into sentences for shorter GPU bursts (reduces avatar stutter)
+        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
 
+        let startFired = false;
         const audioHandler = (message: any) => {
-          console.log("[HeadTTS] Audio received:",
-            message.type, message.data?.audio?.constructor?.name);
-
           if (message.type === "audio" && message.data) {
+            // Fire onStart on first audio chunk (subtitle appears with audio)
+            if (!startFired) {
+              startFired = true;
+              onStartCallbackRef.current?.();
+              onStartCallbackRef.current = null;
+            }
             // Try avatar first — it handles audio + lip sync together
             const avatarPlayed = avatarRef.current?.speakAudio(message.data);
 
@@ -149,9 +166,14 @@ export function useHeadTTS() {
           }
         };
 
-        // Set global handler AND pass per-request handler (recommended by API)
+        // Synthesize each sentence separately for shorter GPU bursts
         ttsRef.current.onmessage = audioHandler;
-        ttsRef.current.synthesize({ input: text }, audioHandler);
+        for (const sentence of sentences) {
+          const trimmed = sentence.trim();
+          if (trimmed) {
+            ttsRef.current.synthesize({ input: trimmed }, audioHandler);
+          }
+        }
         return;
       }
 
@@ -177,7 +199,11 @@ export function useHeadTTS() {
       );
       if (preferred) utterance.voice = preferred;
 
-      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        onStartCallbackRef.current?.();
+        onStartCallbackRef.current = null;
+      };
       utterance.onend = () => {
         setIsSpeaking(false);
         onEndCallbackRef.current?.();

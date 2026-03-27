@@ -6,10 +6,23 @@ import { useClassroomStore } from "../stores/classroom-store";
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const WS_URL = BACKEND_URL.replace("http", "ws");
 
-export function useTeacherSession(sessionId: string, token: string) {
+export interface SpeechData {
+  text: string;
+  type: string;
+  segmentId: string;
+}
+
+export function useTeacherSession(
+  sessionId: string,
+  token: string,
+  fresh: boolean = false,
+  onSpeech?: (speech: SpeechData) => void,
+) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  const onSpeechRef = useRef(onSpeech);
+  onSpeechRef.current = onSpeech;
 
   const {
     setSessionInfo,
@@ -27,8 +40,9 @@ export function useTeacherSession(sessionId: string, token: string) {
   const connect = useCallback(() => {
     if (!sessionId || !token) return;
 
+    const freshParam = fresh ? "&fresh=true" : "";
     const ws = new WebSocket(
-      `${WS_URL}/teacher/ws/teach/${sessionId}?token=${token}`
+      `${WS_URL}/teacher/ws/teach/${sessionId}?token=${token}${freshParam}`
     );
     wsRef.current = ws;
 
@@ -96,7 +110,8 @@ export function useTeacherSession(sessionId: string, token: string) {
           break;
 
         case "speak":
-          setTeacherSpeech({
+          // Push to speech queue via callback — subtitle set when audio starts
+          onSpeechRef.current?.({
             text: msg.text,
             type: msg.speech_type,
             segmentId: msg.segment_id || "",
@@ -109,6 +124,7 @@ export function useTeacherSession(sessionId: string, token: string) {
           break;
 
         case "show_animation":
+          // Play immediately — backend now sends animation + speech back-to-back
           setCurrentAnimation({
             animationId: msg.animation_id,
             url: msg.animation_url,
