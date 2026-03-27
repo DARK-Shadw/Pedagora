@@ -110,15 +110,30 @@ async def run_research_v3(goal_id: str, user_id: str) -> dict:
 
     logger.info(f"[Research v3] Starting research for goal={goal_id}, topic='{context['goal_title']}'")
 
-    # Run Claude Code
+    # Run Claude Code with streaming to avoid timeout on long research
     try:
-        result = await engine.run(
+        final_text = ""
+        tool_count = 0
+        async for event in engine.stream(
             prompt=prompt,
             system_prompt=RESEARCH_V3_SYSTEM_PROMPT,
             tools=["WebSearch", "WebFetch"],
-            timeout=600,  # 10 min max — Claude needs time for WebSearch/WebFetch
-            max_turns=50,  # Allow plenty of tool calls for thorough research
-        )
+            max_turns=50,
+            timeout=1800,  # 30 min absolute max
+        ):
+            if event["type"] == "text":
+                final_text = event.get("content", "")
+            elif event["type"] == "tool_use":
+                tool_count += 1
+                tool_name = event.get("name", "?")
+                # Update progress based on tool calls (rough estimate)
+                pct = min(10 + int(tool_count * 2), 75)
+                _update_progress(sb, goal_id, "active", pct, f"Researching... ({tool_name})")
+            elif event["type"] == "result":
+                final_text = event.get("result", final_text)
+                logger.info(f"[Research v3] Done: {tool_count} tool calls, cost=${event.get('cost_usd', 0):.4f}")
+            elif event["type"] == "error":
+                raise RuntimeError(event.get("message", "Unknown streaming error"))
     except Exception as e:
         logger.error(f"[Research v3] Claude Code failed: {e}")
         _update_progress(sb, goal_id, "failed", 0, error=str(e))
@@ -126,12 +141,22 @@ async def run_research_v3(goal_id: str, user_id: str) -> dict:
 
     _update_progress(sb, goal_id, "active", 80, "Parsing research results...")
 
+    # Strip markdown fences if present
+    stripped = final_text.strip()
+    if stripped.startswith("```"):
+        lines = stripped.split("\n")
+        if lines[-1].strip() == "```":
+            lines = lines[1:-1]
+        elif lines[0].startswith("```"):
+            lines = lines[1:]
+        stripped = "\n".join(lines).strip()
+
     # Parse the result
     try:
-        parsed = json.loads(result["result"])
+        parsed = json.loads(stripped)
     except json.JSONDecodeError as e:
         logger.error(f"[Research v3] Failed to parse JSON: {e}")
-        logger.error(f"[Research v3] Raw result: {result['result'][:500]}")
+        logger.error(f"[Research v3] Raw text: {stripped[:500]}")
         _update_progress(sb, goal_id, "failed", 0, error=f"JSON parse error: {e}")
         raise
 
