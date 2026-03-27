@@ -325,11 +325,11 @@ class ClaudeEngine:
                 try:
                     line = await asyncio.wait_for(
                         process.stdout.readline(),
-                        timeout=120,  # 2 min inactivity timeout
+                        timeout=600,  # 10 min inactivity (WebFetch can be slow)
                     )
                 except asyncio.TimeoutError:
                     process.kill()
-                    yield {"type": "error", "message": "Inactivity timeout (120s)"}
+                    yield {"type": "error", "message": "Inactivity timeout (600s)"}
                     break
 
                 if not line:
