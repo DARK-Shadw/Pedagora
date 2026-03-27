@@ -60,7 +60,8 @@ For each topic, specify what content is needed:
 - needs_exercises: bool
 
 STEP 3: WEB RESEARCH
-Use WebSearch and WebFetch to find 20-40 high-quality sources total.
+Use WebSearch to find 15-25 high-quality sources total. Use WebFetch \
+only on the 5-8 most important URLs to extract deep content.
 Prioritize: official docs, well-known tutorials, academic papers, \
 GitHub repos with implementations.
 

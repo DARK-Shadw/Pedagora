@@ -116,8 +116,8 @@ async def run_research_v3(goal_id: str, user_id: str) -> dict:
             prompt=prompt,
             system_prompt=RESEARCH_V3_SYSTEM_PROMPT,
             tools=["WebSearch", "WebFetch"],
-            timeout=300,  # 5 min max
-            max_turns=30,  # Allow plenty of tool calls for thorough research
+            timeout=600,  # 10 min max — Claude needs time for WebSearch/WebFetch
+            max_turns=50,  # Allow plenty of tool calls for thorough research
         )
     except Exception as e:
         logger.error(f"[Research v3] Claude Code failed: {e}")
