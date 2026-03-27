@@ -1,10 +1,11 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.models.requests import ResearchRequest, CoursePlanRequest, AnimateLessonRequest
 from app.models.responses import ResearchAccepted, CoursePlanAccepted, AnimateLessonAccepted, AgentStatusResponse
 from app.services.agent_task import get_agent_task, update_agent_task, cleanup_previous_research, fetch_research_results, fetch_course_plan, get_lesson_animations
-from app.agents.pipeline import run_research_pipeline
+from app.agents.research_v3 import run_research_v3
 from app.agents.course_planner.pipeline import run_course_planner_pipeline
 from app.agents.animation.pipeline import run_animation_pipeline
 
@@ -56,7 +57,7 @@ async def trigger_research(
         )
 
     # Launch pipeline in background
-    background_tasks.add_task(run_research_pipeline, goal_id, user_id)
+    background_tasks.add_task(run_research_v3, goal_id, user_id)
 
     return ResearchAccepted(goal_id=goal_id, task_id=task["id"])
 
@@ -162,6 +163,58 @@ async def get_animation_status(
         "pending": sum(1 for a in animations if a["status"] == "pending"),
         "animations": animations,
     }
+
+
+class AssessmentRequest(BaseModel):
+    goal_title: str
+    education_level: str = "self_learner"
+    prerequisites: list[dict] = []
+
+
+@router.post("/generate-assessment")
+async def generate_assessment(request: AssessmentRequest):
+    """Generate skill assessment questions using Claude Code."""
+    from app.engine.claude_engine import ClaudeEngine
+    engine = ClaudeEngine(model="haiku")
+
+    prereqs_text = "\n".join(
+        f"- {p.get('skillName', p.get('skill_name', '?'))}: "
+        f"{p.get('confidenceLevel', p.get('confidence_level', '?'))}"
+        for p in request.prerequisites
+    ) if request.prerequisites else "None provided"
+
+    result = await engine.run(
+        prompt=f"""Generate 6-10 prerequisite assessment questions for a student.
+
+STUDENT PROFILE:
+- Education level: {request.education_level}
+- Learning goal: {request.goal_title}
+- Self-reported skills:
+{prereqs_text}
+
+Generate questions that PROBE whether the student truly understands the
+prerequisites needed for this learning goal. Focus on foundational knowledge
+that will be essential — don't ask surface-level questions.
+
+For a goal like "video diffusion models", good questions would probe:
+- Probability distributions and Bayes' theorem
+- Neural network architectures (what is a U-Net?)
+- Loss functions and optimization
+- Basic linear algebra (matrix multiplication, eigenvalues)
+
+Each question should have a "context" explaining WHY this knowledge matters
+for the student's specific goal.
+
+Return ONLY valid JSON (no markdown):
+{{"questions": [{{"id": "q1", "question": "Can you explain...", "context": "This matters because..."}}]}}""",
+        timeout=60,
+    )
+
+    import json
+    try:
+        return json.loads(result["result"])
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Failed to parse assessment questions")
 
 
 @router.get("/status/{goal_id}", response_model=AgentStatusResponse)
