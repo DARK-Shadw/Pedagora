@@ -6,7 +6,7 @@ from app.models.requests import ResearchRequest, CoursePlanRequest, AnimateLesso
 from app.models.responses import ResearchAccepted, CoursePlanAccepted, AnimateLessonAccepted, AgentStatusResponse
 from app.services.agent_task import get_agent_task, update_agent_task, cleanup_previous_research, fetch_research_results, fetch_course_plan, get_lesson_animations
 from app.agents.research_v3 import run_research_v3
-from app.agents.course_planner.pipeline import run_course_planner_pipeline
+from app.agents.course_planner.pipeline_v4 import run_course_planner_v4
 from app.agents.animation.pipeline import run_animation_pipeline
 
 router = APIRouter()
@@ -111,7 +111,7 @@ async def trigger_course_plan(
             log_level="system",
         )
 
-    background_tasks.add_task(run_course_planner_pipeline, goal_id, user_id)
+    background_tasks.add_task(run_course_planner_v4, goal_id, user_id)
     return CoursePlanAccepted(goal_id=goal_id, task_id=task["id"])
 
 

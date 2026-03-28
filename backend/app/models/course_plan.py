@@ -245,3 +245,73 @@ class CoursePlan(BaseModel):
         description="lesson_id -> relevant student resources",
     )
     generation_metadata: dict = Field(default_factory=dict)
+
+
+# ─── v4: Visual-First Storyboard Models ───
+
+
+class VisualStep(BaseModel):
+    """A sub-step within a visual frame (e.g., one line of equation reveal)."""
+
+    step_id: str = Field(description="e.g. 'step-1'")
+    label: str = Field(description="GSAP timeline label for seeking")
+    description: str = Field(description="What changes visually at this step")
+    narration: str = Field(description="What teacher says during this step")
+    narration_spoken: str = Field(description="TTS-friendly, no math notation")
+    duration_seconds: float = Field(default=3.0)
+    pause_after: bool = Field(default=False, description="Teacher pauses here for emphasis")
+
+
+class FrameInteraction(BaseModel):
+    """Student engagement point within a frame."""
+
+    interaction_type: Literal["predict", "question", "opinion", "manipulate", "fill_blank"]
+    prompt: str = Field(description="What teacher asks the student")
+    expected_response: str | None = None
+    hints: list[str] = Field(default_factory=list)
+    on_correct: str | None = Field(default=None, description="Frame ID to go to if correct")
+    on_wrong: str | None = None
+    on_skip: str | None = None
+
+
+class VisualFrame(BaseModel):
+    """One visual state on screen + narration + optional interaction.
+
+    The core unit of v4 storyboards. Each lesson is a sequence of frames.
+    """
+
+    frame_id: str = Field(description="e.g. 'les1-f01'")
+    visual_type: Literal[
+        "animation",        # Manim step-based animation
+        "equation",         # KaTeX with step-by-step reveal
+        "diagram",          # SVG diagram building up
+        "code",             # Syntax-highlighted code with line reveal
+        "image",            # Static image (paper figure, example output)
+        "image_sequence",   # Series of images (noise progression)
+        "interactive",      # Student can manipulate parameters
+        "split",            # Two visuals side-by-side (comparison)
+        "blackboard",       # Empty canvas for teacher drawing
+    ]
+
+    # What's on screen
+    visual_spec: dict = Field(description="Type-specific rendering specification")
+
+    # What teacher says
+    narration: str = Field(description="Pre-written narration script")
+    narration_spoken: str = Field(description="TTS-friendly version, no math notation")
+
+    # Timing
+    estimated_seconds: int = Field(default=20, ge=5, le=300)
+    transition: str = Field(default="fade")
+
+    # Step control (for animations/equations with multiple steps)
+    steps: list[VisualStep] = Field(default_factory=list)
+
+    # Interaction
+    interaction: FrameInteraction | None = None
+
+    # Story position
+    story_phase: Literal["hook", "motivation", "concept", "climax", "resolution", "practice"] = "concept"
+
+    # Flow
+    next_frame: str | None = None
