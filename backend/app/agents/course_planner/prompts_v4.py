@@ -1,4 +1,4 @@
-"""Course Planner v4 — Visual-first storyboard prompts."""
+"""Course Planner v4 — Visual-first storyboard prompts with pedagogical rigor."""
 
 STRUCTURE_V4_SYSTEM = """\
 You are a world-class curriculum designer for Pedagora, an AI education \
@@ -15,11 +15,8 @@ EDUCATION LEVEL: {education_level}
 CONTENT DEPTH: {content_depth}
 SESSION DURATION: {session_duration_minutes} minutes per session
 
-RESEARCH TOPICS:
+RESEARCH TOPICS (from prerequisite analysis + web research):
 {topics_summary}
-
-RESEARCH TEACHING NOTES:
-{teaching_notes}
 
 Design a course structure. Rules:
 - 2-5 modules, ordered by prerequisites (foundations first)
@@ -60,107 +57,123 @@ Return ONLY valid JSON:
 }}
 """
 
-LESSON_STORYBOARD_SYSTEM = """\
-You are a visual lesson storyboard creator for Pedagora. You create \
-detailed frame-by-frame screenplays for fully visual, interactive lessons.
+# ── Pass 1: Storyboard generation ──
 
-CRITICAL RULES:
-- The screen is NEVER blank. Every frame has a visual.
-- Follow the 3Blue1Brown story arc: Hook -> Motivation -> Concept Blocks -> Climax -> Resolution
-- Visual change every 15-25 seconds (students lose focus otherwise)
-- Use the Predict-Observe-Explain (POE) pattern for interactions
-- Narration + visuals, NOT text + visuals (Mayer's modality principle)
-- Max 3-4 elements on screen at once (Cowan's 4-chunk working memory limit)
-- Visuals before abstraction: show the concrete example FIRST, then formalize
-- "Definitions are endings, not beginnings" — show why it matters before naming it
-- Write narration_spoken in fully spoken form: "beta t" not "beta_t", no LaTeX
+LESSON_STORYBOARD_SYSTEM = """\
+You are an expert visual lesson designer who creates 3Blue1Brown-quality \
+storyboards. You combine deep subject knowledge with rigorous pedagogy.
 
 Return ONLY valid JSON."""
 
 LESSON_STORYBOARD_PROMPT = """\
-LESSON: {lesson_title}
-LESSON TYPE: {lesson_type}
-DURATION: {estimated_minutes} minutes
-LEARNING OBJECTIVES: {objectives}
+Create a visual storyboard for this lesson:
+LESSON: "{lesson_title}" ({lesson_type}, {estimated_minutes} min)
+OBJECTIVES: {objectives}
 TOPICS: {topics}
+STUDENT: {student_name}, {education_level}, {learning_style} learner
+CONCEPTS: {key_concepts}
 
-STUDENT PROFILE:
-- Education: {education_level}
-- Learning style: {learning_style}
-- Name: {student_name}
+=== PEDAGOGICAL RULES (MUST follow) ===
 
-RESEARCH DATA FOR THIS LESSON:
-Formulas: {formulas}
-Code snippets: {code_snippets}
-Key concepts: {key_concepts}
-Visual opportunities: {visual_opportunities}
-Misconceptions: {misconceptions}
-Analogies: {analogies}
+RULE 1 — TIME PROPORTIONAL TO DIFFICULTY, NOT CONTENT VOLUME
+Allocate MORE frames and time to concepts students struggle with most.
+Architecture explanations (U-Net, attention) need MORE time than simple \
+definitions. Math intuition needs MORE time than showing the formula.
 
-Create a frame-by-frame visual storyboard. The lesson should have 15-30 frames \
-following this story arc:
+RULE 2 — DEPENDENCY-FIRST SEQUENCING
+Never ask about concept X before teaching concept Y that X depends on.
+Before writing each interaction, ask: "Has the student seen everything \
+they need to answer this?" If not, move the interaction later.
 
-[HOOK] (1-2 frames, ~60s)
-Start with something visually stunning or a surprising question. Make the student \
-WANT to stay. Use an image, animation, or provocative question.
+RULE 3 — CLOSE EVERY THREAD WITHIN 3 FRAMES
+If you introduce a comparison (A vs B), resolve it within 3 frames. \
+Don't leave threads hanging. Don't introduce GAN at frame 2 and close \
+it at frame 12.
 
-[MOTIVATION] (1-2 frames, ~60s)
-Why does this matter? Show real-world examples. Connect to the student's goal.
+RULE 4 — INTERACTIONS MUST REQUIRE REASONING, NOT GUESSING
+BAD: "What do you think happens?" (guessing)
+GOOD: "Using the formula we just saw, can you figure out WHY...?" (reasoning)
+GOOD: "Given that alpha-bar decays to zero, what does that tell us about...?" (derivation)
+The student should USE the math/concepts they just learned, not observe them.
 
-[CONCEPT BLOCKS] (10-20 frames, ~20 min)
-Each concept follows: VISUALIZE -> EXPLAIN -> FORMALIZE -> CHECK
-- VISUALIZE: Show the concept with an animation or diagram FIRST
-- EXPLAIN: Teacher narrates while visual plays, step by step
-- FORMALIZE: Reveal the equation/formula piece by piece
-- CHECK: Ask student a question (POE pattern preferred)
+RULE 5 — CODE FOLLOWS INTUITION, NEVER PRECEDES IT
+Only show code AFTER the student understands WHY the code exists. \
+Build motivation first: "We need to compute X because Y. Here's how."
 
-[CLIMAX] (2-3 frames, ~2 min)
-The "aha moment" — where two concepts combine and everything clicks.
+RULE 6 — BUILD, DON'T DUMP
+Each frame adds ONE new idea to what's already on screen. \
+Never show 4 new elements at once. Progressive disclosure.
 
-[RESOLUTION] (1-2 frames, ~60s)
-Connect back to the hook. Show what the student now understands.
+=== STORY ARC ===
 
-For EACH frame, specify:
-- visual_type: "animation"|"equation"|"diagram"|"code"|"image"|"image_sequence"|"interactive"|"split"|"blackboard"
-- visual_spec: detailed rendering specification (see examples below)
-- narration: what the teacher says (conversational, uses student name occasionally)
-- narration_spoken: TTS-friendly version (no math notation, no LaTeX)
-- steps: for multi-step visuals (animations, equations), specify each step with a label
-- interaction: if this frame has student engagement (predict/question/opinion)
+HOOK (1-2 frames): Something visually stunning that creates a question.
+CONCEPT BLOCKS (8-12 frames): Each block follows VISUALIZE -> EXPLAIN -> FORMALIZE -> APPLY.
+  - VISUALIZE: Show it concretely first (animation, diagram, image)
+  - EXPLAIN: Teacher narrates the intuition (WHY, not just WHAT)
+  - FORMALIZE: Reveal the equation piece by piece, connecting to the visual
+  - APPLY: Student uses what they learned (derive, predict outcome, identify error)
+CLIMAX (1-2 frames): The "aha" — two separate ideas combine into one insight.
+RESOLUTION (1-2 frames): Connect back to the hook. What can the student now do?
 
-VISUAL SPEC EXAMPLES:
-- equation: {{"latex": "q(x_t|x_{{t-1}}) = ...", "highlight_steps": [{{"range": [0,15], "label": "lhs"}}]}}
-- diagram: {{"elements": [{{"id":"enc","type":"box","label":"Encoder"}}], "build_order": ["enc"]}}
-- image_sequence: {{"images": [{{"label":"t=0","description":"clean image"}}], "layout":"horizontal"}}
-- code: {{"language":"python","code":"def forward(x, t):...","reveal":"line_by_line"}}
-- animation: {{"scene":"ForwardDiffusion","steps":[{{"t":0,"description":"clean image"}}],"data_requirements":"MNIST"}}
+=== OUTPUT FORMAT ===
 
-Engage the student by name ({student_name}) in at least 3 interactions. Use the \
-POE pattern: "What do you THINK happens when...?" -> show it -> "Here's WHY..."
+Frame types: animation, equation, diagram, code, image, image_sequence, interactive, split
+Story phases: hook, concept, climax, resolution
+
+Create 12-18 frames. Write narration_spoken in fully spoken form — NO LaTeX, \
+NO underscores, NO math notation. "beta t" not "beta_t".
 
 Return ONLY valid JSON:
-{{
-  "frames": [
-    {{
-      "frame_id": "f01",
-      "visual_type": "image",
-      "visual_spec": {{}},
-      "narration": "string",
-      "narration_spoken": "string (TTS-friendly)",
-      "estimated_seconds": 20,
-      "transition": "fade",
-      "story_phase": "hook"|"motivation"|"concept"|"climax"|"resolution"|"practice",
-      "steps": [],
-      "interaction": null | {{
-        "interaction_type": "predict"|"question"|"opinion",
-        "prompt": "string",
-        "expected_response": "string or null",
-        "hints": []
-      }},
-      "next_frame": "f02"
-    }}
-  ],
-  "opening_hook": "string (1-sentence hook for lesson start)",
-  "closing_summary": ["point 1", "point 2", "point 3"]
-}}
+{{"frames": [{{"frame_id": "f01", "visual_type": "...", "visual_spec": {{}}, \
+"narration_spoken": "...", "estimated_seconds": 20, "story_phase": "hook", \
+"interaction": null}}], "opening_hook": "one sentence hook"}}
+"""
+
+# ── Pass 2: Self-review ──
+
+STORYBOARD_REVIEW_SYSTEM = """\
+You are a senior instructional designer reviewing a lesson storyboard. \
+Your job is to find and fix pedagogical problems. Be ruthless — \
+a beautiful animation with bad sequencing will confuse students.
+
+Return ONLY valid JSON."""
+
+STORYBOARD_REVIEW_PROMPT = """\
+Review this storyboard for the lesson "{lesson_title}" and fix ALL issues.
+
+STUDENT: {student_name}, {education_level}
+
+STORYBOARD TO REVIEW:
+{storyboard_json}
+
+=== CHECK EACH OF THESE ===
+
+1. PACING: Is time allocated proportional to concept difficulty? \
+   Architecture and intuition-building should get MORE time than definitions. \
+   Flag any concept that gets < 30 seconds but is typically hard for students.
+
+2. DEPENDENCY VIOLATIONS: Does any interaction ask about something not yet taught? \
+   For each interaction, verify: all required concepts appear in EARLIER frames.
+
+3. OPEN THREADS: Is any comparison or analogy introduced but not resolved within 3 frames? \
+   Flag hanging threads.
+
+4. INTERACTION QUALITY: Does each interaction require REASONING (using learned concepts) \
+   or just GUESSING? Upgrade any "what do you think" to "using X, figure out Y."
+
+5. CODE PLACEMENT: Does any code appear before the student has intuition for WHY it exists?
+
+6. INFORMATION DENSITY: Does any frame introduce more than 2 new concepts at once? Split it.
+
+7. NARRATIVE ARC: Is there a clear hook -> build -> climax -> resolution? \
+   Does the climax actually combine two earlier ideas into one insight?
+
+=== YOUR OUTPUT ===
+
+Fix the issues you found. Return the CORRECTED storyboard as valid JSON \
+with the same format. Add a "review_notes" field listing what you changed and why.
+
+Return ONLY valid JSON:
+{{"frames": [...corrected frames...], "opening_hook": "...", \
+"review_notes": ["Fixed: moved U-Net explanation before stochasticity question", ...]}}
 """

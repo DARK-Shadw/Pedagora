@@ -1,9 +1,10 @@
 """
 Course Planner v4 — Visual-first storyboard generator via Claude Code.
 
-Two-stage pipeline:
+Three-stage pipeline:
 1. Structure: modules + lesson outlines (~1 min)
 2. Storyboard: parallel frame-by-frame visual scripts per lesson (~3-5 min)
+3. Review: self-review pass fixes pacing, sequencing, interaction quality (~2 min)
 
 Output: course_plans table with VisualFrame[] storyboards per lesson.
 """
@@ -19,6 +20,8 @@ from app.agents.course_planner.prompts_v4 import (
     STRUCTURE_V4_PROMPT,
     LESSON_STORYBOARD_SYSTEM,
     LESSON_STORYBOARD_PROMPT,
+    STORYBOARD_REVIEW_SYSTEM,
+    STORYBOARD_REVIEW_PROMPT,
 )
 from app.services.agent_task import fetch_onboarding_data, fetch_research_results, fetch_research_sources
 from app.services.supabase import get_supabase
@@ -163,14 +166,13 @@ async def run_course_planner_v4(goal_id: str, user_id: str) -> dict:
         content_depth=prefs.get("content_depth", "intermediate"),
         session_duration_minutes=session_duration,
         topics_summary=research_ctx["topics_summary"],
-        teaching_notes=research_ctx["teaching_notes"],
     )
 
     try:
         struct_result = await engine.run(
             prompt=structure_prompt,
             system_prompt=STRUCTURE_V4_SYSTEM,
-            timeout=120,
+            timeout=300,
         )
         course_structure = json.loads(struct_result["result"])
     except Exception as e:
@@ -205,20 +207,51 @@ async def run_course_planner_v4(goal_id: str, user_id: str) -> dict:
             education_level=profile.get("education_level", "self_learner"),
             learning_style=prefs.get("learning_style", "visual"),
             student_name=student_name,
-            **lesson_research,
+            key_concepts=lesson_research["key_concepts"][:200],
+            visual_opportunities=lesson_research["visual_opportunities"][:200],
         )
 
         progress(f"[{lesson_id}] Generating storyboard: {lesson.get('title', '')[:40]}...")
 
         try:
+            # Pass 1: Generate storyboard
             result = await engine.run(
                 prompt=prompt,
                 system_prompt=LESSON_STORYBOARD_SYSTEM,
-                timeout=300,  # 5 min per lesson
+                timeout=600,
             )
             storyboard = json.loads(result["result"])
             frames = storyboard.get("frames", [])
-            progress(f"[{lesson_id}] Done: {len(frames)} visual frames")
+            progress(f"[{lesson_id}] Pass 1 done: {len(frames)} frames. Reviewing...")
+
+            # Pass 2: Self-review for pedagogical quality
+            review_prompt = STORYBOARD_REVIEW_PROMPT.format(
+                lesson_title=lesson.get("title", ""),
+                student_name=student_name,
+                education_level=profile.get("education_level", "self_learner"),
+                storyboard_json=json.dumps(storyboard, indent=2)[:8000],  # Trim to avoid huge prompt
+            )
+
+            try:
+                review_result = await engine.run(
+                    prompt=review_prompt,
+                    system_prompt=STORYBOARD_REVIEW_SYSTEM,
+                    timeout=600,
+                )
+                reviewed = json.loads(review_result["result"])
+                reviewed_frames = reviewed.get("frames", [])
+                review_notes = reviewed.get("review_notes", [])
+
+                if reviewed_frames:
+                    frames = reviewed_frames
+                    progress(f"[{lesson_id}] Review done: {len(review_notes)} fixes applied")
+                    for note in review_notes[:3]:
+                        logger.info(f"  Review: {note}")
+                else:
+                    progress(f"[{lesson_id}] Review returned no frames, keeping original")
+            except Exception as review_err:
+                logger.warning(f"[CoursePlanner v4] Review failed for {lesson_id}: {review_err}")
+                progress(f"[{lesson_id}] Review skipped, keeping original storyboard")
 
             return {
                 "lesson_id": lesson_id,
@@ -228,6 +261,7 @@ async def run_course_planner_v4(goal_id: str, user_id: str) -> dict:
                 "frames": frames,
                 "total_frames": len(frames),
                 "total_interactions": sum(1 for f in frames if f.get("interaction")),
+                "review_notes": review_notes if 'review_notes' in locals() else [],
             }
         except Exception as e:
             logger.error(f"[CoursePlanner v4] Lesson {lesson_id} failed: {e}")
@@ -239,11 +273,19 @@ async def run_course_planner_v4(goal_id: str, user_id: str) -> dict:
                 "error": str(e),
             }
 
-    # Run all lessons in parallel
-    lesson_results = await asyncio.gather(
-        *[generate_lesson_storyboard(l) for l in all_lessons],
-        return_exceptions=True,
-    )
+    # Run lessons in batches of 3 to avoid overwhelming Claude's rate limits
+    lesson_results = []
+    batch_size = 3
+    for i in range(0, len(all_lessons), batch_size):
+        batch = all_lessons[i:i + batch_size]
+        batch_num = i // batch_size + 1
+        total_batches = (len(all_lessons) + batch_size - 1) // batch_size
+        progress(f"Storyboard batch {batch_num}/{total_batches}: {', '.join(l.get('lesson_id','') for l in batch)}...", 25 + int(50 * i / len(all_lessons)))
+        batch_results = await asyncio.gather(
+            *[generate_lesson_storyboard(l) for l in batch],
+            return_exceptions=True,
+        )
+        lesson_results.extend(batch_results)
 
     # Build lesson_plans dict
     lesson_plans = {}
