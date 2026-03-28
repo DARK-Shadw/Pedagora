@@ -1,20 +1,10 @@
 """
 ClaudeEngine — Python wrapper for Claude Code CLI.
 
-Enables using Claude Code (Opus/Sonnet) as the AI engine for all Pedagora
-agents: Research, Course Planner, Animation, and Teacher. Uses the user's
-Claude Code subscription (no API key needed).
-
-Features:
-- Non-interactive execution via `claude -p`
-- Structured JSON output with schema validation
-- Streaming output for real-time teacher control
-- MCP server integration for custom tools
-- Subscription auth (removes ANTHROPIC_API_KEY to force logged-in account)
-- File-based prompts to avoid CLI truncation issues
+Uses subprocess.Popen with file-based stdin and line-by-line stdout reading.
+Matches the proven pattern from FlowBuilder's claude_code_runner.py.
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -25,9 +15,12 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncGenerator, Optional
+from typing import Any
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
+
+_executor = ThreadPoolExecutor(max_workers=10)
 
 
 class ClaudeEngine:
@@ -39,14 +32,10 @@ class ClaudeEngine:
         logger.info(f"[ClaudeEngine] Initialized: claude={self.claude_path}, model={model}")
 
     def _find_claude_path(self) -> str:
-        """Find the claude binary on the system."""
         if os.name == "nt":
             path = shutil.which("claude")
             if path:
                 return path
-            appdata = Path(os.getenv("LOCALAPPDATA", "")) / "Programs" / "claude" / "claude.exe"
-            if appdata.exists():
-                return str(appdata)
             user_local = Path.home() / ".local" / "bin" / "claude"
             if user_local.exists():
                 return str(user_local)
@@ -57,59 +46,139 @@ class ClaudeEngine:
             path = shutil.which("claude")
             if path:
                 return path
-        raise RuntimeError("Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code")
+        raise RuntimeError("Claude Code CLI not found")
 
     def _build_env(self) -> dict:
-        """Build environment for subprocess — subscription auth, no CLAUDECODE."""
         env = os.environ.copy()
-        # Remove CLAUDECODE to prevent "cannot launch inside another session" error
         env.pop("CLAUDECODE", None)
         env.pop("CLAUDE_CODE_ENTRYPOINT", None)
-        # Remove API key to force subscription auth
         env.pop("ANTHROPIC_API_KEY", None)
-        # Disable MCP tool search to prevent API 400 errors
         env["ENABLE_TOOL_SEARCH"] = "false"
         return env
 
-    def _write_prompt_file(self, prompt: str, execution_id: str) -> Path:
-        """Write prompt to temp file (avoids CLI truncation on Windows)."""
-        path = Path(tempfile.gettempdir()) / f"pedagora_prompt_{execution_id}.txt"
-        path.write_text(prompt, encoding="utf-8")
-        return path
-
-    def _write_mcp_config(self, mcp_config: dict, execution_id: str) -> Path:
-        """Write MCP config to temp file."""
-        path = Path(tempfile.gettempdir()) / f"pedagora_mcp_{execution_id}.json"
-        path.write_text(json.dumps(mcp_config, indent=2), encoding="utf-8")
-        return path
-
-    def _build_cmd(
+    def _run_sync(
         self,
-        mcp_config_path: str | None = None,
+        prompt: str,
+        system_prompt: str | None = None,
         max_turns: int | None = None,
-        streaming: bool = False,
-    ) -> list[str]:
-        """Build the claude CLI command."""
+        timeout: int = 600,
+        cwd: str | None = None,
+    ) -> dict:
+        """Run Claude Code synchronously using Popen + file stdin (proven pattern)."""
+        execution_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
+        # Write prompt to temp file
+        prompt_file = Path(tempfile.gettempdir()) / f"pedagora_prompt_{execution_id}.txt"
+        full_prompt = prompt
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n---\n\n{prompt}"
+        prompt_file.write_text(full_prompt, encoding="utf-8")
+
+        # Build command — matches working CLI exactly
         cmd = [
             self.claude_path,
             "--print",
             "--model", self.model,
             "--permission-mode", "bypassPermissions",
             "--no-session-persistence",
+            "--disallowedTools", "MCPSearch,ToolSearch",
         ]
-
-        if streaming:
-            cmd.extend(["--output-format", "stream-json", "--verbose", "--include-partial-messages"])
-        else:
-            cmd.extend(["--output-format", "json"])
 
         if max_turns:
             cmd.extend(["--max-turns", str(max_turns)])
 
-        if mcp_config_path:
-            cmd.extend(["--mcp-config", mcp_config_path])
+        env = self._build_env()
 
-        return cmd
+        process_killed = False
+        kill_reason = ""
+        output_lines = []
+        last_output_time = time.time()
+        first_output_received = False
+        process_start_time = time.time()
+
+        try:
+            # Open prompt file as stdin — exactly like CLI "< file.txt"
+            prompt_handle = open(prompt_file, "r", encoding="utf-8")
+
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=prompt_handle,
+                env=env,
+                text=False,
+                bufsize=0,
+                cwd=cwd,
+            )
+
+            prompt_handle.close()
+            logger.info(f"[ClaudeEngine] Process started PID: {process.pid}")
+
+            # Timeout monitor thread
+            def monitor():
+                nonlocal process_killed, kill_reason
+                while process.poll() is None and not process_killed:
+                    time.sleep(2)
+                    elapsed = time.time() - process_start_time
+                    if elapsed > timeout:
+                        process_killed = True
+                        kill_reason = f"timeout_{timeout}s"
+                        process.kill()
+                        break
+
+            monitor_thread = threading.Thread(target=monitor, daemon=True)
+            monitor_thread.start()
+
+            # Read stdout line by line (unbuffered, real-time)
+            for line in iter(process.stdout.readline, b""):
+                if not line or process_killed:
+                    break
+
+                last_output_time = time.time()
+                if not first_output_received:
+                    first_output_received = True
+
+                line_text = line.decode("utf-8", errors="ignore").rstrip("\n").rstrip("\r")
+                if line_text:
+                    output_lines.append(line_text)
+
+            process.wait()
+            stderr_output = process.stderr.read().decode("utf-8", errors="ignore") if process.stderr else ""
+
+            if process_killed:
+                raise RuntimeError(f"Claude Code timed out after {timeout}s")
+
+            if process.returncode != 0:
+                raise RuntimeError(f"Claude Code failed (exit {process.returncode}): {stderr_output[:300]}")
+
+            # Join all output lines
+            full_output = "\n".join(output_lines).strip()
+
+            # Strip markdown fences
+            if full_output.startswith("```"):
+                lines = full_output.split("\n")
+                if lines[-1].strip() == "```":
+                    lines = lines[1:-1]
+                elif lines[0].startswith("```"):
+                    lines = lines[1:]
+                full_output = "\n".join(lines).strip()
+
+            elapsed = time.time() - process_start_time
+            logger.info(f"[ClaudeEngine] Done in {elapsed:.1f}s, output {len(full_output)} chars")
+
+            return {
+                "result": full_output,
+                "cost_usd": 0.0,
+                "tokens": {},
+                "tools_used": [],
+                "elapsed_seconds": elapsed,
+            }
+
+        finally:
+            try:
+                prompt_file.unlink(missing_ok=True)
+            except Exception:
+                pass
 
     async def run(
         self,
@@ -122,131 +191,13 @@ class ClaudeEngine:
         timeout: int = 600,
         cwd: str | None = None,
     ) -> dict:
-        """
-        Run Claude Code non-interactively and return the result.
-
-        Args:
-            prompt: The task/question for Claude
-            tools: List of allowed tools (e.g., ["WebSearch", "WebFetch", "Read", "Write", "Bash"])
-            mcp_config: Optional MCP server config dict
-            json_schema: Optional JSON schema for structured output validation
-            max_turns: Max agent turns (limits tool use iterations)
-            system_prompt: Custom system prompt (replaces default)
-            timeout: Max execution time in seconds
-            cwd: Working directory for execution
-
-        Returns:
-            dict with keys: result (str), cost_usd (float), tokens (dict), tools_used (list)
-        """
-        execution_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        prompt_file = None
-        mcp_file = None
-
-        try:
-            # Write prompt to file
-            prompt_file = self._write_prompt_file(prompt, execution_id)
-
-            # Write MCP config if provided
-            mcp_config_path = None
-            if mcp_config:
-                mcp_file = self._write_mcp_config(mcp_config, execution_id)
-                mcp_config_path = str(mcp_file)
-
-            # Build command — minimal flags, matching what works in tests
-            cmd = self._build_cmd(
-                mcp_config_path=mcp_config_path,
-                max_turns=max_turns,
-                streaming=False,
-            )
-
-            env = self._build_env()
-            logger.info(f"[ClaudeEngine] Running: {' '.join(cmd[:6])}...")
-
-            # limit=4MB to handle large JSON responses
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=env,
-                cwd=cwd,
-                limit=4 * 1024 * 1024,
-            )
-
-            # Prepend system prompt to user prompt (avoids CLI --system-prompt issues)
-            prompt_text = prompt_file.read_text(encoding="utf-8")
-            if system_prompt:
-                prompt_text = f"{system_prompt}\n\n---\n\n{prompt_text}"
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(input=prompt_text.encode("utf-8")),
-                timeout=timeout,
-            )
-
-            output = stdout.decode("utf-8", errors="ignore").strip()
-
-            if process.returncode != 0:
-                # Try to parse JSON error
-                try:
-                    data = json.loads(output)
-                    error_msg = data.get("result", output)
-                except json.JSONDecodeError:
-                    error_msg = output or stderr.decode("utf-8", errors="ignore")
-                raise RuntimeError(f"Claude Code failed (exit {process.returncode}): {error_msg}")
-
-            # Parse JSON result
-            try:
-                data = json.loads(output)
-            except json.JSONDecodeError:
-                # Non-JSON output — return as plain text
-                return {
-                    "result": output,
-                    "cost_usd": 0.0,
-                    "tokens": {},
-                    "tools_used": [],
-                }
-
-            result_text = data.get("result", "")
-            usage = data.get("usage", {})
-            cost = data.get("total_cost_usd", 0.0)
-
-            # Strip markdown code fences if present (Claude wraps JSON in ```json...```)
-            stripped = result_text.strip()
-            if stripped.startswith("```"):
-                lines = stripped.split("\n")
-                # Remove first line (```json) and last line (```)
-                if lines[-1].strip() == "```":
-                    lines = lines[1:-1]
-                elif lines[0].startswith("```"):
-                    lines = lines[1:]
-                stripped = "\n".join(lines).strip()
-                # Try to parse as JSON — if successful, use the stripped version
-                try:
-                    json.loads(stripped)
-                    result_text = stripped
-                except json.JSONDecodeError:
-                    pass  # Keep original
-
-            return {
-                "result": result_text,
-                "cost_usd": cost,
-                "tokens": {
-                    "input": usage.get("input_tokens", 0) + usage.get("cache_read_input_tokens", 0),
-                    "output": usage.get("output_tokens", 0),
-                },
-                "tools_used": [],
-                "raw": data,
-            }
-
-        except asyncio.TimeoutError:
-            raise RuntimeError(f"Claude Code timed out after {timeout}s")
-        finally:
-            # Cleanup temp files
-            for f in [prompt_file, mcp_file]:
-                if f and f.exists():
-                    try:
-                        f.unlink()
-                    except Exception:
-                        pass
+        """Run Claude Code (async wrapper around sync Popen)."""
+        import asyncio
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            _executor,
+            lambda: self._run_sync(prompt, system_prompt, max_turns, timeout, cwd),
+        )
 
     async def stream(
         self,
@@ -257,109 +208,89 @@ class ClaudeEngine:
         max_turns: int | None = None,
         timeout: int = 3600,
         cwd: str | None = None,
-    ) -> AsyncGenerator[dict, None]:
-        """
-        Stream Claude Code output as events for real-time use.
+    ):
+        """Stream Claude Code output as events (for research agent progress)."""
+        import asyncio
 
-        Yields dicts with type: "text", "tool_use", "tool_result", "result", "error"
-        """
         execution_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        prompt_file = None
-        mcp_file = None
+        prompt_file = Path(tempfile.gettempdir()) / f"pedagora_prompt_{execution_id}.txt"
+        full_prompt = prompt
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n---\n\n{prompt}"
+        prompt_file.write_text(full_prompt, encoding="utf-8")
 
-        try:
-            prompt_file = self._write_prompt_file(prompt, execution_id)
+        cmd = [
+            self.claude_path,
+            "--print",
+            "--model", self.model,
+            "--permission-mode", "bypassPermissions",
+            "--no-session-persistence",
+            "--disallowedTools", "MCPSearch,ToolSearch",
+            "--output-format", "stream-json",
+            "--verbose",
+        ]
 
-            mcp_config_path = None
-            if mcp_config:
-                mcp_file = self._write_mcp_config(mcp_config, execution_id)
-                mcp_config_path = str(mcp_file)
+        if max_turns:
+            cmd.extend(["--max-turns", str(max_turns)])
 
-            cmd = self._build_cmd(
-                mcp_config_path=mcp_config_path,
-                max_turns=max_turns,
-                streaming=True,
-            )
+        env = self._build_env()
+        import queue
+        event_queue = queue.Queue()
 
-            env = self._build_env()
+        def run_process():
+            start = time.time()
+            try:
+                handle = open(prompt_file, "r", encoding="utf-8")
+                process = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    stdin=handle, env=env, text=False, bufsize=0, cwd=cwd,
+                )
+                handle.close()
 
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=env,
-                cwd=cwd,
-                limit=4 * 1024 * 1024,
-            )
+                for line in iter(process.stdout.readline, b""):
+                    if not line:
+                        break
+                    if time.time() - start > timeout:
+                        process.kill()
+                        event_queue.put({"type": "error", "message": f"Timed out after {timeout}s"})
+                        break
 
-            # Prepend system prompt to user prompt
-            prompt_text = prompt_file.read_text(encoding="utf-8")
-            if system_prompt:
-                prompt_text = f"{system_prompt}\n\n---\n\n{prompt_text}"
-            process.stdin.write(prompt_text.encode("utf-8"))
-            await process.stdin.drain()
-            process.stdin.close()
+                    line_text = line.decode("utf-8", errors="ignore").strip()
+                    if not line_text:
+                        continue
 
-            start_time = time.time()
-
-            # Read stdout line by line
-            while True:
-                if time.time() - start_time > timeout:
-                    process.kill()
-                    yield {"type": "error", "message": f"Timed out after {timeout}s"}
-                    break
-
-                try:
-                    line = await asyncio.wait_for(
-                        process.stdout.readline(),
-                        timeout=timeout,  # Use same timeout as overall max
-                    )
-                except asyncio.TimeoutError:
-                    process.kill()
-                    yield {"type": "error", "message": f"No output for {timeout}s"}
-                    break
-
-                if not line:
-                    break
-
-                line_text = line.decode("utf-8", errors="ignore").strip()
-                if not line_text:
-                    continue
-
-                try:
-                    data = json.loads(line_text)
-                except json.JSONDecodeError:
-                    continue
-
-                msg_type = data.get("type")
-
-                if msg_type == "assistant":
-                    message = data.get("message", {})
-                    for block in message.get("content", []):
-                        if block.get("type") == "text" and block.get("text"):
-                            yield {"type": "text", "content": block["text"]}
-                        elif block.get("type") == "tool_use":
-                            yield {
-                                "type": "tool_use",
-                                "name": block.get("name", ""),
-                                "input": block.get("input", {}),
-                            }
-
-                elif msg_type == "result":
-                    yield {
-                        "type": "result",
-                        "result": data.get("result", ""),
-                        "cost_usd": data.get("total_cost_usd", 0.0),
-                        "tokens": data.get("usage", {}),
-                    }
-
-            await process.wait()
-
-        finally:
-            for f in [prompt_file, mcp_file]:
-                if f and f.exists():
                     try:
-                        f.unlink()
-                    except Exception:
+                        data = json.loads(line_text)
+                        msg_type = data.get("type")
+
+                        if msg_type == "assistant":
+                            for block in data.get("message", {}).get("content", []):
+                                if block.get("type") == "text" and block.get("text"):
+                                    event_queue.put({"type": "text", "content": block["text"]})
+                                elif block.get("type") == "tool_use":
+                                    event_queue.put({"type": "tool_use", "name": block.get("name", ""), "input": block.get("input", {})})
+                        elif msg_type == "result":
+                            event_queue.put({"type": "result", "result": data.get("result", ""), "cost_usd": data.get("total_cost_usd", 0)})
+                    except json.JSONDecodeError:
                         pass
+
+                process.wait()
+            except Exception as e:
+                event_queue.put({"type": "error", "message": str(e)})
+            finally:
+                event_queue.put(None)  # Sentinel
+                try:
+                    prompt_file.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+        # Run in thread, yield events from async
+        thread = threading.Thread(target=run_process, daemon=True)
+        thread.start()
+
+        loop = asyncio.get_event_loop()
+        while True:
+            event = await loop.run_in_executor(None, event_queue.get)
+            if event is None:
+                break
+            yield event

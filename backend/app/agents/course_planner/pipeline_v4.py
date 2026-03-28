@@ -93,7 +93,7 @@ def _build_lesson_research(lesson_topics: list[str], sources: list, synthesis: d
 async def run_course_planner_v4(goal_id: str, user_id: str) -> dict:
     """Run progressive course planner — first lessons ready in ~5 min."""
     sb = get_supabase()
-    engine = ClaudeEngine(model="sonnet")
+    engine = ClaudeEngine(model="opus")
 
     def progress(msg: str, pct: int | None = None):
         update = {"current_task": msg}
@@ -184,8 +184,8 @@ async def run_course_planner_v4(goal_id: str, user_id: str) -> dict:
             education_level=profile.get("education_level", "self_learner"),
             learning_style=prefs.get("learning_style", "visual"),
             student_name=student_name,
-            key_concepts=lesson_research["key_concepts"][:200],
-            visual_opportunities=lesson_research["visual_opportunities"][:200],
+            key_concepts=lesson_research["key_concepts"],
+            visual_opportunities=lesson_research["visual_opportunities"],
         )
 
         progress(f"[{lesson_id}] Generating: {lesson.get('title', '')[:40]}...")
