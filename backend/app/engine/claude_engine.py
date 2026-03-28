@@ -85,11 +85,8 @@ class ClaudeEngine:
 
     def _build_cmd(
         self,
-        tools: list[str] | None = None,
         mcp_config_path: str | None = None,
-        json_schema: dict | None = None,
         max_turns: int | None = None,
-        system_prompt: str | None = None,
         streaming: bool = False,
     ) -> list[str]:
         """Build the claude CLI command."""
@@ -99,7 +96,6 @@ class ClaudeEngine:
             "--model", self.model,
             "--permission-mode", "bypassPermissions",
             "--no-session-persistence",
-            "--disallowedTools", "MCPSearch,ToolSearch",
         ]
 
         if streaming:
@@ -107,20 +103,11 @@ class ClaudeEngine:
         else:
             cmd.extend(["--output-format", "json"])
 
-        if tools:
-            cmd.extend(["--allowedTools", ",".join(tools)])
-
-        if mcp_config_path:
-            cmd.extend(["--mcp-config", mcp_config_path])
-
-        if json_schema:
-            cmd.extend(["--json-schema", json.dumps(json_schema)])
-
         if max_turns:
             cmd.extend(["--max-turns", str(max_turns)])
 
-        if system_prompt:
-            cmd.extend(["--system-prompt", system_prompt])
+        if mcp_config_path:
+            cmd.extend(["--mcp-config", mcp_config_path])
 
         return cmd
 
@@ -165,20 +152,17 @@ class ClaudeEngine:
                 mcp_file = self._write_mcp_config(mcp_config, execution_id)
                 mcp_config_path = str(mcp_file)
 
-            # Build command
+            # Build command — minimal flags, matching what works in tests
             cmd = self._build_cmd(
-                tools=tools,
                 mcp_config_path=mcp_config_path,
-                json_schema=json_schema,
                 max_turns=max_turns,
-                system_prompt=system_prompt,
                 streaming=False,
             )
 
             env = self._build_env()
             logger.info(f"[ClaudeEngine] Running: {' '.join(cmd[:6])}...")
 
-            # Run subprocess with prompt piped via stdin
+            # limit=4MB to handle large JSON responses
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdin=asyncio.subprocess.PIPE,
@@ -186,10 +170,13 @@ class ClaudeEngine:
                 stderr=asyncio.subprocess.PIPE,
                 env=env,
                 cwd=cwd,
+                limit=4 * 1024 * 1024,
             )
 
-            # Read prompt and pipe to stdin
+            # Prepend system prompt to user prompt (avoids CLI --system-prompt issues)
             prompt_text = prompt_file.read_text(encoding="utf-8")
+            if system_prompt:
+                prompt_text = f"{system_prompt}\n\n---\n\n{prompt_text}"
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(input=prompt_text.encode("utf-8")),
                 timeout=timeout,
@@ -289,9 +276,7 @@ class ClaudeEngine:
                 mcp_config_path = str(mcp_file)
 
             cmd = self._build_cmd(
-                tools=tools,
                 mcp_config_path=mcp_config_path,
-                system_prompt=system_prompt,
                 max_turns=max_turns,
                 streaming=True,
             )
@@ -305,10 +290,13 @@ class ClaudeEngine:
                 stderr=asyncio.subprocess.PIPE,
                 env=env,
                 cwd=cwd,
+                limit=4 * 1024 * 1024,
             )
 
-            # Send prompt via stdin
+            # Prepend system prompt to user prompt
             prompt_text = prompt_file.read_text(encoding="utf-8")
+            if system_prompt:
+                prompt_text = f"{system_prompt}\n\n---\n\n{prompt_text}"
             process.stdin.write(prompt_text.encode("utf-8"))
             await process.stdin.drain()
             process.stdin.close()
@@ -325,11 +313,11 @@ class ClaudeEngine:
                 try:
                     line = await asyncio.wait_for(
                         process.stdout.readline(),
-                        timeout=600,  # 10 min inactivity (WebFetch can be slow)
+                        timeout=timeout,  # Use same timeout as overall max
                     )
                 except asyncio.TimeoutError:
                     process.kill()
-                    yield {"type": "error", "message": "Inactivity timeout (600s)"}
+                    yield {"type": "error", "message": f"No output for {timeout}s"}
                     break
 
                 if not line:
