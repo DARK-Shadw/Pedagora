@@ -11,7 +11,7 @@ async def main():
     from app.services.agent_task import fetch_research_results, fetch_research_sources
 
     sb = get_supabase()
-    engine = ClaudeEngine(model="sonnet")
+    engine = ClaudeEngine(model="opus")
     goal_id = "25b76657-1bd7-49d6-8537-ee6133902527"
 
     # Reuse existing course structure — don't regenerate
@@ -48,6 +48,10 @@ async def main():
         if prof.data: student_name = prof.data.get("name") or prof.data.get("email", "").split("@")[0]
     except: pass
 
+    # Get student's end goal
+    goal_row = sb.table("learning_goals").select("title, end_goal").eq("id", goal_id).single().execute()
+    end_goal = goal_row.data.get("end_goal", goal_row.data.get("title", "")) if goal_row.data else ""
+
     prompt = LESSON_STORYBOARD_PROMPT.format(
         lesson_title=first["title"], lesson_type=first.get("lesson_type", "theory"),
         estimated_minutes=first.get("estimated_minutes", 30),
@@ -56,6 +60,7 @@ async def main():
         education_level="graduate", learning_style="visual", student_name=student_name,
         key_concepts=lesson_research["key_concepts"],
         visual_opportunities=lesson_research["visual_opportunities"],
+        end_goal=end_goal or "Build video generation models using diffusion",
     )
 
     print(f"\nGenerating storyboard ({len(prompt)} chars prompt)...")

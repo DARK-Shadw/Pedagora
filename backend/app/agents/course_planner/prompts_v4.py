@@ -71,17 +71,30 @@ TOPICS: {topics}
 STUDENT: {student_name}, {education_level}, {learning_style} learner
 KEY CONCEPTS: {key_concepts}
 
+STUDENT'S END GOAL: {end_goal}
+THIS LESSON'S ROLE: This is a stepping stone toward the student's end goal. \
+Every concept should connect to WHY the student needs it for their goal. \
+Don't teach in a vacuum — show how each concept will be USED in later \
+lessons. Frame it as: "You need this because when we get to [their goal], \
+this is the foundation that makes it work."
+
 === HARD CONSTRAINTS (violating = failure) ===
 
 MINIMUM 15 FRAMES. Fewer than 15 means the lesson is incomplete.
 MINIMUM 25 MINUTES total. Sum of estimated_seconds must exceed 1500.
+MINIMUM 4 INTERACTIONS. The student must be engaged at least 4 times with \
+reasoning questions, computations, or predictions. Spread them evenly — \
+not all at the end.
 EVERY concept in the objectives MUST be covered with at least 2 frames each.
 The lesson must be COMPLETE — finishing it achieves ALL objectives.
 
 === PEDAGOGICAL RULES ===
 
-RULE 1 — TIME PROPORTIONAL TO DIFFICULTY
-More frames on hard concepts (architectures, proofs, intuition) than definitions.
+RULE 1 — TIME PROPORTIONAL TO DIFFICULTY, NOT FAMILIARITY
+Spend MORE frames on concepts the student will struggle with most. \
+Hard concepts (proofs, architectures, abstract reasoning) need MORE time \
+than simple definitions. If a concept is critical for the student's end \
+goal, give it MORE time.
 
 RULE 2 — DEPENDENCY-FIRST SEQUENCING
 Never ask about X before teaching Y that X depends on.
@@ -92,7 +105,9 @@ If you open a comparison, resolve it within 3 frames.
 RULE 4 — INTERACTIONS REQUIRE REASONING
 BAD: "What do you think?" GOOD: "Using the formula, compute..." or "explain WHY..."
 
-RULE 5 — CODE FOLLOWS INTUITION
+RULE 5 — CODE FOLLOWS INTUITION BUT MUST APPEAR
+At least 1-2 code frames per lesson. The student wants to BUILD things. \
+Show real implementation after building intuition.
 
 RULE 6 — BUILD, DON'T DUMP
 One new idea per frame. Progressive disclosure.
