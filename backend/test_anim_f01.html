@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F01 — Randomness to Image</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  width: 100%; height: 100vh;
+  overflow: hidden;
+}
+#canvas-container {
+  position: relative;
+  width: 100vw; height: 100vh;
+  background: #0d1117;
+  overflow: hidden;
+}
+#controls {
+  position: fixed; bottom: 1.5vh; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 0.8vw; z-index: 100; flex-wrap: wrap; justify-content: center;
+}
+.btn {
+  background: rgba(59,130,246,0.12); border: 1px solid #3B82F6;
+  color: #3B82F6; padding: 0.5vh 1.2vw; border-radius: 6px;
+  cursor: pointer; font-size: clamp(0.65rem, 1vw, 0.82rem);
+  font-family: inherit; transition: background 0.2s;
+}
+.btn:hover { background: rgba(59,130,246,0.28); }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+<div id="controls">
+  <button class="btn" onclick="window.animationAPI.seekToStep('static-noise')">1. Static Noise</button>
+  <button class="btn" onclick="window.animationAPI.seekToStep('face-emergence')">2. Face Emergence</button>
+  <button class="btn" onclick="window.animationAPI.seekToStep('zoom-pixels')">3. Zoom Pixels</button>
+  <button class="btn" onclick="window.animationAPI.seekToStep('question-reveal')">4. Question</button>
+  <button class="btn" onclick="window.animationAPI.play()">▶ Play</button>
+  <button class="btn" onclick="window.animationAPI.pause()">⏸ Pause</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script>
+const tl = gsap.timeline({ paused: true, defaults: { ease: 'power2.inOut' } });
+</script>
+<script src="test_anim_f01.js"></script>
+<script>tl.play();</script>
+</body>
+</html>

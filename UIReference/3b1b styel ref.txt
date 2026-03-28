@@ -1,0 +1,39 @@
+  It's 100% visual — EVERY second has something on screen:
+
+  1. Opening hook — AI-generated video (astronaut on horse) showing what diffusion models can do
+  2. Animated diagrams — noise → transformer pipeline visualization (dark background, clean motion graphics)
+  3. Data space visualization — dots spiraling in 2D coordinate space showing probability distributions
+  4. Physical props + annotations — real photos of cat/dog/man with text labels "A photo of a cat", matrix/grid overlay
+  5. Architecture diagrams — Image Encoder → embedding vector flow diagrams, animated arrows
+  6. CLIP training visualization — image encoder + text encoder with vectors, similarity matching
+  7. Mathematical formulas — Algorithm pseudocode with highlighted lines, equations appearing step-by-step with yellow arrows pointing to key parts
+  8. Forward diffusion animation — cat image progressively getting noisier with "+Noise" arrows
+  9. Score field visualization — vector field with arrows showing gradient directions, step counter
+  10. Denoising spiral — dots converging from noise back to images in latent space
+  11. SDE vs ODE comparison — side-by-side equations with color coding and arrows
+  12. Research papers — actual paper figures (unCLIP architecture) shown and annotated
+  13. Guidance scale demo — text prompt → Stable Diffusion → generated image with alpha parameter
+  14. Only at the very end — the actual human presenter face appears briefly
+
+  Key Takeaway for Pedagora
+
+  The screen is NEVER empty. There's no talking head for 95% of the video. Instead:
+  - Animated diagrams building up piece by piece
+  - Equations appearing with highlighting
+  - Data visualizations (dots, vectors, distributions)
+  - Architecture flowcharts with animated arrows
+  - Real examples (images getting noisy, generated outputs)
+  - Paper figures with annotations
+
+  This is the opposite of what we built. Our current classroom has a 3D avatar taking 35% of the screen and an occasionally-appearing video. The reference
+  has visuals taking 100% of the screen with narration over it.
+
+  This fundamentally changes the architecture. The avatar becomes secondary (or a small overlay). The presentation area becomes the entire screen. And
+  Claude needs to generate/control many visual types in real-time:
+
+  1. Animated diagrams (SVG/Canvas — architecture flows, pipelines)
+  2. Math equations (LaTeX rendered, step-by-step reveal with highlighting)
+  3. Data visualizations (particle systems, vector fields, distributions)
+  4. Image sequences (progressive noise, denoising steps)
+  5. Code walkthroughs (highlighted pseudocode)
+  6. Paper figures (fetched images with annotations)

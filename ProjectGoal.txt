@@ -1,0 +1,48 @@
+ Yes, this is how i want it just here my idea out fully and ask me any questions, doubts or clarifications.
+
+So i want to learn how to build models that can generate videos using diffusion. yes thats it thats my goal. now i know somethings like oh whats a
+perceptron, basic understading of deep learning like very basic. I know what CNN is bad not well enough to be able to create any model like i using there
+networks, i have very basic understanding in maths like i dont know probability, Information theroy, Maximum Likelihood. Now but the issue is the student
+or in this example me, i dont know i need to know this to be able to learn it so in the Goal or prerequesteries i will not mention any of this. But our
+system should be able to evaluvate a student properly and understand okay given he wants to learn this, does he have all the background needed if not whats
+ missing, whats only have done, what needs a refresher. Once our system have this data along with any resources that the student uploaded (maybe their
+textbook, or ppts shared by their teacher) with this data we should first run our research agent - which should find every important data.. Like the
+student wants to learn XXX but he only knows YYY and have basic grasp in ZZZ it should research all the prerequesteries needed. Research in detail about
+each of those because as you can see from the video you just analyzed to be able to create animations, visualization like that we need actual data from
+research papers, github codes, actual open source models codes, only then can we create visuals that are actually true and good. Since we cant depend just
+on LLM to be able to create it all. Once we have enough data for an fully visual apporach. The next one of the biggest part will be the
+
+Course Agent - Which should completley plan an indepth sylabus of how the student can achieve his goal in the best way. Like the course or syllabus should
+be so deatiled it should make sure anyone who completes it can achieve their goal. So it should structur the lessons properly, first foundation then slowly
+ introduce practical level etc.. Each lessons should build in the best most visual way possible like students never love studeying if they do it for the
+sake of it, so we need to make sure our lessons are the most visually, unboring, cool hooked classes. Like each class student should learn someting that
+will make him think "wow thats cool.. " or he should see something that would be like "Intersting.. i didnt know that.." Every lesson should be created in
+way that the student dosent sit like a stone but he shoudl feel like asking doubts, like "Oh teaher why is that like that.. " STudent shouldnt sit idle the
+ entire 30mins thats the most boring thing every minute he spend there should be an enganing visual information.. the lessons should be currated like that,
+ Fully visual - Screen should be never blank, non-boring, enganing, etc. Once we have the best syllabus the next big thing
+
+Animations/Visuals - We need a ton of animations, and this time not just manim, we need images, diagrams, paper figures, math equations, Data
+visualiztions, code walthroughs, interactove scrrens etc every single thing created with high level detail and quality and precision and correctness. and
+the animatiosn should not be some statis thing like of a video which will be played on a command no the animations should be linked to the teacher module
+meaning lets say we are playing an animation show casing Forward propagartion for neural networks currently in our system we just play the video on command
+ and done thats it. But no we dont need that instead what we need is lets say in the video the first layer is propgrated the teacher should know this and
+should be able to pause it precisly and explain stuff like "Okay as you can see our first linear layer is propagated and you can see the output is an
+matric multiplcation.. David what do you tinnk the output will be etc.. " like that and teacher shoudl full access like frame by frame access or knowledge
+to be able to control visuals and animations like that. so animations/ visuals should be made like that
+
+NOw the most important
+
+Teacher Module - The virtual teacher is not the most important its just a cool feature we can put it in a small circle avatar like in the botton left whats
+ important is the visual first class with proper TTS sync with the class. Class should start with a hook.. just from the first thing for any lesson even
+for maths the hook should be so good that the students must stay till the end so that "Oh if i finsih the class i will get to understand that.." that level
+ of hook .. and the teacher shouldnt just start taking class just like that.. Like an classroom teacher who is here to finish her syllabus.. no our teacher
+ should be fully enganing, like even at the start ask students "Aswin what do you know about XXX" or "Aswin have you heard about YYY" or "Aswin WHat is
+your opinion on"... But this shouldnt be like a statis rule it should feel like for every lesson the teacher always will start with a question no what i
+meant is the teacher should be enganing like that with students. The entire class then as i told you should be visual first like in the beautfiull visuals,
+ with the teachers precise explaining just like the video but here we will make the studet part of it like asking "ASwin Whhy do you think in the code we
+used Relu? Why do u think we use batch norm" like that make sure student gets the best understanding.. And students may have doubts in between these should
+ be answered maybe his doubt needs you to replay a video or seeek to specific moment in the video these all should be possible for the teacher, teacher
+should also be able to create animations on the fly or myabe have access to an blackboard which it can control. Evry lesson by finish teacher should make
+sure students understand what was necessaey maybe by queizing, by students exisisting interactions etc.
+
+This is my hope or what i want our sysem to be. What do you think. And please think hard as possible

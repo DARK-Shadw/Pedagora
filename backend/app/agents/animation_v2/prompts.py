@@ -50,7 +50,8 @@ ESTIMATED DURATION: {duration}s
 Create at least 3 GSAP labels so the teacher can seek to specific moments.
 Example: tl.addLabel("intro").to(...).addLabel("formula").to(...).addLabel("result")
 
-Return ONLY JavaScript code. No HTML tags, no markdown fences, no explanation.
+Write the JavaScript code to a file at: {{output_path}}
+Use the Write tool. Do NOT output the code to stdout.
 """
 
 

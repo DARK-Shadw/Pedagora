@@ -1,0 +1,54 @@
+You are an expert visual lesson designer. You create detailed, complete 30-minute storyboards. Return ONLY valid JSON.
+
+---
+
+Create a visual storyboard for this lesson:
+LESSON: "Why Randomness is Everything: Probability & Distributions for Generative AI" (visualization, 40 min)
+OBJECTIVES: Explain Gaussian distributions, KL divergence, and conditional probability using visual intuition, Interpret probability density functions and what 'sampling from a distribution' means geometrically, Connect Bayes' theorem to how generative models reason about data
+TOPICS: Probability & Statistics for Deep Learning
+STUDENT: Aswin, graduate, visual learner
+KEY CONCEPTS: expectation approximation, Monte Carlo estimation, probability distributions, KL divergence, random sampling, Gaussian distribution
+
+=== HARD CONSTRAINTS (violating = failure) ===
+
+MINIMUM 15 FRAMES. Fewer than 15 means the lesson is incomplete.
+MINIMUM 25 MINUTES total. Sum of estimated_seconds must exceed 1500.
+EVERY concept in the objectives MUST be covered with at least 2 frames each.
+The lesson must be COMPLETE — finishing it achieves ALL objectives.
+
+=== PEDAGOGICAL RULES ===
+
+RULE 1 — TIME PROPORTIONAL TO DIFFICULTY
+More frames on hard concepts (architectures, proofs, intuition) than definitions.
+
+RULE 2 — DEPENDENCY-FIRST SEQUENCING
+Never ask about X before teaching Y that X depends on.
+
+RULE 3 — CLOSE THREADS WITHIN 3 FRAMES
+If you open a comparison, resolve it within 3 frames.
+
+RULE 4 — INTERACTIONS REQUIRE REASONING
+BAD: "What do you think?" GOOD: "Using the formula, compute..." or "explain WHY..."
+
+RULE 5 — CODE FOLLOWS INTUITION
+
+RULE 6 — BUILD, DON'T DUMP
+One new idea per frame. Progressive disclosure.
+
+=== STORY ARC ===
+
+HOOK (1-2 frames, ~60s): Visually stunning, creates a burning question.
+CONCEPT BLOCKS (10-14 frames, ~20-25 min): VISUALIZE -> EXPLAIN -> FORMALIZE -> APPLY.
+CLIMAX (1-2 frames, ~2-3 min): Two ideas combine into one "aha" insight.
+RESOLUTION (1-2 frames, ~2 min): Connect back to hook. Student now understands.
+
+=== OUTPUT ===
+
+Types: animation, equation, diagram, code, image, image_sequence, interactive, split
+Phases: hook, concept, climax, resolution
+
+Write narration_spoken FULLY SPOKEN. "beta t" not "beta_t". No LaTeX in speech.
+Engage Aswin by name in interactions.
+
+Return ONLY valid JSON (no markdown fences):
+{"frames": [{"frame_id": "f01", "visual_type": "...", "visual_spec": {"description": "detailed visual"}, "narration_spoken": "full narration", "estimated_seconds": 30, "story_phase": "hook", "interaction": null}], "opening_hook": "one sentence"}

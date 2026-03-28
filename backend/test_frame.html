@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bayes' Theorem</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  width: 100%; height: 100vh;
+  overflow: hidden;
+  display: flex; flex-direction: column; align-items: center;
+}
+#container {
+  width: 100%; height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 2vh 4vw 8vh;
+  gap: 1.5vh;
+}
+#title {
+  font-size: clamp(1.1rem, 2.5vw, 1.8rem);
+  color: #0d968b; font-weight: 700; letter-spacing: 0.05em;
+  opacity: 0; transform: translateY(-10px);
+}
+#equation-container {
+  opacity: 0; transform: scale(0.92);
+  padding: 2vh 3vw;
+  background: rgba(13,150,139,0.07);
+  border: 1px solid rgba(13,150,139,0.3);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; max-width: 700px;
+}
+.katex { font-size: clamp(1.1rem, 2.8vw, 2rem) !important; }
+.katex-display { margin: 0 !important; }
+#terms-container {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1.2vw; width: 100%; max-width: 1000px;
+}
+.term-box {
+  opacity: 0; transform: translateY(12px);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid #30363d;
+  border-radius: 10px; padding: 1.2vh 1vw;
+  display: flex; flex-direction: column; align-items: center; gap: 0.6vh;
+}
+.term-box.posterior { border-color: #22C55E40; }
+.term-box.likelihood { border-color: #3B82F640; }
+.term-box.prior { border-color: #F59E0B40; }
+.term-box.evidence { border-color: #8B5CF640; }
+.term-symbol .katex { font-size: clamp(0.85rem, 1.6vw, 1.2rem) !important; }
+.term-name { font-size: clamp(0.65rem, 1vw, 0.85rem); font-weight: 700; text-align: center; }
+.term-desc { font-size: clamp(0.55rem, 0.85vw, 0.72rem); color: #8b949e; text-align: center; line-height: 1.35; }
+.posterior .term-name { color: #22C55E; }
+.likelihood .term-name { color: #3B82F6; }
+.prior .term-name { color: #F59E0B; }
+.evidence .term-name { color: #8B5CF6; }
+#balance-section {
+  opacity: 0; display: flex; flex-direction: column; align-items: center; gap: 0.8vh;
+  width: 100%; max-width: 640px;
+}
+#balance-heading {
+  font-size: clamp(0.8rem, 1.3vw, 1rem); color: #0d968b; font-weight: 600;
+}
+#balance-svg { width: 100%; max-width: 560px; height: clamp(120px, 17vh, 185px); overflow: visible; }
+#posterior-badge {
+  opacity: 0; transform: scale(0.8);
+  font-size: clamp(0.75rem, 1.2vw, 0.95rem);
+  color: #22C55E; font-weight: 600;
+  padding: 0.6vh 2vw; border: 1px solid #22C55E;
+  border-radius: 8px; background: rgba(34,197,94,0.07);
+}
+#flow-section {
+  opacity: 0; width: 100%; max-width: 820px;
+}
+#flow-svg { width: 100%; height: clamp(80px, 11vh, 130px); }
+#controls {
+  position: fixed; bottom: 1.5vh; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 0.8vw; z-index: 100; flex-wrap: wrap; justify-content: center;
+}
+.btn {
+  background: rgba(13,150,139,0.12); border: 1px solid #0d968b;
+  color: #0d968b; padding: 0.5vh 1.2vw; border-radius: 6px;
+  cursor: pointer; font-size: clamp(0.65rem, 1vw, 0.82rem);
+  font-family: inherit; transition: background 0.2s;
+}
+.btn:hover { background: rgba(13,150,139,0.28); }
+#step-badge {
+  position: fixed; top: 1.5vh; right: 1.5vw;
+  font-size: clamp(0.6rem, 0.9vw, 0.75rem); color: #8b949e;
+  background: rgba(13,17,23,0.92); padding: 0.4vh 0.8vw;
+  border-radius: 6px; border: 1px solid #30363d;
+}
+</style>
+</head>
+<body>
+<div id="container">
+  <div id="title">Bayes' Theorem</div>
+  <div id="equation-container">
+    <div id="eq-render"></div>
+  </div>
+  <div id="terms-container">
+    <div class="term-box posterior">
+      <div class="term-symbol" id="ts-post"></div>
+      <div class="term-name">Posterior</div>
+      <div class="term-desc">Updated belief after seeing evidence</div>
+    </div>
+    <div class="term-box likelihood">
+      <div class="term-symbol" id="ts-lik"></div>
+      <div class="term-name">Likelihood</div>
+      <div class="term-desc">How likely is the evidence if A is true</div>
+    </div>
+    <div class="term-box prior">
+      <div class="term-symbol" id="ts-pri"></div>
+      <div class="term-name">Prior</div>
+      <div class="term-desc">What we believed before seeing evidence</div>
+    </div>
+    <div class="term-box evidence">
+      <div class="term-symbol" id="ts-ev"></div>
+      <div class="term-name">Evidence</div>
+      <div class="term-desc">How likely is this evidence overall</div>
+    </div>
+  </div>
+  <div id="balance-section">
+    <div id="balance-heading">Prior × Likelihood ÷ Evidence = Posterior</div>
+    <svg id="balance-svg" viewBox="0 0 560 180" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="glow-yellow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="glow-blue"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <!-- Stand base -->
+      <rect x="262" y="152" width="36" height="22" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+      <!-- Vertical pole -->
+      <line x1="280" y1="152" x2="280" y2="62" stroke="#484f58" stroke-width="3" stroke-linecap="round"/>
+      <!-- Beam group — rotates around (280,62) -->
+      <g id="beam-g">
+        <line x1="80" y1="62" x2="480" y2="62" stroke="#484f58" stroke-width="3" stroke-linecap="round"/>
+        <!-- Pivot dot -->
+        <circle cx="280" cy="62" r="6" fill="#0d968b"/>
+        <!-- Left strings -->
+        <line x1="120" y1="62" x2="100" y2="102" stroke="#484f58" stroke-width="1.5"/>
+        <line x1="160" y1="62" x2="180" y2="102" stroke="#484f58" stroke-width="1.5"/>
+        <!-- Left pan -->
+        <line x1="90" y1="102" x2="190" y2="102" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Left pan label -->
+        <text x="140" y="125" text-anchor="middle" fill="#F59E0B" font-size="13" font-weight="700">Prior P(A)</text>
+        <!-- Left weight circle -->
+        <circle id="left-weight" cx="140" cy="90" r="10" fill="rgba(245,158,11,0.25)" stroke="#F59E0B" stroke-width="1.5"/>
+        <!-- Right strings -->
+        <line x1="400" y1="62" x2="380" y2="102" stroke="#484f58" stroke-width="1.5"/>
+        <line x1="440" y1="62" x2="460" y2="102" stroke="#484f58" stroke-width="1.5"/>
+        <!-- Right pan -->
+        <line x1="370" y1="102" x2="470" y2="102" stroke="#3B82F6" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Right pan label -->
+        <text x="420" y="125" text-anchor="middle" fill="#3B82F6" font-size="13" font-weight="700">Likelihood P(B|A)</text>
+        <!-- Right weight circle -->
+        <circle id="right-weight" cx="420" cy="90" r="10" fill="rgba(59,130,246,0.25)" stroke="#3B82F6" stroke-width="1.5"/>
+      </g>
+      <!-- Evidence divider label (static) -->
+      <text x="280" y="175" text-anchor="middle" fill="#8B5CF6" font-size="11">÷ Evidence P(B)</text>
+    </svg>
+    <div id="posterior-badge">→ Posterior P(A|B) emerges</div>
+  </div>
+  <div id="flow-section">
+    <svg id="flow-svg" viewBox="0 0 820 115" xmlns="http://www.w3.org/2000/svg">
+      <!-- Node 1: Prior -->
+      <g id="fn1" opacity="0">
+        <rect x="5" y="30" width="155" height="52" rx="8" fill="rgba(245,158,11,0.1)" stroke="#F59E0B" stroke-width="1.5"/>
+        <text x="82" y="52" text-anchor="middle" fill="#F59E0B" font-size="13" font-weight="700">Prior Belief</text>
+        <text x="82" y="70" text-anchor="middle" fill="#8b949e" font-size="11">P(A)</text>
+      </g>
+      <!-- Arrow 1 -->
+      <g id="fa1" opacity="0">
+        <line x1="160" y1="56" x2="208" y2="56" stroke="#484f58" stroke-width="2"/>
+        <polygon points="208,51 220,56 208,61" fill="#484f58"/>
+      </g>
+      <!-- Node 2: Observe -->
+      <g id="fn2" opacity="0">
+        <rect x="220" y="30" width="155" height="52" rx="8" fill="rgba(59,130,246,0.1)" stroke="#3B82F6" stroke-width="1.5"/>
+        <text x="297" y="52" text-anchor="middle" fill="#3B82F6" font-size="13" font-weight="700">Observe Data</text>
+        <text x="297" y="70" text-anchor="middle" fill="#8b949e" font-size="11">Evidence B</text>
+      </g>
+      <!-- Arrow 2 -->
+      <g id="fa2" opacity="0">
+        <line x1="375" y1="56" x2="423" y2="56" stroke="#484f58" stroke-width="2"/>
+        <polygon points="423,51 435,56 423,61" fill="#484f58"/>
+      </g>
+      <!-- Node 3: Update -->
+      <g id="fn3" opacity="0">
+        <rect x="435" y="30" width="155" height="52" rx="8" fill="rgba(13,150,139,0.1)" stroke="#0d968b" stroke-width="1.5"/>
+        <text x="512" y="52" text-anchor="middle" fill="#0d968b" font-size="13" font-weight="700">Apply Bayes</text>
+        <text x="512" y="70" text-anchor="middle" fill="#8b949e" font-size="11">Update belief</text>
+      </g>
+      <!-- Arrow 3 -->
+      <g id="fa3" opacity="0">
+        <line x1="590" y1="56" x2="638" y2="56" stroke="#484f58" stroke-width="2"/>
+        <polygon points="638,51 650,56 638,61" fill="#484f58"/>
+      </g>
+      <!-- Node 4: Posterior -->
+      <g id="fn4" opacity="0">
+        <rect x="650" y="30" width="160" height="52" rx="8" fill="rgba(34,197,94,0.1)" stroke="#22C55E" stroke-width="1.5"/>
+        <text x="730" y="52" text-anchor="middle" fill="#22C55E" font-size="13" font-weight="700">Posterior Belief</text>
+        <text x="730" y="70" text-anchor="middle" fill="#8b949e" font-size="11">P(A|B)</text>
+      </g>
+      <!-- Feedback loop -->
+      <g id="fback" opacity="0">
+        <path d="M730 82 Q730 108 412 108 Q95 108 82 82" stroke="#8B5CF6" stroke-width="1.5" fill="none" stroke-dasharray="5,3"/>
+        <polygon points="82,87 75,82 89,82" fill="#8B5CF6"/>
+        <text x="412" y="106" text-anchor="middle" fill="#8B5CF6" font-size="10.5" font-style="italic">Learn from data</text>
+      </g>
+    </svg>
+  </div>
+</div>
+<div id="step-badge">Step: —</div>
+<div id="controls">
+  <button class="btn" onclick="window.animationAPI.seekToStep('equation')">1. Equation</button>
+  <button class="btn" onclick="window.animationAPI.seekToStep('terms')">2. Terms</button>
+  <button class="btn" onclick="window.animationAPI.seekToStep('balance')">3. Balance</button>
+  <button class="btn" onclick="window.animationAPI.seekToStep('flow')">4. Flow</button>
+  <button class="btn" onclick="window.animationAPI.play()">▶ Play</button>
+  <button class="btn" onclick="window.animationAPI.pause()">⏸ Pause</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script>
+// Render math
+katex.render('P(A|B) = \\dfrac{P(B|A)\\cdot P(A)}{P(B)}', document.getElementById('eq-render'), { displayMode: true, throwOnError: false });
+katex.render('P(A|B)', document.getElementById('ts-post'), { throwOnError: false });
+katex.render('P(B|A)', document.getElementById('ts-lik'), { throwOnError: false });
+katex.render('P(A)', document.getElementById('ts-pri'), { throwOnError: false });
+katex.render('P(B)', document.getElementById('ts-ev'), { throwOnError: false });
+// GSAP master timeline
+const tl = gsap.timeline({ paused: true, defaults: { ease: 'power2.inOut' } });
+// ── Step 1: Equation ──────────────────────────────────────────────
+tl.addLabel('equation', 0);
+tl.to('#title', { opacity: 1, y: 0, duration: 0.9, ease: 'power2.out' }, 'equation');
+tl.to('#equation-container', { opacity: 1, scale: 1, duration: 1.1, ease: 'back.out(1.2)' }, 'equation+=0.5');
+// Pulse glow
+tl.to('#equation-container', { boxShadow: '0 0 40px rgba(13,150,139,0.35)', duration: 0.9 }, 'equation+=1.6');
+tl.to('#equation-container', { boxShadow: '0 0 8px rgba(13,150,139,0.12)', duration: 0.9 }, 'equation+=2.5');
+// ── Step 2: Term boxes ────────────────────────────────────────────
+tl.addLabel('terms', '+=1.2');
+const boxes = document.querySelectorAll('.term-box');
+boxes.forEach((b, i) => {
+  tl.to(b, { opacity: 1, y: 0, duration: 0.6, ease: 'back.out(1.5)' }, `terms+=${i * 0.22}`);
+});
+// Highlight each box briefly
+const colors = ['#22C55E','#3B82F6','#F59E0B','#8B5CF6'];
+boxes.forEach((b, i) => {
+  tl.to(b, { borderColor: colors[i], boxShadow: `0 0 18px ${colors[i]}30`, duration: 0.5 }, `terms+=${1.2 + i * 0.2}`);
+});
+// ── Step 3: Balance scale ─────────────────────────────────────────
+tl.addLabel('balance', '+=1.8');
+tl.to('#balance-section', { opacity: 1, duration: 0.7, ease: 'power2.out' }, 'balance');
+// Prior heavier — beam tips left (prior side = left = negative rotation from center)
+tl.to('#beam-g', {
+  rotation: -18,
+  svgOrigin: '280 62',
+  duration: 1.6,
+  ease: 'power2.inOut'
+}, 'balance+=0.8');
+// Pause at tipped left
+tl.to({}, { duration: 0.8 }, 'balance+=2.4');
+// Likelihood wins — beam tips right
+tl.to('#beam-g', {
+  rotation: 14,
+  svgOrigin: '280 62',
+  duration: 1.8,
+  ease: 'power2.inOut'
+}, 'balance+=3.2');
+// Balance reaches equilibrium
+tl.to('#beam-g', {
+  rotation: 0,
+  svgOrigin: '280 62',
+  duration: 1.3,
+  ease: 'elastic.out(1,0.6)'
+}, 'balance+=5.2');
+// Posterior appears
+tl.to('#posterior-badge', { opacity: 1, scale: 1, duration: 0.7, ease: 'back.out(1.6)' }, 'balance+=6.3');
+// ── Step 4: Flow diagram ──────────────────────────────────────────
+tl.addLabel('flow', '+=2');
+tl.to('#flow-section', { opacity: 1, duration: 0.5 }, 'flow');
+[
+  ['#fn1', 0], ['#fa1', 0.7], ['#fn2', 0.9],
+  ['#fa2', 1.6], ['#fn3', 1.8],
+  ['#fa3', 2.5], ['#fn4', 2.7],
+  ['#fback', 3.6]
+].forEach(([id, offset]) => {
+  tl.to(id, { opacity: 1, duration: 0.5, ease: 'power2.out' }, `flow+=${offset}`);
+});
+// Animate feedback loop dash offset for flow effect
+gsap.to('#fback path', {
+  strokeDashoffset: -40,
+  duration: 2,
+  repeat: -1,
+  ease: 'linear'
+});
+// ── Public API (must be before tick) ──────────────────────────────
+window.animationAPI = {
+  timeline: tl,
+  seekToStep(label) { tl.seek(label); tl.pause(); },
+  play() { tl.play(); },
+  pause() { tl.pause(); },
+  getSteps() { return Object.keys(tl.labels); },
+  getCurrentStep() {
+    const t = tl.time();
+    let current = '';
+    for (const [name, time] of Object.entries(tl.labels)) {
+      if (time <= t) current = name;
+    }
+    return current;
+  }
+};
+tl.play();
+</script>
+</body>
+</html>

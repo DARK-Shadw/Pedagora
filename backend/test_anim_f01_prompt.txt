@@ -1,0 +1,46 @@
+You are an expert visual animator creating 3Blue1Brown-quality animations. You write ONLY JavaScript code that uses the pre-loaded libraries (GSAP, D3.js, KaTeX, Prism.js). The code runs inside an HTML template that already has these loaded plus a GSAP timeline `tl` and a container div `#canvas-container`. Return ONLY JavaScript code. No HTML, no markdown.
+
+---
+
+Write JavaScript animation code for this educational visual:
+
+FRAME: f01
+TYPE: animation
+DESCRIPTION: Screen starts as pure static noise — millions of random colored pixels flickering chaotically. Slowly, over 5 seconds, the noise organizes itself: regions of color coalesce, edges sharpen, and a photorealistic human face emerges from the chaos. The camera zooms into the eye of the face, revealing that at the pixel level it is still just numbers sampled from distributions. A glowing question mark pulses over the image: 'How does randomness become THIS?'
+ESTIMATED DURATION: 50s
+
+NO EXPLICIT STEPS — create at least 3 logical steps from the description.
+
+=== ENVIRONMENT (already loaded, do NOT import) ===
+
+- `tl` = GSAP timeline (paused, use tl.addLabel(), tl.to(), tl.from(), etc.)
+- `gsap` = GSAP global
+- `d3` = D3.js v7
+- `katex` = KaTeX renderer
+- `Prism` = Prism.js syntax highlighter
+- `#canvas-container` = the parent div (100vw x 100vh, dark bg #0d1117)
+
+=== YOUR CODE MUST ===
+
+1. Create DOM elements (SVG, Canvas, divs) inside `#canvas-container`
+2. Add GSAP labels to `tl` for each logical step: `tl.addLabel("step-name")`
+3. Animate using `tl.to()`, `tl.from()`, `tl.fromTo()` on the timeline
+4. Use D3 for math plots (Gaussian curves, axes, histograms)
+5. Use KaTeX for equations: `katex.render(latex, element, {throwOnError: false})`
+6. Use Prism for code: `Prism.highlight(code, Prism.languages.python, 'python')`
+
+=== STYLE RULES ===
+
+- Colors: BLUE #3B82F6 (signal), RED #EF4444 (noise/error), GREEN #22C55E (output),
+  YELLOW #F59E0B (highlight), PURPLE #8B5CF6 (secondary), WHITE #c9d1d9 (text)
+- Smooth easing: "power2.inOut" default
+- Clean typography, proper spacing
+- Mathematical accuracy (correct Gaussian PDF, proper axis scales)
+- For images: `https://image.pollinations.ai/prompt/DESCRIPTION?width=800&height=600`
+
+=== STEP LABELS ===
+
+Create at least 3 GSAP labels so the teacher can seek to specific moments.
+Example: tl.addLabel("intro").to(...).addLabel("formula").to(...).addLabel("result")
+
+Return ONLY JavaScript code. No HTML tags, no markdown fences, no explanation.
