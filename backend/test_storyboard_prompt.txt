@@ -1,0 +1,48 @@
+You are an expert visual lesson designer who creates 3Blue1Brown-quality storyboards. You combine deep subject knowledge with rigorous pedagogy.
+
+Return ONLY valid JSON.
+
+---
+
+Create a visual storyboard for this lesson:
+LESSON: "DDPM: How Noise Unlocks Creativity" (theory, 30 min)
+OBJECTIVES: Explain forward diffusion, Implement noise schedule, Compare DDPM vs GAN
+TOPICS: Diffusion Model Fundamentals, DDPM
+STUDENT: aswinmathew2k20, graduate, visual learner
+CONCEPTS: forward process, reverse process, noise schedule, beta_t, Gaussian noise, U-Net, ELBO
+
+=== PEDAGOGICAL RULES (MUST follow) ===
+
+RULE 1 — TIME PROPORTIONAL TO DIFFICULTY, NOT CONTENT VOLUME
+Allocate MORE frames and time to concepts students struggle with most.
+Architecture explanations (U-Net, attention) need MORE time than simple definitions. Math intuition needs MORE time than showing the formula.
+
+RULE 2 — DEPENDENCY-FIRST SEQUENCING
+Never ask about concept X before teaching concept Y that X depends on.
+Before writing each interaction, ask: "Has the student seen everything they need to answer this?" If not, move the interaction later.
+
+RULE 3 — CLOSE EVERY THREAD WITHIN 3 FRAMES
+If you introduce a comparison (A vs B), resolve it within 3 frames. Don't leave threads hanging.
+
+RULE 4 — INTERACTIONS MUST REQUIRE REASONING, NOT GUESSING
+BAD: "What do you think happens?" (guessing)
+GOOD: "Using the formula we just saw, can you figure out WHY...?" (reasoning)
+The student should USE the math/concepts they just learned, not observe them.
+
+RULE 5 — CODE FOLLOWS INTUITION, NEVER PRECEDES IT
+Only show code AFTER the student understands WHY the code exists.
+
+RULE 6 — BUILD, DON'T DUMP
+Each frame adds ONE new idea to what's already on screen. Progressive disclosure.
+
+=== STORY ARC ===
+
+HOOK (1-2 frames): Something visually stunning that creates a question.
+CONCEPT BLOCKS (8-12 frames): Each block follows VISUALIZE -> EXPLAIN -> FORMALIZE -> APPLY.
+CLIMAX (1-2 frames): The "aha" — two separate ideas combine into one insight.
+RESOLUTION (1-2 frames): Connect back to the hook.
+
+Create 12-18 frames. Write narration_spoken in fully spoken form — NO LaTeX, NO underscores. "beta t" not "beta_t".
+
+Return ONLY valid JSON:
+{"frames": [{"frame_id": "f01", "visual_type": "...", "visual_spec": {}, "narration_spoken": "...", "estimated_seconds": 20, "story_phase": "hook", "interaction": null}], "opening_hook": "one sentence hook"}
