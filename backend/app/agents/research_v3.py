@@ -1,15 +1,18 @@
 """
-Research Agent v3 — Parallel research via multiple Claude Code subprocesses.
+Research Agent v3 — Production quality, real-time progress updates.
 
-Three-step pipeline:
-1. Quick prerequisite gap analysis (no tools, ~30s)
-2. 3 PARALLEL Claude Code processes researching different topic groups (~2-3 min each)
-3. Merge results + save to DB
+Pipeline:
+1. Quick prerequisite gap analysis (~30s)
+2. Sequential research agents with live progress:
+   - Prerequisites: 6 sources (~2-3 min)
+   - Core topics: 8 sources (~3-4 min)
+   - Advanced topics: 6 sources (~2-3 min)
+3. Quick synthesis (~30s)
+4. Save to DB
 
-Total time: ~3-4 min (vs 30+ min with v2 Pollinations pipeline).
+Total: ~8-10 min with real-time status updates.
 """
 
-import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -65,19 +68,20 @@ def build_student_context(onboarding: dict) -> dict:
     }
 
 
-async def _research_topic_group(
+async def _research_with_progress(
     engine: ClaudeEngine,
     agent_name: str,
     topics: list[dict],
     context: dict,
     source_target: int,
+    progress_fn,
 ) -> list[dict]:
-    """Run a single research agent for a group of topics. Returns list of sources."""
+    """Run a research agent with real-time progress updates via streaming."""
     if not topics:
         return []
 
     topic_list = "\n".join(
-        f"- {t['topic_name']}" + (f" (reason: {t['why']})" if t.get("why") else "")
+        f"- {t['topic_name']}" + (f" (reason: {t.get('why', '')})" if t.get("why") else "")
         for t in topics
     )
 
@@ -87,37 +91,92 @@ async def _research_topic_group(
         education_level=context["education_level"],
         topic_list=topic_list,
         source_target=source_target,
-        fetch_target=min(source_target, 3),
     )
 
-    logger.info(f"[Research v3] {agent_name}: researching {len(topics)} topics, target {source_target} sources")
+    system = RESEARCH_AGENT_SYSTEM_PROMPT
+    progress_fn(f"[{agent_name}] Starting research on {len(topics)} topics...")
 
-    result = await engine.run(
+    final_text = ""
+    search_count = 0
+    fetch_count = 0
+
+    async for event in engine.stream(
         prompt=prompt,
-        system_prompt=RESEARCH_AGENT_SYSTEM_PROMPT,
-        tools=["WebSearch", "WebFetch"],
-        timeout=240,  # 4 min per agent — includes ToolSearch + WebSearch + response gen
-        max_turns=10,  # ToolSearch + 3-4 WebSearch + response
-    )
+        system_prompt=system,
+        max_turns=15,
+        timeout=480,  # 8 min per agent — video topics need more searches
+    ):
+        if event["type"] == "tool_use":
+            name = event.get("name", "")
+            inp = event.get("input", {})
+
+            if "WebSearch" in name or "web_search" in name.lower():
+                query = inp.get("query", "")
+                search_count += 1
+                progress_fn(f"[{agent_name}] Searching: {query[:60]}")
+            elif "WebFetch" in name or "web_fetch" in name.lower():
+                url = inp.get("url", "")
+                fetch_count += 1
+                progress_fn(f"[{agent_name}] Reading: {url[:65]}")
+            elif "ToolSearch" in name:
+                pass  # Internal tool discovery, ignore
+            else:
+                progress_fn(f"[{agent_name}] Using: {name}")
+
+        elif event["type"] == "text":
+            final_text = event.get("content", "")
+
+        elif event["type"] == "result":
+            final_text = event.get("result", "") or final_text
+            cost = event.get("cost_usd", 0)
+            logger.info(f"[Research v3] {agent_name}: done, {search_count} searches, {fetch_count} fetches, cost=${cost:.4f}")
+
+        elif event["type"] == "error":
+            logger.error(f"[Research v3] {agent_name}: {event.get('message', 'unknown error')}")
+            progress_fn(f"[{agent_name}] Error: {event.get('message', '')[:50]}")
+            return []
+
+    # Parse sources from response
+    stripped = final_text.strip()
+    if stripped.startswith("```"):
+        lines = stripped.split("\n")
+        if lines[-1].strip() == "```":
+            lines = lines[1:-1]
+        elif lines[0].startswith("```"):
+            lines = lines[1:]
+        stripped = "\n".join(lines).strip()
 
     try:
-        parsed = json.loads(result["result"])
+        parsed = json.loads(stripped)
         sources = parsed.get("sources", [])
-        logger.info(f"[Research v3] {agent_name}: found {len(sources)} sources, cost=${result.get('cost_usd', 0):.4f}")
+        progress_fn(f"[{agent_name}] Found {len(sources)} sources")
         return sources
     except json.JSONDecodeError as e:
-        logger.error(f"[Research v3] {agent_name}: JSON parse error: {e}")
+        logger.error(f"[Research v3] {agent_name}: JSON parse failed: {e}")
+        logger.error(f"[Research v3] Raw: {stripped[:300]}")
+        progress_fn(f"[{agent_name}] Failed to parse results")
         return []
 
 
 async def run_research_v3(goal_id: str, user_id: str) -> dict:
-    """Run the v3 research pipeline with TRUE parallel execution."""
+    """Run production research pipeline with real-time progress."""
     sb = get_supabase()
     engine = ClaudeEngine(model="sonnet")
 
-    _update_progress(sb, goal_id, "active", 5, "Loading student profile...")
+    def progress(msg: str, pct: int | None = None):
+        """Update progress in DB — visible to frontend via polling."""
+        update = {"current_task": msg}
+        if pct is not None:
+            update["progress_percentage"] = pct
+        try:
+            sb.table("agent_tasks").update(update).eq("goal_id", goal_id).eq("agent_type", "research").execute()
+        except Exception:
+            pass
+        logger.info(f"[Research v3] {msg}")
 
-    # Fetch onboarding data
+    _update_status(sb, goal_id, "active", 2, "Loading student profile...")
+
+    # ── Fetch onboarding data ──
     try:
         onboarding = await fetch_onboarding_data(goal_id, user_id)
     except Exception as e:
@@ -131,11 +190,9 @@ async def run_research_v3(goal_id: str, user_id: str) -> dict:
             pass
 
     context = build_student_context(onboarding)
+    progress(f"Analyzing prerequisites for: {context['goal_title'][:50]}...", 5)
 
-    # ── STEP 1: Prerequisite analysis (fast, no tools) ──
-    _update_progress(sb, goal_id, "active", 10, "Analyzing prerequisites...")
-    logger.info(f"[Research v3] Step 1: Prereq analysis for '{context['goal_title']}'")
-
+    # ── STEP 1: Prerequisite gap analysis ──
     try:
         gap_result = await engine.run(
             prompt=PREREQ_ANALYSIS_PROMPT.format(**context),
@@ -145,75 +202,86 @@ async def run_research_v3(goal_id: str, user_id: str) -> dict:
         topic_groups = json.loads(gap_result["result"]).get("topic_groups", [])
     except Exception as e:
         logger.warning(f"[Research v3] Prereq analysis failed: {e}")
-        topic_groups = [
-            {"topic_name": context["goal_title"], "priority": "core",
-             "content_needs": {"needs_formulas": True, "needs_code": True,
-                               "needs_visual_demo": True, "needs_exercises": True}},
-        ]
+        topic_groups = [{"topic_name": context["goal_title"], "priority": "core",
+                         "content_needs": {"needs_formulas": True, "needs_code": True,
+                                           "needs_visual_demo": True, "needs_exercises": True}}]
 
     prereqs = [t for t in topic_groups if t.get("priority") == "prerequisite"]
     cores = [t for t in topic_groups if t.get("priority") == "core"]
     advanced = [t for t in topic_groups if t.get("priority") == "advanced"]
 
-    logger.info(f"[Research v3] Step 1 done: {len(prereqs)} prereq, {len(cores)} core, {len(advanced)} advanced")
+    progress(f"Found {len(topic_groups)} topics: {len(prereqs)} prerequisite, {len(cores)} core, {len(advanced)} advanced", 10)
+    for t in topic_groups:
+        logger.info(f"  [{t.get('priority')}] {t.get('topic_name')}")
 
-    # ── STEP 2: 3 parallel research agents ──
-    _update_progress(sb, goal_id, "active", 20, f"3 agents researching {len(topic_groups)} topics in parallel...")
+    # ── STEP 2: Parallel research agents with live progress ──
+    import asyncio
 
-    # Launch 3 agents in parallel via asyncio.gather
-    prereq_task = _research_topic_group(engine, "PREREQUISITE_AGENT", prereqs, context, 4)
-    core_task = _research_topic_group(engine, "CORE_AGENT", cores, context, 4)
-    advanced_task = _research_topic_group(engine, "ADVANCED_AGENT", advanced or cores[-1:], context, 4)
+    def make_progress_fn(name):
+        """Create a progress callback for an agent."""
+        def fn(msg):
+            progress(msg)  # All agents update the same DB field
+        return fn
 
-    prereq_sources, core_sources, advanced_sources = await asyncio.gather(
-        prereq_task, core_task, advanced_task,
-        return_exceptions=True,
-    )
+    progress(f"Launching parallel research agents...", 15)
 
-    # Handle exceptions from individual agents
+    tasks = []
+    if prereqs:
+        tasks.append(_research_with_progress(engine, "PREREQUISITES", prereqs, context, 10, make_progress_fn("PREREQ")))
+    if cores:
+        tasks.append(_research_with_progress(engine, "CORE", cores, context, 12, make_progress_fn("CORE")))
+    if advanced:
+        tasks.append(_research_with_progress(engine, "ADVANCED", advanced, context, 8, make_progress_fn("ADVANCED")))
+    elif len(cores) > 3:
+        mid = len(cores) // 2
+        tasks.append(_research_with_progress(engine, "CORE_A", cores[:mid], context, 8, make_progress_fn("CORE_A")))
+        tasks.append(_research_with_progress(engine, "CORE_B", cores[mid:], context, 8, make_progress_fn("CORE_B")))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
     all_sources = []
-    for name, result in [("prereq", prereq_sources), ("core", core_sources), ("advanced", advanced_sources)]:
-        if isinstance(result, Exception):
-            logger.error(f"[Research v3] {name} agent failed: {result}")
-        elif isinstance(result, list):
-            all_sources.extend(result)
+    for r in results:
+        if isinstance(r, Exception):
+            logger.error(f"[Research v3] Agent failed: {r}")
+        elif isinstance(r, list):
+            all_sources.extend(r)
+
+    progress(f"All agents done: {len(all_sources)} sources total", 75)
 
     if not all_sources:
-        _update_progress(sb, goal_id, "failed", 0, error="All research agents failed")
-        raise RuntimeError("All research agents failed — no sources found")
-
-    _update_progress(sb, goal_id, "active", 75, f"Found {len(all_sources)} sources, synthesizing...")
+        _update_status(sb, goal_id, "failed", 0, error="No sources found from any agent")
+        raise RuntimeError("All research agents returned 0 sources")
 
     # ── STEP 3: Quick synthesis ──
-    synthesis_prompt = f"""Given these {len(all_sources)} research sources about "{context['goal_title']}", create a synthesis.
+    progress(f"Synthesizing {len(all_sources)} sources...", 82)
 
-Return ONLY valid JSON:
-{{
-  "gaps": [{{"topic": "string", "missing_content": "string", "severity": "critical"|"moderate"|"minor"}}],
-  "teaching_notes": {{"topic_name": "specific teaching guidance"}},
-  "cross_topic_formulas": [{{"formula_latex": "string", "formula_plain_spoken": "string", "topic": "string", "importance": "string"}}],
-  "demo_codebases": [{{"url": "string", "name": "string", "description": "string", "language": "string", "suitability_score": 0.9}}],
-  "coding_exercises": [{{"title": "string", "description": "string", "difficulty": "beginner"|"intermediate"|"advanced", "topic": "string"}}]
-}}
-
-Topics covered: {', '.join(t['topic_name'] for t in topic_groups)}
-Sources found: {len(all_sources)} across {len(set(s.get('topic_group','') for s in all_sources))} topics
-Sample source titles: {', '.join(s.get('title','')[:40] for s in all_sources[:5])}
-"""
+    topic_names = [t["topic_name"] for t in topic_groups]
+    source_titles = [s.get("title", "")[:40] for s in all_sources[:8]]
 
     try:
         synth_result = await engine.run(
-            prompt=synthesis_prompt,
-            system_prompt="You are a research synthesizer. Analyze coverage and create teaching guidance. Return ONLY JSON.",
-            timeout=120,
+            prompt=f"""Synthesize these {len(all_sources)} research sources about "{context['goal_title']}".
+
+Topics covered: {', '.join(topic_names)}
+Source titles: {', '.join(source_titles)}
+
+Return ONLY valid JSON:
+{{"gaps": [{{"topic": "...", "missing_content": "...", "severity": "critical"|"moderate"|"minor"}}],
+"teaching_notes": {{"topic_name": "specific guidance"}},
+"cross_topic_formulas": [{{"formula_latex": "...", "formula_plain_spoken": "...", "topic": "...", "importance": "..."}}],
+"demo_codebases": [{{"url": "...", "name": "...", "description": "...", "language": "python", "suitability_score": 0.9}}],
+"coding_exercises": [{{"title": "...", "description": "...", "difficulty": "beginner"|"intermediate"|"advanced", "topic": "..."}}]}}""",
+            system_prompt="You are a research synthesizer. Return ONLY valid JSON.",
+            timeout=180,  # 3 min for synthesis
         )
         synthesis = json.loads(synth_result["result"])
     except Exception as e:
-        logger.warning(f"[Research v3] Synthesis failed: {e}, using empty")
-        synthesis = {"gaps": [], "teaching_notes": {}, "cross_topic_formulas": [], "demo_codebases": [], "coding_exercises": []}
+        logger.warning(f"[Research v3] Synthesis failed: {e}")
+        synthesis = {"gaps": [], "teaching_notes": {}, "cross_topic_formulas": [],
+                     "demo_codebases": [], "coding_exercises": []}
 
     # ── STEP 4: Save to DB ──
-    _update_progress(sb, goal_id, "active", 85, "Saving to database...")
+    progress("Saving results to database...", 90)
 
     parsed = {
         "topic_tree": {"effort_tier": "standard", "topic_groups": topic_groups},
@@ -226,21 +294,25 @@ Sample source titles: {', '.join(s.get('title','')[:40] for s in all_sources[:5]
 
     formula_count = sum(len(s.get("formulas", [])) for s in all_sources)
     visual_count = sum(1 for s in all_sources if s.get("visual_opportunity"))
-    logger.info(
-        f"[Research v3] COMPLETE: {len(topic_groups)} topics ({len(prereqs)} prereq), "
-        f"{len(all_sources)} sources, {formula_count} formulas, {visual_count} visuals"
-    )
 
-    _update_progress(sb, goal_id, "completed", 100, "Research complete!")
+    progress(
+        f"Research complete! {len(all_sources)} sources, {formula_count} formulas, "
+        f"{visual_count} visuals across {len(topic_groups)} topics",
+        100,
+    )
+    _update_status(sb, goal_id, "completed", 100)
+
+    logger.info(
+        f"[Research v3] DONE: {len(topic_groups)} topics ({len(prereqs)} prereq), "
+        f"{len(all_sources)} sources, {formula_count} formulas"
+    )
     return parsed
 
 
 async def _save_results(sb, goal_id: str, user_id: str, parsed: dict):
-    """Save to research_results table."""
     synthesis = parsed.get("synthesis", {})
     sb.table("research_results").upsert({
-        "goal_id": goal_id,
-        "user_id": user_id,
+        "goal_id": goal_id, "user_id": user_id,
         "topic_tree": parsed.get("topic_tree", {}),
         "synthesis": synthesis,
         "source_count": len(parsed.get("sources", [])),
@@ -254,7 +326,6 @@ async def _save_results(sb, goal_id: str, user_id: str, parsed: dict):
 
 
 async def _save_sources(sb, goal_id: str, user_id: str, sources: list):
-    """Save to research_sources table."""
     sb.table("research_sources").delete().eq("goal_id", goal_id).execute()
     for source in sources:
         row = {
@@ -276,7 +347,11 @@ async def _save_sources(sb, goal_id: str, user_id: str, sources: list):
                 "misconceptions": source.get("misconceptions", []),
                 "visual_opportunity": source.get("visual_opportunity", ""),
             },
-            "metadata": {"formula_plain_spoken": [f.get("formula_plain_spoken", "") for f in source.get("formulas", [])] if source.get("formulas") else []},
+            "metadata": {
+                "formula_plain_spoken": [
+                    f.get("formula_plain_spoken", "") for f in source.get("formulas", [])
+                ] if source.get("formulas") else [],
+            },
         }
         try:
             sb.table("research_sources").insert(row).execute()
@@ -284,9 +359,9 @@ async def _save_sources(sb, goal_id: str, user_id: str, sources: list):
             logger.warning(f"[Research v3] Save source failed: {e}")
 
 
-def _update_progress(sb, goal_id, status, pct, task="", error=""):
+def _update_status(sb, goal_id, status, pct, task="", error=""):
     update = {"status": status, "progress_percentage": pct, "current_task": task}
-    if status == "active" and pct == 5:
+    if status == "active" and pct <= 5:
         update["started_at"] = datetime.now(timezone.utc).isoformat()
     if status == "completed":
         update["completed_at"] = datetime.now(timezone.utc).isoformat()

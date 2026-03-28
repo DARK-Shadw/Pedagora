@@ -277,18 +277,15 @@ def test_streaming():
 
 
 def test_full_research():
-    """Test 4: Full research v3 pipeline — step by step with logging."""
+    """Test 4: Full research v3 pipeline with live progress."""
     print("\n" + "=" * 60)
-    print("TEST 4: Full Research v3 Pipeline (parallel agents)")
+    print("TEST 4: Full Research v3 (production, live progress)")
     print("=" * 60)
 
-    # Enable logging so we see what's happening
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     from app.services.supabase import get_supabase
-    from app.agents.research_v3 import run_research_v3, build_student_context
-    from app.agents.research_prompts_v3 import PREREQ_ANALYSIS_PROMPT
-    from app.services.agent_task import fetch_onboarding_data
+    from app.agents.research_v3 import run_research_v3
 
     sb = get_supabase()
     goal_id = "25b76657-1bd7-49d6-8537-ee6133902527"
@@ -301,79 +298,34 @@ def test_full_research():
     }).eq("goal_id", goal_id).eq("agent_type", "research").execute()
     sb.table("research_sources").delete().eq("goal_id", goal_id).execute()
     sb.table("research_results").delete().eq("goal_id", goal_id).execute()
-    print("DB reset complete")
+    print("DB reset, starting research...\n")
 
     async def run():
-        from app.engine.claude_engine import ClaudeEngine
-        engine = ClaudeEngine(model="sonnet")
-
-        # Step 1: Test prereq analysis directly
-        print(f"\n[{time.strftime('%H:%M:%S')}] Step 1: Fetching onboarding data...")
-        onboarding = await fetch_onboarding_data(goal_id, user_id)
-        context = build_student_context(onboarding)
-        print(f"[{time.strftime('%H:%M:%S')}] Goal: {context['goal_title']}")
-        print(f"[{time.strftime('%H:%M:%S')}] Prereqs: {context['prerequisites_text'][:100]}")
-
-        prompt = PREREQ_ANALYSIS_PROMPT.format(**context)
-        print(f"[{time.strftime('%H:%M:%S')}] Prereq prompt length: {len(prompt)} chars")
-        print(f"[{time.strftime('%H:%M:%S')}] Running prereq analysis...")
-
         start = time.time()
-        gap_result = await engine.run(
-            prompt=prompt,
-            system_prompt="You are an education prerequisite analyst. Return ONLY valid JSON.",
-            timeout=90,
-        )
+        result = await run_research_v3(goal_id, user_id)
         elapsed = time.time() - start
-        print(f"[{time.strftime('%H:%M:%S')}] Step 1 done in {elapsed:.0f}s")
 
-        topic_groups = json.loads(gap_result["result"]).get("topic_groups", [])
-        prereqs_found = [t for t in topic_groups if t.get("priority") == "prerequisite"]
-        cores = [t for t in topic_groups if t.get("priority") == "core"]
-        advanced = [t for t in topic_groups if t.get("priority") == "advanced"]
-        print(f"  Topics: {len(topic_groups)} ({len(prereqs_found)} prereq, {len(cores)} core, {len(advanced)} advanced)")
-        for t in topic_groups:
-            print(f"    [{t.get('priority')}] {t.get('topic_name')}")
+        topics = result.get("topic_tree", {}).get("topic_groups", [])
+        sources = result.get("sources", [])
+        synthesis = result.get("synthesis", {})
+        prereqs = [t for t in topics if t.get("priority") == "prerequisite"]
+        formulas = sum(len(s.get("formulas", [])) for s in sources)
+        visuals = sum(1 for s in sources if s.get("visual_opportunity"))
 
-        # Step 2: Test ONE agent directly
-        print(f"\n[{time.strftime('%H:%M:%S')}] Step 2a: Testing SINGLE core agent...")
-        from app.agents.research_v3 import _research_topic_group
-        start2 = time.time()
-        core_sources = await _research_topic_group(engine, "CORE_AGENT", cores[:2], context, 3)
-        elapsed2 = time.time() - start2
-        if isinstance(core_sources, list):
-            print(f"[{time.strftime('%H:%M:%S')}] Core agent done in {elapsed2:.0f}s — {len(core_sources)} sources")
-            for s in core_sources[:3]:
-                print(f"    {s.get('title', '?')[:60]}")
-        else:
-            print(f"[{time.strftime('%H:%M:%S')}] Core agent failed: {core_sources}")
-
-        # Step 2b: Run all 3 in parallel
-        print(f"\n[{time.strftime('%H:%M:%S')}] Step 2b: Running 3 agents in PARALLEL...")
-        import asyncio
-        start3 = time.time()
-        prereq_task = _research_topic_group(engine, "PREREQ", prereqs_found, context, 4)
-        core_task2 = _research_topic_group(engine, "CORE", cores, context, 5)
-        adv_task = _research_topic_group(engine, "ADVANCED", advanced or cores[-1:], context, 4)
-
-        results = await asyncio.gather(prereq_task, core_task2, adv_task, return_exceptions=True)
-        elapsed3 = time.time() - start3
-
-        all_sources = []
-        for name, r in zip(["prereq", "core", "advanced"], results):
-            if isinstance(r, Exception):
-                print(f"  {name}: FAILED — {r}")
-            elif isinstance(r, list):
-                print(f"  {name}: {len(r)} sources")
-                all_sources.extend(r)
-
-        print(f"[{time.strftime('%H:%M:%S')}] Parallel done in {elapsed3:.0f}s — total {len(all_sources)} sources")
-
-        total = time.time() - start
-        print(f"\n{'='*40}")
-        print(f"TOTAL: {total:.0f}s ({total/60:.1f} min)")
-        print(f"Topics: {len(topic_groups)}, Sources: {len(all_sources)}")
-        return len(all_sources) > 0
+        print(f"\n{'='*60}")
+        print(f"RESEARCH COMPLETE — {elapsed:.0f}s ({elapsed/60:.1f} min)")
+        print(f"{'='*60}")
+        print(f"Topics: {len(topics)} ({len(prereqs)} prerequisite)")
+        for t in topics:
+            print(f"  [{t.get('priority')}] {t.get('topic_name')}")
+        print(f"\nSources: {len(sources)}")
+        for s in sources:
+            print(f"  [{s.get('source_type','?')}] {s.get('title','?')[:65]}")
+        print(f"\nFormulas: {formulas}, Visuals: {visuals}")
+        print(f"Gaps: {len(synthesis.get('gaps', []))}")
+        print(f"Exercises: {len(synthesis.get('coding_exercises', []))}")
+        print(f"SAVED TO DB")
+        return True
 
     try:
         return asyncio.run(run())
