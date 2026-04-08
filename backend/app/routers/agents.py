@@ -7,7 +7,8 @@ from app.models.responses import ResearchAccepted, CoursePlanAccepted, AnimateLe
 from app.services.agent_task import get_agent_task, update_agent_task, cleanup_previous_research, fetch_research_results, fetch_course_plan, get_lesson_animations
 from app.agents.research_v3 import run_research_v3
 from app.agents.course_planner.pipeline_v4 import run_course_planner_v4
-from app.agents.animation.pipeline import run_animation_pipeline
+from app.agents.animation_v2.pipeline import generate_lesson_visuals as run_animation_pipeline_v2
+from app.agents.pipeline_orchestrator import run_full_pipeline
 
 router = APIRouter()
 
@@ -18,11 +19,16 @@ async def trigger_research(
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
 ):
-    """Trigger the research pipeline for a learning goal. Returns 202 immediately."""
+    """Trigger the FULL pipeline (research → course planner → animations).
+
+    Returns 202 immediately. The full chain runs in the background as one task.
+    Each stage updates its own agent_tasks row, so the frontend reflects
+    accurate state via Supabase realtime.
+    """
     user_id = user["sub"]
     goal_id = request.goal_id
 
-    # Verify the task exists, belongs to user, and is in a valid state
+    # Verify the research task exists and belongs to user
     task = await get_agent_task(goal_id, "research")
 
     if not task:
@@ -43,21 +49,26 @@ async def trigger_research(
             detail=f"Task is already {task.get('status')}. Only queued or failed tasks can be triggered.",
         )
 
-    # Reset task state for retries
+    # Reset all downstream tasks too so a retry runs the full chain cleanly
     if task.get("status") == "failed":
-        await update_agent_task(
-            goal_id,
-            "research",
-            status="queued",
-            progress=0,
-            current_task=None,
-            error_message=None,
-            log_message="Task reset for retry",
-            log_level="system",
-        )
+        for agent_type in ("research", "planning", "visualization"):
+            try:
+                await update_agent_task(
+                    goal_id,
+                    agent_type,
+                    status="queued",
+                    progress=0,
+                    current_task=None,
+                    error_message=None,
+                    log_message=f"{agent_type} reset for retry",
+                    log_level="system",
+                )
+            except Exception:
+                # Ignore tasks that don't exist (some users may not have all 4 task rows)
+                pass
 
-    # Launch pipeline in background
-    background_tasks.add_task(run_research_v3, goal_id, user_id)
+    # Launch the full pipeline in background
+    background_tasks.add_task(run_full_pipeline, goal_id, user_id)
 
     return ResearchAccepted(goal_id=goal_id, task_id=task["id"])
 
@@ -142,8 +153,22 @@ async def trigger_animate_lesson(
             detail=f"Lesson '{lesson_id}' not found in course plan",
         )
 
-    background_tasks.add_task(run_animation_pipeline, goal_id, user_id, lesson_id)
+    background_tasks.add_task(run_animation_pipeline_v2, goal_id, user_id, lesson_id)
     return AnimateLessonAccepted(goal_id=goal_id, lesson_id=lesson_id)
+
+
+@router.get("/course-plan/{goal_id}")
+async def get_course_plan_endpoint(
+    goal_id: str,
+    user: dict = Depends(get_current_user),
+):
+    """Fetch the course plan for a goal."""
+    plan = await fetch_course_plan(goal_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course plan not found")
+    if plan.get("user_id") != user["sub"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    return plan
 
 
 @router.get("/animation-status/{goal_id}/{lesson_id}")

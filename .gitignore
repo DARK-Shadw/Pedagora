@@ -42,3 +42,18 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 backend/media/
+
+# tts voice models (downloaded at runtime)
+backend/models/
+
+# sync_tests heavy artifacts (downloaded models, audio samples)
+sync_tests/piper_voices/
+sync_tests/voice_comparison/
+sync_tests/edge_cases/
+
+# scratch / one-off scripts
+backend/retry_*.py
+backend/test_*.py
+backend/test_*.html
+backend/test_*.js
+backend/generated_visuals/*_failed_code.js

@@ -19,4 +19,5 @@ dependencies = [
     "Pillow>=10.0.0",
     "langchain-text-splitters>=0.3.0",
     "tiktoken>=0.8.0",
+    "piper-tts>=1.4.0",
 ]

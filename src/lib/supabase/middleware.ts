@@ -55,7 +55,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/agents") ||
     pathname.startsWith("/insights") ||
     pathname.startsWith("/settings") ||
-    pathname.startsWith("/onboarding");
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/classroom");
 
   // Not logged in + trying to access protected route → redirect to login
   if (!user && isProtectedRoute) {
@@ -83,7 +84,8 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Logged in + on app route + onboarding not completed → redirect to onboarding
-  if (user && isProtectedRoute && !pathname.startsWith("/onboarding")) {
+  // Skip this check for classroom routes (students may join via shared link)
+  if (user && isProtectedRoute && !pathname.startsWith("/onboarding") && !pathname.startsWith("/classroom")) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("onboarding_status")

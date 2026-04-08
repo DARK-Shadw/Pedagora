@@ -64,17 +64,30 @@ class ClaudeEngine:
         timeout: int = 600,
         cwd: str | None = None,
     ) -> dict:
-        """Run Claude Code synchronously using Popen + file stdin (proven pattern)."""
+        """Run Claude Code using -p flag with Read/Write tools.
+
+        Writes prompt to a temp file, tells Claude to read it and write output
+        to another temp file. This matches interactive mode behavior and avoids
+        stdin piping issues that cause hangs/500 errors.
+        """
         execution_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
         # Write prompt to temp file
         prompt_file = Path(tempfile.gettempdir()) / f"pedagora_prompt_{execution_id}.txt"
+        output_file = Path(tempfile.gettempdir()) / f"pedagora_output_{execution_id}.txt"
         full_prompt = prompt
         if system_prompt:
             full_prompt = f"{system_prompt}\n\n---\n\n{prompt}"
         prompt_file.write_text(full_prompt, encoding="utf-8")
 
-        # Build command — matches working CLI exactly
+        # Clean output file if exists
+        if output_file.exists():
+            output_file.unlink()
+
+        # Build command with -p flag (inline instruction)
+        prompt_path = str(prompt_file).replace("\\", "/")
+        output_path = str(output_file).replace("\\", "/")
+
         cmd = [
             self.claude_path,
             "--print",
@@ -82,6 +95,9 @@ class ClaudeEngine:
             "--permission-mode", "bypassPermissions",
             "--no-session-persistence",
             "--disallowedTools", "MCPSearch,ToolSearch",
+            "--allowedTools", "Read,Write",
+            "-p", f"Read {prompt_path} and follow the instructions in it. "
+                  f"Write your complete response to {output_path}",
         ]
 
         if max_turns:
@@ -90,69 +106,53 @@ class ClaudeEngine:
         env = self._build_env()
 
         process_killed = False
-        kill_reason = ""
-        output_lines = []
-        last_output_time = time.time()
-        first_output_received = False
         process_start_time = time.time()
 
         try:
-            # Open prompt file as stdin — exactly like CLI "< file.txt"
-            prompt_handle = open(prompt_file, "r", encoding="utf-8")
-
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                stdin=prompt_handle,
                 env=env,
                 text=False,
                 bufsize=0,
                 cwd=cwd,
             )
 
-            prompt_handle.close()
             logger.info(f"[ClaudeEngine] Process started PID: {process.pid}")
 
             # Timeout monitor thread
             def monitor():
-                nonlocal process_killed, kill_reason
+                nonlocal process_killed
                 while process.poll() is None and not process_killed:
                     time.sleep(2)
-                    elapsed = time.time() - process_start_time
-                    if elapsed > timeout:
+                    if time.time() - process_start_time > timeout:
                         process_killed = True
-                        kill_reason = f"timeout_{timeout}s"
                         process.kill()
                         break
 
             monitor_thread = threading.Thread(target=monitor, daemon=True)
             monitor_thread.start()
 
-            # Read stdout line by line (unbuffered, real-time)
+            # Read stdout (shows progress/summary from Claude)
             for line in iter(process.stdout.readline, b""):
                 if not line or process_killed:
                     break
 
-                last_output_time = time.time()
-                if not first_output_received:
-                    first_output_received = True
-
-                line_text = line.decode("utf-8", errors="ignore").rstrip("\n").rstrip("\r")
-                if line_text:
-                    output_lines.append(line_text)
-
             process.wait()
-            stderr_output = process.stderr.read().decode("utf-8", errors="ignore") if process.stderr else ""
 
             if process_killed:
                 raise RuntimeError(f"Claude Code timed out after {timeout}s")
 
             if process.returncode != 0:
-                raise RuntimeError(f"Claude Code failed (exit {process.returncode}): {stderr_output[:300]}")
+                stderr = process.stderr.read().decode("utf-8", errors="ignore") if process.stderr else ""
+                raise RuntimeError(f"Claude Code failed (exit {process.returncode}): {stderr[:300]}")
 
-            # Join all output lines
-            full_output = "\n".join(output_lines).strip()
+            # Read the output file Claude wrote
+            if not output_file.exists():
+                raise RuntimeError("Claude did not write output file")
+
+            full_output = output_file.read_text(encoding="utf-8").strip()
 
             # Strip markdown fences
             if full_output.startswith("```"):
@@ -175,10 +175,11 @@ class ClaudeEngine:
             }
 
         finally:
-            try:
-                prompt_file.unlink(missing_ok=True)
-            except Exception:
-                pass
+            for f in [prompt_file, output_file]:
+                try:
+                    f.unlink(missing_ok=True)
+                except Exception:
+                    pass
 
     async def run(
         self,

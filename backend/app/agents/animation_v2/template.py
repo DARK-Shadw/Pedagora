@@ -1,4 +1,8 @@
-"""HTML template for visual frames — Claude fills in the animation code only."""
+"""HTML templates for visual frames.
+
+FRAME_HTML_TEMPLATE — browser-rendered (GSAP + D3 + KaTeX)
+VIDEO_HTML_TEMPLATE — Manim-rendered MP4 wrapped in same animationAPI interface
+"""
 
 FRAME_HTML_TEMPLATE = """\
 <!DOCTYPE html>
@@ -83,8 +87,88 @@ window.addEventListener('message', (e) => {{
 // ══════════════════════════════════════════════════════════
 {animation_js}
 
-// ── Auto-play after setup ──
-tl.play();
+// ── DO NOT auto-play. The teacher controls all playback via postMessage. ──
+// The classroom's lockstep engine seeks to each step and tweens between
+// them, so the timeline must stay paused at t=0 until commanded otherwise.
+tl.pause();
+tl.seek(0);
+</script>
+</body>
+</html>
+"""
+
+
+VIDEO_HTML_TEMPLATE = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title}</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{
+    background: #0d1117; color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    width: 100vw; height: 100vh; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+}}
+video {{
+    max-width: 100%; max-height: 100%; object-fit: contain;
+}}
+</style>
+</head>
+<body>
+<video id="player" src="{video_url}" preload="auto"></video>
+<script>
+// ── Video Player ──
+const video = document.getElementById('player');
+const stepMap = {step_map_json};
+
+// ── Animation API (same interface as browser template) ──
+window.animationAPI = {{
+    seekToStep(label) {{
+        const t = stepMap[label];
+        if (t !== undefined) {{ video.currentTime = t; video.pause(); }}
+    }},
+    play() {{ video.play(); }},
+    pause() {{ video.pause(); }},
+    getSteps() {{ return Object.keys(stepMap); }},
+    getCurrentStep() {{
+        const t = video.currentTime;
+        let current = '';
+        for (const [name, time] of Object.entries(stepMap)) {{
+            if (time <= t) current = name;
+        }}
+        return current;
+    }},
+    onStepChange(cb) {{ this._cb = cb; }},
+    _cb: null,
+}};
+
+// ── Step change notifier ──
+let _lastStep = '';
+function _notifyStepChange() {{
+    const s = window.animationAPI.getCurrentStep();
+    if (s !== _lastStep) {{
+        _lastStep = s;
+        if (window.animationAPI._cb) window.animationAPI._cb(s);
+        window.parent.postMessage({{ event: 'stepChanged', label: s }}, '*');
+    }}
+    requestAnimationFrame(_notifyStepChange);
+}}
+_notifyStepChange();
+
+// ── Listen for parent commands ──
+window.addEventListener('message', (e) => {{
+    const {{ action, label }} = e.data || {{}};
+    if (action === 'seekToStep') window.animationAPI.seekToStep(label);
+    else if (action === 'play') window.animationAPI.play();
+    else if (action === 'pause') window.animationAPI.pause();
+}});
+
+// ── Auto-play ──
+video.play();
 </script>
 </body>
 </html>

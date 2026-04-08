@@ -28,6 +28,12 @@ class DialogueState:
         # 1.0 = full scaffolding, 0.0 = no scaffolding
         self.recent_opening_phrases: list[str] = []
         # Tracks first ~10 words of recent teacher speech openings
+        # Frame tracking (v2 classroom)
+        self.current_frame_id: str = ""
+        self.frames_completed: list[str] = []
+        self.time_per_frame: dict[str, float] = {}
+        self._frame_start_time: float | None = None
+
         self.started_at: str = datetime.now(timezone.utc).isoformat()
         self.last_active_at: str = datetime.now(timezone.utc).isoformat()
         self._segment_start_time: float | None = None
@@ -45,6 +51,10 @@ class DialogueState:
             "recent_opening_phrases": self.recent_opening_phrases,
             "started_at": self.started_at,
             "last_active_at": self.last_active_at,
+            # Frame tracking (v2)
+            "current_frame_id": self.current_frame_id,
+            "frames_completed": self.frames_completed,
+            "time_per_frame": self.time_per_frame,
         }
 
     @classmethod
@@ -63,6 +73,10 @@ class DialogueState:
         state.recent_opening_phrases = data.get("recent_opening_phrases", [])
         state.started_at = data.get("started_at", datetime.now(timezone.utc).isoformat())
         state.last_active_at = data.get("last_active_at", datetime.now(timezone.utc).isoformat())
+        # Frame tracking (v2)
+        state.current_frame_id = data.get("current_frame_id", "")
+        state.frames_completed = data.get("frames_completed", [])
+        state.time_per_frame = data.get("time_per_frame", {})
         return state
 
     def start_segment(self, segment_id: str) -> None:
@@ -81,6 +95,31 @@ class DialogueState:
             elapsed = time.time() - self._segment_start_time
             self.time_per_segment[segment_id] = elapsed
             self._segment_start_time = None
+
+    # ── Frame tracking (v2 classroom) ──
+
+    def start_frame(self, frame_id: str) -> None:
+        """Mark the start of a new frame."""
+        import time
+        self.current_frame_id = frame_id
+        self._frame_start_time = time.time()
+        self.last_active_at = datetime.now(timezone.utc).isoformat()
+
+    def complete_frame(self, frame_id: str) -> None:
+        """Mark a frame as completed and record time spent."""
+        import time
+        if frame_id not in self.frames_completed:
+            self.frames_completed.append(frame_id)
+        if self._frame_start_time:
+            elapsed = time.time() - self._frame_start_time
+            self.time_per_frame[frame_id] = elapsed
+            self._frame_start_time = None
+
+    def get_frame_progress(self, total_frames: int) -> float:
+        """Calculate frame-based progress percentage."""
+        if total_frames == 0:
+            return 0.0
+        return len(self.frames_completed) / total_frames * 100
 
     def record_score(
         self,

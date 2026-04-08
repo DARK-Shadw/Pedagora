@@ -352,3 +352,249 @@ async def generate_welcome_back(
         total=total,
     )
     return sanitize_for_tts(await _generate(prompt))
+
+
+# ═══════════════════════════════════════════════════════════
+# Frame-based speech generation (v2 classroom)
+# ═══════════════════════════════════════════════════════════
+
+FRAME_SPEECHES_PROMPT = """\
+{personality}
+
+You are explaining a visual that is currently on screen. The student can SEE it.
+
+VISUAL TYPE: {visual_type}
+WHAT'S ON SCREEN: {description}
+FRAME {frame_index} of {total_frames}
+
+{context_section}
+
+Generate {num_chunks} separate speech chunks to teach this visual. Each chunk should be \
+1-3 sentences. Together they should cover ~{target_seconds} seconds of speaking.
+
+RULES:
+- Reference what the student can SEE: "Look at...", "Notice how...", "See where..."
+- Use the student's name ({student_name}) in one of the chunks
+- Don't rush — each chunk explains ONE aspect of the visual
+- Connect to previous visuals when possible
+- Ask a rhetorical question in one chunk to keep engagement
+- NEVER use LaTeX, math notation, or symbols — write everything as spoken English
+- Be warm, enthusiastic, genuinely excited about the material
+
+Return ONLY a JSON array of strings, like:
+["First chunk here.", "Second chunk here.", "Third chunk here."]
+"""
+
+STEP_SPEECH_PROMPT = """\
+{personality}
+
+The student is looking at an animation. You are explaining ONE specific step of it.
+
+FRAME: {frame_id} ({visual_type})
+CURRENT STEP: "{step_label}" — {step_description}
+OVERALL CONTEXT: {frame_description}
+
+{context_section}
+
+Generate ONE speech paragraph (2-4 sentences) explaining what's happening at this step.
+
+RULES:
+- Reference what the student can SEE right now at this step
+- Be specific about THIS step, not the whole animation
+- NEVER use LaTeX or math notation — write everything as spoken English
+- Keep it natural and conversational
+
+Return ONLY the speech text, nothing else.
+"""
+
+
+STEP_SPEECHES_PROMPT = """\
+{personality}
+
+You are teaching {student_name} live. The student is looking at an animation.
+The animation has {step_count} discrete steps. At each step the animation will
+PAUSE on a specific visual state. You must explain what is visible at each step.
+
+Animation description: {frame_description}
+
+Steps (in order):
+{steps_list}
+
+For EACH step, write ONE short speech (1-2 sentences, ~15 words max) that:
+- Describes what the student sees AT THAT EXACT STEP
+- Builds on what was said in previous steps (reference earlier steps when natural)
+- Sounds natural and conversational, not scripted
+- Uses spoken English only — NO LaTeX, NO math notation, NO symbols
+
+Output a JSON array with EXACTLY {step_count} strings, in step order.
+Example format: ["First step speech here.", "Second step speech here."]
+
+Return ONLY the JSON array. No markdown fences. No commentary.
+"""
+
+
+async def generate_frame_speeches(
+    description: str,
+    visual_type: str,
+    frame_index: int,
+    total_frames: int,
+    student_name: str,
+    recent_context: list[dict],
+    teaching_style: str,
+    estimated_seconds: int = 30,
+) -> list[str]:
+    """Generate 2-4 speech chunks that teach a visual frame's content.
+
+    Returns a list of speech strings, each 1-3 sentences.
+    """
+    # Calculate how many chunks we need (~8-10 seconds of speech each)
+    num_chunks = max(2, min(4, estimated_seconds // 10))
+    target_seconds = max(15, estimated_seconds)
+
+    context_section = ""
+    if recent_context:
+        context_section = "RECENT DIALOGUE:\n" + "\n".join(
+            f"[{d.get('role', '?')}]: {d.get('content', '')[:80]}"
+            for d in recent_context[-4:]
+        )
+
+    prompt = FRAME_SPEECHES_PROMPT.format(
+        personality=_get_personality(teaching_style),
+        visual_type=visual_type,
+        description=description[:500],
+        frame_index=frame_index + 1,
+        total_frames=total_frames,
+        context_section=context_section,
+        num_chunks=num_chunks,
+        target_seconds=target_seconds,
+        student_name=student_name or "there",
+    )
+
+    raw = await _generate(prompt)
+
+    # Parse JSON array from response
+    try:
+        import re as _re
+        match = _re.search(r"\[.*\]", raw, _re.DOTALL)
+        if match:
+            chunks = json.loads(match.group())
+            if isinstance(chunks, list) and all(isinstance(c, str) for c in chunks):
+                return [sanitize_for_tts(c) for c in chunks if c.strip()]
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Fallback: split raw text into chunks by sentence boundaries
+    sentences = [s.strip() for s in raw.replace("\n", " ").split(". ") if s.strip()]
+    if len(sentences) >= 2:
+        mid = len(sentences) // 2
+        return [
+            sanitize_for_tts(". ".join(sentences[:mid]) + "."),
+            sanitize_for_tts(". ".join(sentences[mid:]) + "."),
+        ]
+
+    return [sanitize_for_tts(raw)]
+
+
+async def generate_step_speech(
+    frame: dict,
+    step: dict,
+    recent_context: list[dict],
+    teaching_style: str,
+) -> str:
+    """Generate speech for one step within a frame animation."""
+    vspec = frame.get("visual_spec", {})
+    frame_description = str(vspec.get("description", ""))[:200]
+
+    context_section = ""
+    if recent_context:
+        context_section = "RECENT DIALOGUE:\n" + "\n".join(
+            f"[{d.get('role', '?')}]: {d.get('content', '')[:80]}"
+            for d in recent_context[-4:]
+        )
+
+    prompt = STEP_SPEECH_PROMPT.format(
+        personality=_get_personality(teaching_style),
+        frame_id=frame.get("frame_id", "?"),
+        visual_type=frame.get("visual_type", "animation"),
+        step_label=step.get("label", step.get("step_id", "?")),
+        step_description=step.get("description", ""),
+        frame_description=frame_description,
+        context_section=context_section,
+    )
+
+    return sanitize_for_tts(await _generate(prompt))
+
+
+async def generate_step_speeches(
+    frame: dict,
+    step_labels: list[str],
+    student_name: str,
+    teaching_style: str,
+) -> list[str]:
+    """Generate one short speech per animation step.
+
+    Each speech is 1-2 sentences (~15 words max) describing what is visible
+    at that specific step. The animation will be paused at each step while
+    the speech plays — this guarantees zero desync.
+
+    On any failure, returns generic fallback speeches so the lesson still plays.
+    """
+    if not step_labels:
+        return []
+
+    vspec = frame.get("visual_spec", {})
+    description = str(vspec.get("description", ""))[:300]
+    if not description:
+        description = str(vspec)[:300]
+
+    steps_text = "\n".join(
+        f"{i + 1}. {label}" for i, label in enumerate(step_labels)
+    )
+
+    prompt = STEP_SPEECHES_PROMPT.format(
+        personality=_get_personality(teaching_style),
+        student_name=student_name or "the student",
+        frame_description=description or "an animation",
+        step_count=len(step_labels),
+        steps_list=steps_text,
+    )
+
+    def _fallback() -> list[str]:
+        return [
+            f"Now, notice the {label.replace('-', ' ').replace('_', ' ')}."
+            for label in step_labels
+        ]
+
+    try:
+        raw = await _generate(prompt)
+    except Exception as e:
+        logger.warning(f"[step_speeches] LLM call failed: {e}")
+        return _fallback()
+
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.removeprefix("```json").removeprefix("```").strip()
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3].strip()
+
+    try:
+        speeches = json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.warning(f"[step_speeches] JSON parse failed: {e}, raw={cleaned[:120]!r}")
+        return _fallback()
+
+    if not isinstance(speeches, list):
+        logger.warning(f"[step_speeches] expected list, got {type(speeches).__name__}")
+        return _fallback()
+
+    if len(speeches) != len(step_labels):
+        logger.warning(
+            f"[step_speeches] count mismatch: got {len(speeches)} for {len(step_labels)} steps"
+        )
+        # Pad or truncate to match
+        if len(speeches) < len(step_labels):
+            speeches = list(speeches) + _fallback()[len(speeches):]
+        else:
+            speeches = speeches[: len(step_labels)]
+
+    return [sanitize_for_tts(str(s)) for s in speeches]

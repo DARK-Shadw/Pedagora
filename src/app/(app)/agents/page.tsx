@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { MaterialIcon } from "@/components/shared/material-icon";
 import { createClient } from "@/lib/supabase/client";
 import { useAgentStore } from "@/stores/agent-store";
@@ -24,86 +25,6 @@ const statusLabels: Record<string, string> = {
   completed: "COMPLETED",
   failed: "FAILED",
 };
-
-// Demo data for when no real tasks exist
-const demoTasks: AgentTask[] = [
-  {
-    id: "demo-1",
-    goal_id: "demo",
-    user_id: "demo",
-    agent_type: "research",
-    status: "completed",
-    progress_percentage: 100,
-    current_task: "Verification complete",
-    focus: "Academic Databases",
-    logs: [
-      { timestamp: "12:44:01", agent: "RESEARCH_AGENT", message: "Successfully indexed 245 candidate papers.", level: "info" },
-      { timestamp: "12:44:12", agent: "RESEARCH_AGENT", message: "Cross-referencing findings with Oxford Learner's Corpus.", level: "info" },
-      { timestamp: "12:44:28", agent: "SYSTEM", message: "Initial research synthesis phase marked COMPLETED.", level: "success" },
-    ],
-    error_message: null,
-    metadata: null,
-    started_at: null,
-    completed_at: null,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "demo-2",
-    goal_id: "demo",
-    user_id: "demo",
-    agent_type: "planning",
-    status: "active",
-    progress_percentage: 68,
-    current_task: "Optimizing module Bloom's Taxonomy...",
-    focus: "Learning Path",
-    logs: [
-      { timestamp: "12:44:30", agent: "PLANNING_AGENT", message: "Initializing learning objectives for Module 1-3.", level: "info" },
-      { timestamp: "12:44:35", agent: "PLANNING_AGENT", message: "Mapping prerequisite nodes to knowledge graph.", level: "info" },
-      { timestamp: "12:45:01", agent: "PLANNING_AGENT", message: "Optimizing path for cognitive load distribution...", level: "info" },
-    ],
-    error_message: null,
-    metadata: null,
-    started_at: null,
-    completed_at: null,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "demo-3",
-    goal_id: "demo",
-    user_id: "demo",
-    agent_type: "visualization",
-    status: "queued",
-    progress_percentage: 30,
-    current_task: "Awaiting curriculum structure",
-    focus: "Infographic Engine",
-    logs: [],
-    error_message: null,
-    metadata: null,
-    started_at: null,
-    completed_at: null,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "demo-4",
-    goal_id: "demo",
-    user_id: "demo",
-    agent_type: "teaching",
-    status: "queued",
-    progress_percentage: 0,
-    current_task: "Waiting for prerequisites",
-    focus: "Script Generation",
-    logs: [],
-    error_message: null,
-    metadata: null,
-    started_at: null,
-    completed_at: null,
-    created_at: "",
-    updated_at: "",
-  },
-];
 
 async function handleRetry(goalId: string) {
   const supabase = createClient();
@@ -230,7 +151,7 @@ export default function AgentsPage() {
   useEffect(() => {
     async function fetchTasks() {
       if (!user) {
-        setTasks(demoTasks);
+        setTasks([]);
         setLoading(false);
         return;
       }
@@ -258,7 +179,7 @@ export default function AgentsPage() {
           if (result) setResearchResult(result as ResearchResult);
         }
       } else {
-        setTasks(demoTasks);
+        setTasks([]);
       }
       setLoading(false);
     }
@@ -299,6 +220,35 @@ export default function AgentsPage() {
     );
   }
 
+  if (tasks.length === 0) {
+    return (
+      <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
+        <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2">
+          Curriculum Synthesis
+        </h1>
+        <p className="text-slate-500 dark:text-slate-400 mb-12">
+          Your AI agents will appear here once you create a learning goal.
+        </p>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="size-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+            <MaterialIcon name="rocket_launch" className="text-3xl" />
+          </div>
+          <h3 className="text-xl font-bold mb-2">No active goals</h3>
+          <p className="text-sm text-slate-500 max-w-sm mb-6">
+            Create your first learning goal to launch the AI pipeline.
+          </p>
+          <Link
+            href="/onboarding/goal"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors"
+          >
+            Create a Goal
+            <MaterialIcon name="arrow_forward" className="text-base" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
       {/* Title & Status */}
@@ -309,12 +259,7 @@ export default function AgentsPage() {
           </h1>
           <p className="text-slate-500 dark:text-slate-400 max-w-2xl">
             Pedagora AI agents are collaborating to build your custom learning
-            path.{" "}
-            {hasActive && (
-              <span className="text-primary font-medium">
-                Estimated 2:45 remaining.
-              </span>
-            )}
+            path.
           </p>
         </div>
         {hasActive && (

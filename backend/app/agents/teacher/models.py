@@ -15,10 +15,11 @@ class TeacherMessage(BaseModel):
 
 
 class SpeakMessage(TeacherMessage):
-    """Teacher speaks — frontend runs TTS + avatar lip sync."""
+    """Teacher speaks — frontend plays audio + shows subtitle."""
 
     type: Literal["speak"] = "speak"
     text: str
+    audio: str = ""  # base64-encoded WAV (set by FrameNavigator or router)
     segment_id: str = ""
     speech_type: Literal[
         "opening", "teaching", "transition", "question",
@@ -69,6 +70,58 @@ class SessionCompleteMessage(TeacherMessage):
 
     type: Literal["session_complete"] = "session_complete"
     summary: dict = Field(default_factory=dict)
+
+
+class ShowFrameMessage(TeacherMessage):
+    """Load a new animation frame in the iframe."""
+
+    type: Literal["show_frame"] = "show_frame"
+    frame_id: str
+    frame_url: str
+
+
+class SeekStepMessage(TeacherMessage):
+    """Seek animation to a specific step label (pauses at that point)."""
+
+    type: Literal["seek_step"] = "seek_step"
+    label: str
+
+
+class AnimationControlMessage(TeacherMessage):
+    """Play or pause the current animation."""
+
+    type: Literal["animation_control"] = "animation_control"
+    action: Literal["play", "pause"]
+
+
+class FrameChangeMessage(TeacherMessage):
+    """Notify frontend of frame transition + progress."""
+
+    type: Literal["frame_change"] = "frame_change"
+    frame_id: str
+    frame_index: int
+    total_frames: int
+    progress_pct: float = 0.0
+
+
+class FrameBundleMessage(TeacherMessage):
+    """Bundled frame + per-step audio for the lockstep sync engine.
+
+    Frontend receives one of these per frame and runs the entire lockstep
+    sequence locally (seek -> play audio -> tween -> repeat). Eliminates
+    per-chunk WebSocket round-trips and guarantees zero animation/audio drift.
+    """
+
+    type: Literal["frame_bundle"] = "frame_bundle"
+    frame_id: str
+    frame_url: str
+    frame_index: int
+    total_frames: int
+    progress_pct: float = 0.0
+    frame_title: str = ""
+    fallback_description: str = ""
+    # Each step: {label, anim_time, text, audio_b64, duration_s}
+    steps: list[dict] = Field(default_factory=list)
 
 
 class ErrorMessage(TeacherMessage):
@@ -135,6 +188,14 @@ class SpeechDone(StudentMessage):
 
     type: Literal["speech_done"] = "speech_done"
     segment_id: str = ""
+
+
+class FrameDone(StudentMessage):
+    """Frontend signals that the entire frame bundle finished playing
+    (lockstep engine completed all steps)."""
+
+    type: Literal["frame_done"] = "frame_done"
+    frame_id: str = ""
 
 
 # ─── Internal Types ───

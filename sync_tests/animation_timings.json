@@ -1,0 +1,220 @@
+[
+  {
+    "frame": "f01.html",
+    "duration": 50,
+    "labels": {
+      "intro": 0,
+      "emergence": 5,
+      "zoom": 15,
+      "question": 27
+    },
+    "errors": []
+  },
+  {
+    "frame": "f02.html",
+    "duration": 17,
+    "labels": {
+      "step-intro": 0,
+      "step-bridge": 4,
+      "step-complex": 7,
+      "step-contrast": 11,
+      "step-end": 15
+    },
+    "errors": []
+  },
+  {
+    "frame": "f03.html",
+    "duration": 33.3,
+    "labels": {
+      "intro": 0,
+      "sampling": 2.5,
+      "histogram-forming": 11.5,
+      "growing": 16.5,
+      "converging": 21.5,
+      "distribution": 28.5
+    },
+    "errors": []
+  },
+  {
+    "frame": "f04.html",
+    "duration": 38.2,
+    "labels": {
+      "intro": 0,
+      "empirical-rule": 4,
+      "mu-demo": 9.3,
+      "sigma-demo": 21.2,
+      "end": 38.2
+    },
+    "errors": []
+  },
+  {
+    "frame": "f05.html",
+    "duration": 13.7,
+    "labels": {
+      "step-axes": 0,
+      "step-curve": 1,
+      "step-strip": 3.6,
+      "step-mistake": 4.5,
+      "step-totalarea": 6.4,
+      "step-integral": 8.4
+    },
+    "errors": []
+  },
+  {
+    "frame": "f06.html",
+    "duration": 18.7,
+    "labels": {
+      "intro": 0,
+      "dart-throw": 2.5,
+      "decoder": 14.5
+    },
+    "errors": []
+  },
+  {
+    "frame": "f07.html",
+    "duration": 16.7,
+    "labels": {
+      "intro": 0,
+      "condition-on-b": 6.8,
+      "formula": 9.899999999999999,
+      "result": 13.7
+    },
+    "errors": []
+  },
+  {
+    "frame": "f08.html",
+    "duration": 16.34,
+    "labels": {
+      "intro": 0,
+      "terms": 3.4000000000000004,
+      "scale": 5.44,
+      "flow": 13.24
+    },
+    "errors": []
+  },
+  {
+    "frame": "f09.html",
+    "duration": 12.8,
+    "labels": {
+      "intro": 0,
+      "graph-model": 1,
+      "bayes-theorem": 5.5,
+      "intractable": 10
+    },
+    "errors": []
+  },
+  {
+    "frame": "f10.html",
+    "duration": 69,
+    "labels": {
+      "intro": 0,
+      "question": 3,
+      "reveal": 63,
+      "end": 69
+    },
+    "errors": []
+  },
+  {
+    "frame": "f11.html",
+    "duration": 24.55,
+    "labels": {
+      "intro": 0,
+      "distributions": 2.8,
+      "log-ratio": 7.3,
+      "weighted": 13.1,
+      "asymmetry": 19.6
+    },
+    "errors": []
+  },
+  {
+    "frame": "f12.html",
+    "duration": 138.5,
+    "labels": {
+      "intro": 0,
+      "q-init": 2,
+      "training": 3.5,
+      "converged": 129.5
+    },
+    "errors": []
+  },
+  {
+    "frame": "f13.html",
+    "duration": 38.9,
+    "labels": {
+      "intro": 0,
+      "weighted-avg": 7,
+      "balance-beam": 16,
+      "ex-squared": 25,
+      "conclusion": 32
+    },
+    "errors": []
+  },
+  {
+    "frame": "f14.html",
+    "duration": 3.3,
+    "labels": {
+      "intro": 0
+    },
+    "errors": [
+      "shimSVG.node is not a function"
+    ]
+  },
+  {
+    "frame": "f15.html",
+    "duration": 11.92,
+    "labels": {
+      "intro": 0,
+      "montecarlo": 3.2,
+      "kldivergence": 6.65,
+      "terminal": 9.8
+    },
+    "errors": []
+  },
+  {
+    "frame": "f16.html",
+    "duration": 64.3,
+    "labels": {
+      "intro": 0,
+      "step-prior": 2.2,
+      "step-encoder": 6.5,
+      "step-decoder": 15.4,
+      "step-kl": 24.3,
+      "step-elbo": 29.4,
+      "step-equation": 34.9,
+      "step-loop": 40.3,
+      "finale": 62.3
+    },
+    "errors": []
+  },
+  {
+    "frame": "f17.html",
+    "duration": 10.1,
+    "labels": {
+      "intro": 0,
+      "challenge": 1.2000000000000002,
+      "solution-a": 3.7,
+      "solution-b": 5.8
+    },
+    "errors": []
+  },
+  {
+    "frame": "f18.html",
+    "duration": 88.3,
+    "labels": {
+      "noise": 0,
+      "emergence": 22.5,
+      "face-forms": 37.5,
+      "video-sequence": 47.5,
+      "finale": 64.5
+    },
+    "errors": []
+  },
+  {
+    "frame": "f19.html",
+    "duration": 0,
+    "labels": {},
+    "errors": [
+      "Cannot convert undefined or null to object"
+    ]
+  }
+]
