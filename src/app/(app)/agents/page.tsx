@@ -26,25 +26,101 @@ const statusLabels: Record<string, string> = {
   failed: "FAILED",
 };
 
-async function handleRetry(goalId: string) {
+async function handleContinuePipeline(goalId: string): Promise<string | null> {
   const supabase = createClient();
   const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.access_token) return;
+  if (!sessionData.session?.access_token) return "Not authenticated";
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/research`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${sessionData.session.access_token}`,
-    },
-    body: JSON.stringify({ goal_id: goalId }),
-  });
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/continue-pipeline`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+      body: JSON.stringify({ goal_id: goalId }),
+    }
+  );
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    alert(err.detail || "Failed to retry research");
+    return err.detail || "Failed to resume pipeline";
   }
+  return null;
 }
+
+async function handleRetryResearch(goalId: string): Promise<string | null> {
+  const supabase = createClient();
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session?.access_token) return "Not authenticated";
+
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/research`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+      body: JSON.stringify({ goal_id: goalId }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return err.detail || "Failed to retry research";
+  }
+  return null;
+}
+
+// ── Elapsed time component ────────────────────────────────────────────────────
+
+function ElapsedTime({
+  startedAt,
+  completedAt,
+  status,
+}: {
+  startedAt: string | null;
+  completedAt: string | null;
+  status: string;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const isActive = status === "active";
+
+  useEffect(() => {
+    if (!isActive) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isActive]);
+
+  if (!startedAt) return <span className="text-slate-400 font-mono text-xs">—</span>;
+
+  const start = new Date(startedAt).getTime();
+  const end = completedAt ? new Date(completedAt).getTime() : now;
+  const sec = Math.max(0, Math.floor((end - start) / 1000));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const formatted =
+    h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+
+  return (
+    <span
+      className={`font-mono text-xs font-bold ${
+        isActive
+          ? "text-primary"
+          : status === "failed"
+          ? "text-red-400"
+          : "text-slate-500"
+      }`}
+    >
+      {formatted}
+    </span>
+  );
+}
+
+// ── Research results panel ────────────────────────────────────────────────────
 
 function ResearchResultsPanel({ result }: { result: ResearchResult }) {
   const topicTree = result.topic_tree as { topic_groups?: { name: string }[]; effort_tier?: string };
@@ -82,7 +158,6 @@ function ResearchResultsPanel({ result }: { result: ResearchResult }) {
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Stats grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map((stat) => (
             <div
@@ -98,7 +173,6 @@ function ResearchResultsPanel({ result }: { result: ResearchResult }) {
           ))}
         </div>
 
-        {/* Learning path */}
         {learningPath.length > 0 && (
           <div>
             <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
@@ -117,7 +191,6 @@ function ResearchResultsPanel({ result }: { result: ResearchResult }) {
           </div>
         )}
 
-        {/* Key themes */}
         {keyThemes.length > 0 && (
           <div>
             <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
@@ -140,33 +213,64 @@ function ResearchResultsPanel({ result }: { result: ResearchResult }) {
   );
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function AgentsPage() {
   const { user } = useUser();
-  const { tasks, setTasks, researchResult, setResearchResult } = useAgentStore();
+  const {
+    tasks,
+    activeGoalId,
+    setTasks,
+    setActiveGoalId,
+    researchResult,
+    setResearchResult,
+  } = useAgentStore();
   const [loading, setLoading] = useState(true);
-  const [retrying, setRetrying] = useState(false);
+  const [continuing, setContinuing] = useState(false);
+  const [continueError, setContinueError] = useState<string | null>(null);
 
-  useAgentRealtime(user?.id);
+  // Subscribe to realtime updates for the active goal only
+  useAgentRealtime(activeGoalId);
 
   useEffect(() => {
     async function fetchTasks() {
       if (!user) {
         setTasks([]);
+        setActiveGoalId(null);
         setLoading(false);
         return;
       }
 
       const supabase = createClient();
+
+      // Fetch the user's most recent learning goal
+      const { data: latestGoal } = await supabase
+        .from("learning_goals")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!latestGoal) {
+        setTasks([]);
+        setActiveGoalId(null);
+        setLoading(false);
+        return;
+      }
+
+      setActiveGoalId(latestGoal.id);
+
+      // Fetch only that goal's tasks
       const { data } = await supabase
         .from("agent_tasks")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("goal_id", latestGoal.id)
         .order("created_at", { ascending: true });
 
       if (data && data.length > 0) {
         setTasks(data as AgentTask[]);
 
-        // Check for completed research and fetch results
         const researchTask = data.find(
           (t: AgentTask) => t.agent_type === "research" && t.status === "completed"
         );
@@ -185,9 +289,9 @@ export default function AgentsPage() {
     }
 
     fetchTasks();
-  }, [user, setTasks, setResearchResult]);
+  }, [user, setTasks, setActiveGoalId, setResearchResult]);
 
-  // Collect all logs from all tasks
+  // Collect all logs from the current run's tasks (DB already caps at 25/task)
   const allLogs: AgentLog[] = tasks
     .flatMap((t) => (t.logs ?? []) as AgentLog[])
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
@@ -197,15 +301,40 @@ export default function AgentsPage() {
   );
   const hasActive = activeTasks.length > 0;
 
-  const researchTask = tasks.find((t) => t.agent_type === "research");
-  const researchFailed = researchTask?.status === "failed";
-
-  async function onRetry() {
-    if (!researchTask || retrying) return;
-    setRetrying(true);
-    await handleRetry(researchTask.goal_id);
-    setRetrying(false);
+  async function onContinuePipeline() {
+    if (!activeGoalId || continuing) return;
+    setContinuing(true);
+    setContinueError(null);
+    const err = await handleContinuePipeline(activeGoalId);
+    if (err) setContinueError(err);
+    setContinuing(false);
   }
+
+  async function onRetryResearch() {
+    if (!activeGoalId || continuing) return;
+    setContinuing(true);
+    setContinueError(null);
+    const err = await handleRetryResearch(activeGoalId);
+    if (err) setContinueError(err);
+    setContinuing(false);
+  }
+
+  const researchTask = tasks.find((t) => t.agent_type === "research");
+  const planningTask = tasks.find((t) => t.agent_type === "planning");
+  const visualizationTask = tasks.find((t) => t.agent_type === "visualization");
+  const researchFailed = researchTask?.status === "failed";
+  const anyFailed = tasks.some((t) => t.status === "failed");
+  const anyActive = tasks.some((t) => t.status === "active");
+  // Show "Continue Pipeline" when:
+  //  - something downstream failed (but not research — that needs full retry), OR
+  //  - planning completed but visualization hasn't run yet (storyboards done, no animations)
+  const planningCompleted = planningTask?.status === "completed";
+  const visualizationIncomplete = visualizationTask?.status !== "completed";
+  const showContinue =
+    !anyActive &&
+    !researchFailed &&
+    (anyFailed || (planningCompleted && visualizationIncomplete));
+  const showRetryResearch = !anyActive && researchFailed;
 
   if (loading) {
     return (
@@ -273,6 +402,53 @@ export default function AgentsPage() {
         )}
       </div>
 
+      {/* Action Bar — goal-level pipeline controls */}
+      {(showContinue || showRetryResearch) && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {showContinue && (
+            <button
+              onClick={onContinuePipeline}
+              disabled={continuing}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {continuing ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Resuming…
+                </>
+              ) : (
+                <>
+                  <MaterialIcon name="play_circle" className="text-base" />
+                  Continue Pipeline
+                </>
+              )}
+            </button>
+          )}
+          {showRetryResearch && (
+            <button
+              onClick={onRetryResearch}
+              disabled={continuing}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {continuing ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Retrying…
+                </>
+              ) : (
+                <>
+                  <MaterialIcon name="refresh" className="text-base" />
+                  Retry Research
+                </>
+              )}
+            </button>
+          )}
+          {continueError && (
+            <p className="text-sm text-red-400 font-medium">{continueError}</p>
+          )}
+        </div>
+      )}
+
       {/* Agent Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {tasks.map((task) => {
@@ -280,15 +456,12 @@ export default function AgentsPage() {
           if (!config) return null;
           const isWaiting = task.status === "queued" && task.progress_percentage === 0;
           const isFailed = task.status === "failed";
-          const isResearch = task.agent_type === "research";
 
           return (
             <div
               key={task.id}
               className={`group relative flex flex-col p-6 rounded-xl border bg-white dark:bg-slate-900 shadow-sm transition-all hover:border-primary/30 ${
-                isFailed
-                  ? "border-red-500/30"
-                  : "border-primary/10"
+                isFailed ? "border-red-500/30" : "border-primary/10"
               } ${isWaiting ? "opacity-70" : ""}`}
             >
               <div className="mb-4 flex items-center justify-between">
@@ -310,9 +483,9 @@ export default function AgentsPage() {
                   }`}>{task.metadata.effort_tier}</span>
                 )}
               </h2>
-              <p className={`text-sm mb-6 ${isFailed ? "text-red-400" : "text-slate-500"}`}>
+              <p className={`text-sm mb-4 ${isFailed ? "text-red-400" : "text-slate-500"}`}>
                 {isFailed
-                  ? task.error_message || "Research failed"
+                  ? task.error_message || "Agent failed"
                   : task.current_task ?? "Waiting..."}
               </p>
               <div className="mt-auto">
@@ -320,17 +493,24 @@ export default function AgentsPage() {
                   <span className={`text-xs font-bold ${isFailed ? "text-red-400" : "text-slate-400"}`}>
                     {statusLabels[task.status] ?? task.status.toUpperCase()}
                   </span>
-                  <span
-                    className={`text-xs font-mono font-bold ${
-                      isFailed
-                        ? "text-red-400"
-                        : task.status === "completed" || task.status === "active"
-                          ? "text-primary"
-                          : "text-slate-400"
-                    }`}
-                  >
-                    {task.progress_percentage}%
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <ElapsedTime
+                      startedAt={task.started_at}
+                      completedAt={task.completed_at}
+                      status={task.status}
+                    />
+                    <span
+                      className={`text-xs font-mono font-bold ${
+                        isFailed
+                          ? "text-red-400"
+                          : task.status === "completed" || task.status === "active"
+                            ? "text-primary"
+                            : "text-slate-400"
+                      }`}
+                    >
+                      {task.progress_percentage}%
+                    </span>
+                  </div>
                 </div>
                 <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
@@ -344,20 +524,6 @@ export default function AgentsPage() {
                     style={{ width: `${task.progress_percentage}%` }}
                   />
                 </div>
-                {/* Retry button for failed research */}
-                {isFailed && isResearch && (
-                  <button
-                    onClick={onRetry}
-                    disabled={retrying}
-                    className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-sm font-medium transition-colors disabled:opacity-50"
-                  >
-                    <MaterialIcon
-                      name="refresh"
-                      className={`text-base ${retrying ? "animate-spin" : ""}`}
-                    />
-                    {retrying ? "Retrying..." : "Retry Research"}
-                  </button>
-                )}
               </div>
             </div>
           );
@@ -390,6 +556,9 @@ export default function AgentsPage() {
                 <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">
                   Current Task
                 </th>
+                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Elapsed
+                </th>
                 <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">
                   Progress
                 </th>
@@ -412,7 +581,7 @@ export default function AgentsPage() {
                       {task.focus ?? "\u2014"}
                     </td>
                     <td
-                      className={`px-6 py-4 whitespace-nowrap text-sm ${
+                      className={`px-6 py-4 text-sm max-w-xs truncate ${
                         isFailed
                           ? "text-red-400 font-medium"
                           : task.status === "completed"
@@ -421,6 +590,13 @@ export default function AgentsPage() {
                       }`}
                     >
                       {task.current_task ?? "Waiting..."}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <ElapsedTime
+                        startedAt={task.started_at}
+                        completedAt={task.completed_at}
+                        status={task.status}
+                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-3">
@@ -433,9 +609,7 @@ export default function AgentsPage() {
                                   ? "bg-primary"
                                   : "bg-slate-300"
                             }`}
-                            style={{
-                              width: `${task.progress_percentage}%`,
-                            }}
+                            style={{ width: `${task.progress_percentage}%` }}
                           />
                         </div>
                         <span
@@ -459,7 +633,7 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Execution Logs */}
+      {/* Execution Logs — rolling window (DB caps at 25 per task) */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 px-1">
           System Execution Logs
@@ -469,7 +643,7 @@ export default function AgentsPage() {
             allLogs.map((log, i) => (
               <div key={i} className="flex gap-4">
                 <span className="text-slate-600 shrink-0">
-                  [{log.timestamp}]
+                  [{log.timestamp.slice(11, 19)}]
                 </span>
                 <span
                   className={

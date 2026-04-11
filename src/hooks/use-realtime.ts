@@ -5,39 +5,47 @@ import { createClient } from "@/lib/supabase/client";
 import { useAgentStore } from "@/stores/agent-store";
 import type { AgentTask, ResearchResult } from "@/types/database";
 
-export function useAgentRealtime(userId: string | undefined) {
-  const { updateTask, setResearchResult } = useAgentStore();
+export function useAgentRealtime(goalId: string | null | undefined) {
+  const { updateTask, addTask, setResearchResult } = useAgentStore();
 
   useEffect(() => {
-    if (!userId) return;
+    if (!goalId) return;
 
     const supabase = createClient();
 
+    // Subscribe to INSERT + UPDATE for this specific goal's tasks.
+    // Using goal_id filter (single predicate — Supabase Realtime limitation).
+    // RLS enforces user scoping so no extra user_id filter is needed.
     const taskChannel = supabase
-      .channel("agent-tasks")
+      .channel(`agent-tasks-${goalId}`)
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
           table: "agent_tasks",
-          filter: `user_id=eq.${userId}`,
+          filter: `goal_id=eq.${goalId}`,
         },
         (payload) => {
-          updateTask(payload.new as AgentTask);
+          if (payload.eventType === "INSERT") {
+            addTask(payload.new as AgentTask);
+          } else if (payload.eventType === "UPDATE") {
+            updateTask(payload.new as AgentTask);
+          }
         }
       )
       .subscribe();
 
+    // Research results — scoped to this goal
     const resultChannel = supabase
-      .channel("research-results")
+      .channel(`research-results-${goalId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "research_results",
-          filter: `user_id=eq.${userId}`,
+          filter: `goal_id=eq.${goalId}`,
         },
         (payload) => {
           setResearchResult(payload.new as ResearchResult);
@@ -49,5 +57,5 @@ export function useAgentRealtime(userId: string | undefined) {
       supabase.removeChannel(taskChannel);
       supabase.removeChannel(resultChannel);
     };
-  }, [userId, updateTask, setResearchResult]);
+  }, [goalId, updateTask, addTask, setResearchResult]);
 }

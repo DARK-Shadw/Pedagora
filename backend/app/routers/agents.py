@@ -8,7 +8,7 @@ from app.services.agent_task import get_agent_task, update_agent_task, cleanup_p
 from app.agents.research_v3 import run_research_v3
 from app.agents.course_planner.pipeline_v4 import run_course_planner_v4
 from app.agents.animation_v2.pipeline import generate_lesson_visuals as run_animation_pipeline_v2
-from app.agents.pipeline_orchestrator import run_full_pipeline
+from app.agents.pipeline_orchestrator import run_full_pipeline, resume_pipeline
 
 router = APIRouter()
 
@@ -126,6 +126,59 @@ async def trigger_course_plan(
     return CoursePlanAccepted(goal_id=goal_id, task_id=task["id"])
 
 
+@router.post("/continue-pipeline", status_code=status.HTTP_202_ACCEPTED)
+async def continue_pipeline_endpoint(
+    request: CoursePlanRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
+    """Resume the pipeline from wherever it left off.
+
+    Inspects existing course_plans + lesson_animations to determine what's
+    already done, then runs only the missing steps in order:
+    storyboard(L) → animation(L) for each incomplete lesson.
+    """
+    goal_id = request.goal_id
+    user_id = user["sub"]
+
+    # Verify the goal belongs to the user
+    planning_task = await get_agent_task(goal_id, "planning")
+    if not planning_task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Planning task not found for this goal",
+        )
+    if planning_task.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized",
+        )
+
+    # Don't resume if already actively running
+    if planning_task.get("status") == "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Pipeline is already running",
+        )
+
+    # Reset failed tasks to queued so the UI reflects the restart
+    for agent_type in ("planning", "visualization"):
+        t = await get_agent_task(goal_id, agent_type)
+        if t and t.get("status") in ("failed", "completed"):
+            await update_agent_task(
+                goal_id, agent_type,
+                status="queued",
+                progress=0,
+                current_task=None,
+                error_message=None,
+                log_message="Pipeline resumed by user",
+                log_level="system",
+            )
+
+    background_tasks.add_task(resume_pipeline, goal_id, user_id)
+    return {"goal_id": goal_id, "status": "resumed"}
+
+
 @router.post("/animate-lesson", status_code=status.HTTP_202_ACCEPTED, response_model=AnimateLessonAccepted)
 async def trigger_animate_lesson(
     request: AnimateLessonRequest,
@@ -200,7 +253,9 @@ class AssessmentRequest(BaseModel):
 async def generate_assessment(request: AssessmentRequest):
     """Generate skill assessment questions using Claude Code."""
     from app.engine.claude_engine import ClaudeEngine
-    engine = ClaudeEngine(model="haiku")
+    # NOTE: use "sonnet" — "haiku" alias causes silent CLI failures on some
+    # Claude Code versions (subprocess exits 1 with empty stderr).
+    engine = ClaudeEngine(model="sonnet")
 
     prereqs_text = "\n".join(
         f"- {p.get('skillName', p.get('skill_name', '?'))}: "
