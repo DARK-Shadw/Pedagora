@@ -225,29 +225,103 @@ class FrameNavigator:
         """Send a single bundled FrameBundleMessage and wait for frame_done.
 
         The frontend lockstep engine handles all per-step playback.
+
+        Speech source priority (highest first):
+          1. frame.steps[].narration_spoken from the Opus storyboard
+             (this is the 3b1b-quality script — use it verbatim)
+          2. Groq fallback via generate_step_speeches (legacy frames)
         """
         # Step specs from animation HTML, populated by the router. If missing
         # (single-step frame or extraction failed), use a single 'main' step.
         step_specs = self.frame_step_specs.get(frame_id) or [
             {"label": "main", "anim_time": 0.0, "text": ""}
         ]
+        labels_summary = [s.get("label", "?") for s in step_specs]
+        print(
+            f"[FrameNav] {frame_id} step_specs: {len(step_specs)} steps, "
+            f"labels={labels_summary}",
+            flush=True,
+        )
 
-        # Check if we already have a cached entry from the prefetch task.
-        # If the cache is empty or has empty text, generate speeches inline
-        # (this is a safety net for resumed sessions where prefetch never ran,
-        # or for race conditions where teaching catches up to prefetch).
+        # ── Source 1: Opus narration_spoken from the storyboard ──
+        # If the planner emitted steps with narration, use them verbatim.
+        # We match by label so the order/count of HTML labels and storyboard
+        # steps don't have to be identical.
+        opus_step_text = _build_opus_step_lookup(frame)
+        if opus_step_text:
+            applied = 0
+            new_specs: list[dict] = []
+            for spec in step_specs:
+                label = spec.get("label", "")
+                opus_text = opus_step_text.get(label, "")
+                if opus_text:
+                    applied += 1
+                    new_specs.append({
+                        **spec,
+                        "text": speech_gen.sanitize_for_tts(opus_text),
+                    })
+                else:
+                    new_specs.append(spec)
+            step_specs = new_specs
+            print(
+                f"[FrameNav] {frame_id} matched {applied}/{len(step_specs)} "
+                f"steps to Opus narration",
+                flush=True,
+            )
+        else:
+            print(f"[FrameNav] {frame_id} no Opus narration_spoken found", flush=True)
+
+        # ── Source 2: Groq generation when narration is missing or too short ──
+        # Quality gate: if Opus narration averages < 50 chars per step, it's
+        # just a brief caption ("Roll a single die."), not teaching content.
+        # In that case, use Groq to generate proper 3b1b-style narration,
+        # passing the short Opus text as step descriptions for context.
+        texts_with_content = [s.get("text", "") for s in step_specs if s.get("text")]
+        avg_text_len = (
+            sum(len(t) for t in texts_with_content) / len(texts_with_content)
+            if texts_with_content else 0
+        )
+        narration_too_short = texts_with_content and avg_text_len < 50
+
         cached = await self.audio_cache.get(frame_id)
         needs_speech_gen = (
             cached is None
             or not cached.steps
             or all(not s.text for s in cached.steps)
-        )
-        if needs_speech_gen and not any(s.get("text") for s in step_specs):
-            logger.info(f"[FrameNav] {frame_id} cache empty — generating speeches inline")
+        ) and not any(s.get("text") for s in step_specs)
+
+        if narration_too_short:
+            print(
+                f"[FrameNav] {frame_id} Opus narration too short "
+                f"(avg={avg_text_len:.0f}ch), using Groq to expand",
+                flush=True,
+            )
+            needs_speech_gen = True
+
+        if needs_speech_gen:
+            if not narration_too_short:
+                print(
+                    f"[FrameNav] {frame_id} no narration, falling back to Groq",
+                    flush=True,
+                )
             try:
+                # Build enhanced labels: "single-die — Roll a single die."
+                # so Groq has the brief description as context
+                enhanced_labels = []
+                opus_narrations = []
+                for s in step_specs:
+                    label = s.get("label", "")
+                    text = s.get("text", "")
+                    if text:
+                        enhanced_labels.append(f"{label} — {text}")
+                        opus_narrations.append(text)
+                    else:
+                        enhanced_labels.append(label)
+                        opus_narrations.append("")
+
                 speeches = await speech_gen.generate_step_speeches(
                     frame=frame,
-                    step_labels=[s["label"] for s in step_specs],
+                    step_labels=enhanced_labels,
                     student_name=self.student_name,
                     teaching_style=self.teaching_style,
                 )
@@ -256,7 +330,7 @@ class FrameNavigator:
                     for i, spec in enumerate(step_specs)
                 ]
             except Exception as e:
-                logger.error(f"[FrameNav] {frame_id} inline speech gen failed: {e}")
+                print(f"[FrameNav] {frame_id} inline speech gen failed: {e}", flush=True)
 
         # Trigger prefetch if not already started — no-op if cached.
         # Awaiting this guarantees audio is ready before we yield the bundle.
@@ -264,8 +338,9 @@ class FrameNavigator:
 
         # Build the steps payload (audio + duration from cache, fall back to spec text)
         if audio.error:
-            logger.warning(
-                f"[FrameNav] {frame_id} audio cache error '{audio.error}', sending text-only"
+            print(
+                f"[FrameNav] {frame_id} audio cache error '{audio.error}', sending text-only",
+                flush=True,
             )
             steps_payload = [
                 {
@@ -298,6 +373,23 @@ class FrameNavigator:
         progress = (idx / self.total_frames) * 100
         url = self.animation_urls.get(frame_id, "")
 
+        # Log step payload details for diagnostics
+        step_summary = []
+        for i, s in enumerate(steps_payload):
+            has_audio = bool(s.get("audio_b64"))
+            dur = s.get("duration_s", 0)
+            txt_len = len(s.get("text", ""))
+            step_summary.append(
+                f"  step[{i}] label={s.get('label', '?')} "
+                f"audio={'yes' if has_audio else 'NO'} dur={dur:.1f}s txt={txt_len}ch"
+            )
+        print(
+            f"[FrameNav] {frame_id} SENDING bundle: "
+            f"{len(steps_payload)} steps, url={'yes' if url else 'EMPTY'}\n"
+            + "\n".join(step_summary),
+            flush=True,
+        )
+
         yield FrameBundleMessage(
             frame_id=frame_id,
             frame_url=url,
@@ -309,15 +401,34 @@ class FrameNavigator:
             steps=steps_payload,
         )
 
-        # Wait for the frontend lockstep engine to finish all steps
+        # Wait for the frontend lockstep engine to finish all steps.
+        # Timeout: audio time + animation transition time + margin.
+        # The frontend timeout per transition = anim_time_diff + 4s margin,
+        # so we sum the actual anim_time gaps (from step specs) + 4s each.
         self._frame_done_event.clear()
+        total_audio = sum(s["duration_s"] for s in steps_payload)
+        # Sum actual transition durations between consecutive steps
+        anim_times = [s.get("anim_time", 0.0) for s in steps_payload]
+        transition_sum = sum(
+            max(anim_times[i + 1] - anim_times[i], 2.0)
+            for i in range(len(anim_times) - 1)
+        ) if len(anim_times) > 1 else 0.0
+        animate_budget = transition_sum + len(steps_payload) * 4.0  # 4s margin each
+        timeout = max(90.0, total_audio + animate_budget + 20.0)
+        print(
+            f"[FrameNav] {frame_id} WAITING for frame_done "
+            f"(audio={total_audio:.1f}s, timeout={timeout:.0f}s)",
+            flush=True,
+        )
         try:
-            # Calculate a reasonable timeout: total audio + 60s buffer for animation
-            total_audio = sum(s["duration_s"] for s in steps_payload)
-            timeout = max(120.0, total_audio + 60.0)
             await asyncio.wait_for(self._frame_done_event.wait(), timeout=timeout)
+            print(f"[FrameNav] {frame_id} frame_done RECEIVED — advancing", flush=True)
         except asyncio.TimeoutError:
-            logger.warning(f"[FrameNav] frame_done timeout for {frame_id}, advancing")
+            print(
+                f"[FrameNav] {frame_id} frame_done TIMEOUT ({timeout:.0f}s) — "
+                f"forcing advance",
+                flush=True,
+            )
 
     # ── Interaction handling ──
 
@@ -470,3 +581,22 @@ class FrameNavigator:
         if not desc:
             desc = str(vspec)
         return desc
+
+
+def _build_opus_step_lookup(frame: dict) -> dict[str, str]:
+    """Build a {label: narration_spoken} map from a v4 frame's steps list.
+
+    The Course Planner v4 prompt requires every frame.steps[] entry to have
+    `label` + `narration_spoken`. We trust that and key by label so the
+    HTML-extracted GSAP labels (which drive sync) can pull the right text.
+    Missing labels just fall through to the Groq fallback in _teach_frame.
+    """
+    lookup: dict[str, str] = {}
+    for s in frame.get("steps") or []:
+        if not isinstance(s, dict):
+            continue
+        label = (s.get("label") or "").strip()
+        text = (s.get("narration_spoken") or s.get("narration") or "").strip()
+        if label and text:
+            lookup[label] = text
+    return lookup

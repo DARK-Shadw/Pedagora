@@ -293,6 +293,17 @@ export default function ClassroomV2Page() {
           `${bundle.steps.length} steps`,
         );
 
+        // FIX: If the frame URL is changing, reset iframeReady BEFORE
+        // updating the store and starting playFrame(). Otherwise the
+        // lockstep engine sees stale iframeReady=true from the previous
+        // frame (React hasn't re-rendered yet) and sends play commands
+        // to the old iframe content — which gets destroyed when React
+        // re-renders, leaving the new frame frozen at t=0.
+        const prevUrl = useClassroomStore.getState().currentFrame?.url;
+        if (bundle.frame_url && bundle.frame_url !== prevUrl) {
+          store.setIframeReady(false);
+        }
+
         // Update UI state for the new frame
         store.setCurrentFrame({
           id: bundle.frame_id,

@@ -1,25 +1,40 @@
-"""Per-frame visual generator — hybrid browser HTML + Manim MP4 rendering."""
+"""Per-frame visual generator — hybrid browser HTML + Manim MP4 rendering.
+
+Uses Gemini 3.1 Flash Lite via `GeminiClient` (multi-key pool with structured output)
+for both browser (JS) and Manim (Python) code generation. Each path has its own
+inner retry loop that feeds render/runtime errors back into the next attempt's
+fix prompt.
+"""
 
 import ast
+import asyncio
+import base64
 import json
 import logging
 import os
-import re
-import shutil
-import subprocess
 import time
 
-from app.engine.claude_engine import ClaudeEngine
+from app.agents.animation_v2.gemini_client import GeminiClient, GeminiPoolExhausted
 from app.agents.animation_v2.prompts import (
     build_generation_prompt, build_fix_prompt, VISUAL_GENERATION_SYSTEM,
     build_manim_generation_prompt, build_manim_fix_prompt, MANIM_GENERATION_SYSTEM,
 )
 from app.agents.animation_v2.template import FRAME_HTML_TEMPLATE, VIDEO_HTML_TEMPLATE
+from app.agents.animation_v2.validator import validate_animation_runtime
 from app.agents.animation.renderer import render_manim_scene
+from app.agents.critic.visual_critic import review_animation_screenshots
 from app.config import get_settings
 from app.services.supabase import get_supabase
 
 logger = logging.getLogger(__name__)
+
+MAX_BROWSER_RETRY_ATTEMPTS = 3  # initial gen + 2 retries
+MAX_MANIM_RETRY_ATTEMPTS = 3    # initial gen + 2 retries (mirror of browser path)
+
+# Gemini 2.5 Flash produces dramatically richer Manim code (175 lines vs 55)
+# compared to Flash Lite. 20 RPD free tier — budget is tight but worth it for
+# 3D scenes that are the visual differentiator.
+MANIM_MODEL = "gemini-2.5-flash"
 
 
 # ══���════════════════════════════════════════════════════════
@@ -67,62 +82,108 @@ def route_frame(frame: dict) -> str:
 # Browser path helpers (existing v2 logic)
 # ══════════════��════════════════════════════════════════════
 
-def extract_js(text: str) -> str | None:
-    """Extract JavaScript code from Claude's response."""
-    text = text.strip()
+def fix_katex_escaping(js_code: str) -> str:
+    r"""Fix single-backslash LaTeX commands to double-backslash in JS strings.
 
-    # Strip markdown fences if present
-    match = re.search(r"```(?:javascript|js)?\s*\n(.*?)```", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
+    Gemini Flash Lite consistently generates `\frac`, `\sum`, `\approx` etc.
+    in katex.render() strings.  In JavaScript, `\f` is form-feed, `\t` is tab,
+    and other `\X` sequences silently drop the backslash — destroying the
+    LaTeX command.  KaTeX needs a literal `\` which requires `\\` in JS.
 
-    # If no fences, assume the whole thing is JS
-    # But skip any leading explanation text
-    lines = text.split("\n")
-    code_lines = []
-    in_code = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith(("const ", "let ", "var ", "//", "function", "tl.", "gsap.", "d3.",
-                                "document.", "katex.", "Prism.", "{", "}", ")", "]", "for ", "if ")):
-            in_code = True
-        if in_code or not stripped:
-            code_lines.append(line)
+    This function adds the second backslash for all known LaTeX commands,
+    skipping any that are already correctly double-escaped.
+    """
+    # Longest-first to avoid partial matches (e.g. "sum" before "subset")
+    LATEX_CMDS = sorted([
+        "frac", "dfrac", "tfrac", "sum", "prod", "int", "iint", "oint",
+        "Omega", "omega", "mu", "sigma", "pi", "theta", "alpha", "beta",
+        "gamma", "delta", "epsilon", "varepsilon", "lambda", "Lambda",
+        "phi", "Phi", "psi", "Psi", "chi", "rho", "tau", "eta", "zeta",
+        "kappa", "nu", "xi", "Delta", "Gamma", "Sigma", "Theta", "Pi",
+        "to", "cdot", "cdots", "ldots", "times", "div",
+        "approx", "sim", "equiv", "propto", "neq", "ne",
+        "le", "leq", "ge", "geq", "ll", "gg",
+        "in", "notin", "subset", "supset", "subseteq", "supseteq",
+        "cup", "cap", "vee", "wedge", "neg",
+        "forall", "exists", "nabla", "partial", "infty",
+        "mathbb", "mathbf", "mathcal", "mathrm", "mathit",
+        "text", "textbf", "textit", "operatorname",
+        "color", "textcolor", "boxed",
+        "sqrt", "root", "overline", "underline", "hat", "bar", "vec", "dot",
+        "left", "right", "bigl", "bigr", "Big", "big",
+        "begin", "end", "binom", "choose",
+        "lim", "log", "ln", "sin", "cos", "tan", "exp", "max", "min",
+        "pm", "mp",
+        # LaTeX special characters (\ + symbol)
+        "%", "#", "&",
+    ], key=len, reverse=True)
 
-    if code_lines:
-        return "\n".join(code_lines).strip()
-
-    return text
-
-
-def validate_js_syntax(js_code: str) -> str | None:
-    """Validate JS syntax using Node.js. Returns error message or None if valid."""
-    node_path = shutil.which("node")
-    if not node_path:
-        logger.warning("[AnimV2] Node.js not found, skipping syntax validation")
-        return None
-
-    check_script = f"try {{ new Function({repr(js_code)}); }} catch(e) {{ process.stderr.write(e.message); process.exit(1); }}"
-    try:
-        result = subprocess.run(
-            [node_path, "-e", check_script],
-            capture_output=True, text=True, timeout=10,
-            env={**os.environ, "NODE_NO_WARNINGS": "1"},
-        )
-        if result.returncode != 0:
-            return result.stderr.strip() or "Unknown syntax error"
-        return None
-    except Exception as e:
-        logger.warning(f"[AnimV2] Syntax check failed to run: {e}")
-        return None
+    import re as _re
+    for cmd in LATEX_CMDS:
+        # Match: one backslash + command + word boundary (non-alpha or end)
+        # Skip: already two backslashes (negative lookbehind)
+        pattern = r"(?<!\\)\\(" + _re.escape(cmd) + r")(?=[^a-zA-Z]|$)"
+        js_code = _re.sub(pattern, r"\\\\\1", js_code)
+    return js_code
 
 
-def build_html(js_code: str, title: str) -> str:
-    """Wrap animation JS code in the browser HTML template."""
+def fix_gsap_targets(js_code: str) -> str:
+    """Wrap GSAP tween targets with _t() to convert D3 selections to DOM elements.
+
+    Gemini consistently passes D3 selections (from g.append(...)) directly to
+    tl.to/from/fromTo.  GSAP silently ignores non-DOM targets.  The template
+    defines _t(el) which calls .node() on D3 selections and passes through
+    DOM elements unchanged.
+    """
+    import re as _re
+    # Match tl.to( / tl.from( / tl.fromTo( followed by the first argument + comma
+    # Skip if already wrapped with _t(
+    js_code = _re.sub(
+        r'tl\.(to|from|fromTo)\((?!_t\()([^,]+),',
+        r'tl.\1(_t(\2),',
+        js_code,
+    )
+    return js_code
+
+
+def fix_svg_d_in_tweens(js_code: str) -> str:
+    """Move attr:{d:...} out of GSAP tweens — GSAP can't interpolate path strings.
+
+    When Gemini puts attr:{d: somePathData} inside a tl.to() call, the path
+    never renders.  This extracts the d value and pre-sets it on the element
+    by injecting a .attr('d', ...) call before the tween.
+
+    Since this is complex to do perfectly with regex, we take a simpler approach:
+    strip `attr: {d: ...}` from GSAP tweens entirely.  The prompt already tells
+    Gemini to set d at creation time, so this is a safety net that prevents
+    the broken pattern from silently failing.
+    """
+    import re as _re
+    # Remove ", attr: {d: ...}" or "attr: {d: ...}, " from GSAP tween objects
+    # This handles the common pattern: {opacity: 0.4, duration: 1, attr: {d: expr}}
+    js_code = _re.sub(r',\s*attr\s*:\s*\{d\s*:[^}]+\}', '', js_code)
+    js_code = _re.sub(r'attr\s*:\s*\{d\s*:[^}]+\}\s*,\s*', '', js_code)
+    return js_code
+
+
+def build_html(
+    js_code: str,
+    title: str,
+    image_data: dict[str, str] | None = None,
+) -> str:
+    """Wrap animation JS code in the browser HTML template.
+
+    Args:
+        image_data: Optional dict of step_label → base64 data URL for
+            pre-generated images. Injected as `__images` JS constant.
+    """
+    js_code = fix_katex_escaping(js_code)
+    js_code = fix_gsap_targets(js_code)
     return FRAME_HTML_TEMPLATE.format(
         title=title,
         content_html="",
         animation_js=js_code,
+        image_data=json.dumps(image_data or {}),
     )
 
 
@@ -131,26 +192,39 @@ def build_html(js_code: str, title: str) -> str:
 # ════════════════════════��══════════════════════════════════
 
 def extract_python(text: str) -> str | None:
-    """Extract Python code from Claude's response."""
-    text = text.strip()
+    """Return raw Python from the generator response.
 
-    # Strip markdown fences
-    match = re.search(r"```python\s*\n(.*?)```", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-
-    # Raw code starting with import or class
-    if text.startswith(("from manim", "import ", "class ")):
-        return text
-
-    return text
+    Gemini's structured output returns bare code in the `code` field, but we
+    still strip whitespace and any stray markdown fences as a cheap safety net.
+    """
+    text = (text or "").strip()
+    if text.startswith("```"):
+        # Strip leading fence line ("```python\n" or "```\n")
+        first_nl = text.find("\n")
+        if first_nl != -1:
+            text = text[first_nl + 1:]
+        if text.endswith("```"):
+            text = text[:-3]
+    return text.strip()
 
 
 def validate_manim_code(code: str) -> str | None:
     """Validate Python syntax and class structure. Returns error or None."""
+    # Defensive check: Gemini sometimes collapses the entire scene onto a
+    # single line with semicolons on retry. That produces a cryptic
+    # "cannot use name as import target" error from Python's parser, which
+    # the fix loop can't understand. Catch it up front with a clear message
+    # so the retry prompt can actually help.
+    stripped = code.strip()
+    line_count = stripped.count("\n") + 1
+    if line_count <= 3 and "class AnimationScene" in stripped and ";" in stripped:
+        return (
+            "Code is collapsed onto 1-3 lines with semicolons. Python cannot "
+            "parse `class X: def y():` on a single line. Rewrite with real "
+            "newlines — one statement per line, 4-space indentation, NO "
+            "semicolons between statements."
+        )
+
     try:
         ast.parse(code)
     except SyntaxError as e:
@@ -160,6 +234,43 @@ def validate_manim_code(code: str) -> str | None:
         return "Missing 'class AnimationScene' — code must define this class"
 
     return None
+
+
+def fix_manim_api_errors(code: str) -> str:
+    """Fix common Manim API mistakes that Gemini produces.
+
+    Known patterns:
+    1. axes.n2p(x) — Axes uses c2p(), not n2p() (which is NumberLine-only).
+    2. .get_x()/.get_y()/.get_z() on c2p() results — returns numpy array, not Point3D.
+    3. .to_edge(DOWN).shift(DOWN*X) — pushes mobjects off-screen.
+    4. Custom rate_func lambdas — always broken, replace with smooth.
+    """
+    import re as _re
+
+    # 1. axes.n2p(expr) → axes.c2p(expr, 0)
+    # Only target Axes-like variable names; NumberLine vars (nl, number_line) are valid
+    code = _re.sub(
+        r'(\b(?:axes|hist_axes|ax|plot_axes|axes_?\d*)\b)\.n2p\(([^)]+)\)',
+        r'\1.c2p(\2, 0)',
+        code,
+    )
+
+    # 2. .get_x() → [0], .get_y() → [1], .get_z() → [2] on c2p results
+    code = _re.sub(r'\.c2p\(([^)]+)\)\.get_x\(\)', r'.c2p(\1)[0]', code)
+    code = _re.sub(r'\.c2p\(([^)]+)\)\.get_y\(\)', r'.c2p(\1)[1]', code)
+    code = _re.sub(r'\.c2p\(([^)]+)\)\.get_z\(\)', r'.c2p(\1)[2]', code)
+
+    # 3. .to_edge(DOWN).shift(DOWN*...) → .to_edge(DOWN)  (strip the redundant shift)
+    #    Same for UP direction
+    code = _re.sub(r'\.to_edge\(DOWN\)\s*\.shift\(DOWN\s*\*[^)]+\)', '.to_edge(DOWN)', code)
+    code = _re.sub(r'\.to_edge\(UP\)\s*\.shift\(UP\s*\*[^)]+\)', '.to_edge(UP)', code)
+
+    # 4. rate_func=lambda ... → rate_func=smooth
+    #    Gemini's custom lambdas composing smooth/there_and_back always break at boundaries.
+    #    The lambda spans to end-of-line (Manim kwargs are one per line).
+    code = _re.sub(r'rate_func\s*=\s*lambda\b[^\n]*', 'rate_func=smooth', code)
+
+    return code
 
 
 def compute_step_map(steps: list[dict]) -> dict[str, float]:
@@ -204,17 +315,18 @@ def _upload_manim_mp4(local_path: str, goal_id: str, lesson_id: str, frame_id: s
 # Browser generation (existing v2 flow)
 # ══════��══════════════════════════════════════════════��═════
 
-async def _generate_browser_visual(
-    engine: ClaudeEngine,
+async def _generate_browser_visual_once(
+    gemini: GeminiClient,
     frame: dict,
     progress_fn=None,
     previous_error: str | None = None,
     previous_code: str | None = None,
+    image_data: dict[str, str] | None = None,
 ) -> dict:
-    """Generate a browser-rendered HTML visual (GSAP + D3 + KaTeX)."""
+    """Generate a browser-rendered HTML visual (GSAP + D3 + KaTeX) via Gemini."""
     frame_id = frame.get("frame_id", "unknown")
     visual_type = frame.get("visual_type", "animation")
-    is_fix = previous_error and previous_code
+    is_fix = bool(previous_error and previous_code)
 
     if progress_fn:
         label = "Fixing" if is_fix else "Generating"
@@ -223,44 +335,31 @@ async def _generate_browser_visual(
     if is_fix:
         prompt = build_fix_prompt(frame, previous_code, previous_error)
     else:
-        prompt = build_generation_prompt(frame)
+        prompt = build_generation_prompt(frame, available_images=image_data)
 
     try:
-        result = await engine.run(
+        js_code, meta = await gemini.generate_code(
             prompt=prompt,
             system_prompt=VISUAL_GENERATION_SYSTEM,
-            timeout=600,
         )
+        js_code = (js_code or "").strip()
 
-        js_code = extract_js(result["result"])
         if not js_code:
-            logger.error(f"[AnimV2] {frame_id}: No JS code found in response")
+            logger.error(f"[AnimV2] {frame_id}: Gemini returned empty JS code")
             return {
                 "frame_id": frame_id,
                 "status": "failed",
-                "error": "No JS code in response",
-                "raw_length": len(result["result"]),
-            }
-
-        # Validate JS syntax
-        syntax_error = validate_js_syntax(js_code)
-        if syntax_error:
-            logger.error(f"[AnimV2] {frame_id}: Syntax error: {syntax_error}")
-            if progress_fn:
-                progress_fn(f"[{frame_id}] Syntax error: {syntax_error[:60]}")
-            return {
-                "frame_id": frame_id,
-                "status": "failed",
-                "error": f"JS syntax error: {syntax_error}",
-                "failed_code": js_code,
-                "raw_length": len(js_code),
+                "error": "Gemini returned empty JS code",
             }
 
         title = frame.get("visual_spec", {}).get("description", "")[:60] or frame_id
-        html = build_html(js_code, title)
+        html = build_html(js_code, title, image_data=image_data)
 
-        elapsed = result.get("elapsed_seconds", 0)
-        logger.info(f"[AnimV2] {frame_id}: Generated {len(js_code)} chars JS -> {len(html)} chars HTML in {elapsed:.0f}s")
+        elapsed = meta.get("elapsed_seconds", 0)
+        logger.info(
+            f"[AnimV2] {frame_id}: Generated {len(js_code)} chars JS -> "
+            f"{len(html)} chars HTML in {elapsed:.1f}s (key#{meta.get('key_index')})"
+        )
 
         if progress_fn:
             progress_fn(f"[{frame_id}] Done (browser): {len(html)} chars")
@@ -273,66 +372,212 @@ async def _generate_browser_visual(
             "status": "completed",
             "elapsed_seconds": elapsed,
             "renderer": "browser",
+            "key_index": meta.get("key_index"),
+            "tokens_in": meta.get("tokens_in"),
+            "tokens_out": meta.get("tokens_out"),
         }
 
+    except GeminiPoolExhausted as e:
+        logger.error(
+            f"[AnimV2] {frame_id}: Gemini pool exhausted (browser): {e}",
+            exc_info=True,
+        )
+        if progress_fn:
+            progress_fn(f"[{frame_id}] Pool exhausted")
+        return {
+            "frame_id": frame_id,
+            "status": "failed",
+            "error": f"Gemini pool exhausted: {e}",
+        }
     except Exception as e:
-        logger.error(f"[AnimV2] {frame_id}: Browser generation failed: {e}")
+        logger.error(
+            f"[AnimV2] {frame_id}: Browser generation crashed: {e}",
+            exc_info=True,
+        )
         if progress_fn:
             progress_fn(f"[{frame_id}] Failed: {str(e)[:50]}")
         return {
             "frame_id": frame_id,
             "status": "failed",
-            "error": str(e),
+            "error": f"Browser generation crashed: {e}",
         }
 
 
-# ════════════���══════════════════════════════════════════════
-# Manim generation (new path)
-# ═══════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════
+# Manim image pre-generation (Pollinations)
+# ════════════════════════════════════════════════════════════
 
-async def _generate_manim_visual(
-    engine: ClaudeEngine,
+IMAGE_STEP_KEYWORDS = [
+    "generated image", "sample image", "example image", "real image",
+    "generated output", "model output", "generated sample",
+    "noise to image", "noisy image", "denoising",
+    "show image", "display image", "resulting image",
+    "diagram of", "illustration of", "picture of",
+    "neural network output", "network generates",
+]
+
+
+async def _pregenerate_step_images(
+    frame: dict,
+    progress_fn=None,
+) -> dict[str, str]:
+    """Scan step descriptions and generate images via Pollinations for those that need them.
+
+    Returns a dict mapping step_label -> absolute image path.
+    Empty dict if no steps need images or generation fails.
+    """
+    from app.services.image_gen import generate_image
+
+    steps = frame.get("steps", [])
+    if not steps:
+        return {}
+
+    frame_id = frame.get("frame_id", "unknown")
+    frame_desc = frame.get("visual_spec", {}).get("description", "")
+    settings = get_settings()
+
+    # Determine output dir for images (next to where Manim renders)
+    images_dir = os.path.join(
+        settings.manim_output_dir,
+        frame.get("_goal_id", "local"),
+        frame.get("_lesson_id", "test"),
+        frame_id,
+        "images",
+    )
+
+    generated: dict[str, str] = {}
+
+    for step in steps:
+        desc = str(step.get("description", "")).lower()
+        label = step.get("label", step.get("step_id", "unknown"))
+
+        if not any(kw in desc for kw in IMAGE_STEP_KEYWORDS):
+            continue
+
+        # Build an image prompt from step + frame context
+        step_desc = step.get("description", "")
+        img_prompt = (
+            f"Educational illustration for math/science lesson: {step_desc}. "
+            f"Context: {frame_desc[:200]}. "
+            f"Clean, professional, dark background (#0d1117), no text overlays, "
+            f"suitable for embedding in an animated presentation."
+        )
+
+        if progress_fn:
+            progress_fn(f"[{frame_id}] Generating image for step '{label}'...")
+
+        path = await generate_image(
+            img_prompt,
+            output_dir=images_dir,
+            filename=f"{label}.jpg",
+            width=800,
+            height=600,
+        )
+
+        if path:
+            # Use absolute path with forward slashes for Manim compatibility
+            abs_path = os.path.abspath(path).replace("\\", "/")
+            generated[label] = abs_path
+            logger.info(f"[AnimV2] {frame_id}: Pre-generated image for '{label}': {abs_path}")
+            if progress_fn:
+                progress_fn(f"[{frame_id}] Image ready for step '{label}'")
+        else:
+            logger.warning(f"[AnimV2] {frame_id}: Image generation failed for step '{label}'")
+
+    if generated:
+        logger.info(f"[AnimV2] {frame_id}: Pre-generated {len(generated)} image(s)")
+
+    return generated
+
+
+def _images_to_base64(image_paths: dict[str, str]) -> dict[str, str]:
+    """Convert step_label → file path dict to step_label → base64 data URL dict."""
+    result: dict[str, str] = {}
+    for label, path in image_paths.items():
+        try:
+            with open(path, "rb") as f:
+                raw = f.read()
+            ext = os.path.splitext(path)[1].lower()
+            mime = "image/png" if ext == ".png" else "image/jpeg"
+            b64 = base64.b64encode(raw).decode("ascii")
+            result[label] = f"data:{mime};base64,{b64}"
+        except Exception as e:
+            logger.warning(f"[AnimV2] Failed to encode image {path}: {e}")
+    return result
+
+
+# ════════════════════════════════════════════════════════════
+# Manim generation (code gen + render)
+# ════════════════════════════════════════════════════════════
+
+async def _generate_manim_once(
+    gemini: GeminiClient,
     frame: dict,
     progress_fn=None,
     previous_error: str | None = None,
     previous_code: str | None = None,
+    available_images: dict[str, str] | None = None,
 ) -> dict:
-    """Generate a Manim-rendered MP4, wrapped in video HTML."""
+    """One attempt at generating + rendering a Manim visual (no retry).
+
+    Returns a dict with status=completed (html, mp4_size, ...) or status=failed
+    (error, failed_code). The caller is responsible for retry.
+    """
     frame_id = frame.get("frame_id", "unknown")
     visual_type = frame.get("visual_type", "animation")
-    is_fix = previous_error and previous_code
+    is_fix = bool(previous_error and previous_code)
 
     if progress_fn:
         label = "Fixing" if is_fix else "Generating"
         progress_fn(f"[{frame_id}] {label} {visual_type} (manim)...")
 
-    # --- Step 1: Generate Python code via Claude ---
+    # --- Step 1: Generate Python code via Gemini ---
     if is_fix:
         prompt = build_manim_fix_prompt(frame, previous_code, previous_error)
     else:
-        prompt = build_manim_generation_prompt(frame)
+        prompt = build_manim_generation_prompt(frame, available_images=available_images)
 
     try:
-        gen_start = time.time()
-        result = await engine.run(
+        py_code_raw, meta = await gemini.generate_code(
             prompt=prompt,
             system_prompt=MANIM_GENERATION_SYSTEM,
-            timeout=600,
+            model=MANIM_MODEL,
         )
-        gen_elapsed = time.time() - gen_start
-
-        py_code = extract_python(result["result"])
+        gen_elapsed = meta.get("elapsed_seconds", 0.0)
+        py_code = extract_python(py_code_raw)
+        if py_code:
+            py_code = fix_manim_api_errors(py_code)
         if not py_code:
-            logger.error(f"[AnimV2] {frame_id}: No Python code in response")
+            # Dump the raw response so we can see what Gemini actually returned
+            # (whitespace-only? just a fence? a JSON envelope that escaped the
+            # structured-output parser?).
+            logger.error(
+                f"[AnimV2] {frame_id}: Gemini returned empty Python code.\n"
+                f"---- RAW GEMINI RESPONSE (first 1000 chars) ----\n"
+                f"{(py_code_raw or '')[:1000]}\n"
+                f"---- END RAW RESPONSE ----"
+            )
             return {
                 "frame_id": frame_id,
                 "status": "failed",
-                "error": "No Python code in response",
-                "raw_length": len(result["result"]),
+                "error": "Gemini returned empty Python code",
             }
 
+        # Dump the generated code up-front so we can see EXACTLY what we'll
+        # validate / render — cheap to log and invaluable when things break.
+        logger.info(
+            f"[AnimV2] {frame_id}: Gemini generated {len(py_code)} chars Python "
+            f"({gen_elapsed:.1f}s, key#{meta.get('key_index')})\n"
+            f"---- GENERATED PYTHON (first 2000 chars) ----\n"
+            f"{py_code[:2000]}\n"
+            f"---- END GENERATED PYTHON ----"
+        )
+
         if progress_fn:
-            progress_fn(f"[{frame_id}] Code generated ({len(py_code)} chars, {gen_elapsed:.0f}s), validating...")
+            progress_fn(
+                f"[{frame_id}] Code generated ({len(py_code)} chars, {gen_elapsed:.1f}s, "
+                f"key#{meta.get('key_index')}), validating..."
+            )
 
         # --- Step 2: Validate Python syntax + class structure ---
         code_error = validate_manim_code(py_code)
@@ -348,7 +593,13 @@ async def _generate_manim_visual(
                 code_error = validate_manim_code(py_code)
 
             if code_error:
-                logger.error(f"[AnimV2] {frame_id}: Manim code error: {code_error}")
+                # Full code dump on syntax failure so we can see what Gemini
+                # actually produced (and line 1, which is where the error lives).
+                logger.error(
+                    f"[AnimV2] {frame_id}: Manim code error: {code_error}\n"
+                    f"---- FAILED PYTHON (full) ----\n{py_code}\n"
+                    f"---- END FAILED PYTHON ----"
+                )
                 if progress_fn:
                     progress_fn(f"[{frame_id}] Code error: {code_error[:60]}")
                 return {
@@ -360,10 +611,12 @@ async def _generate_manim_visual(
                 }
 
         # --- Step 3: Render with Manim ---
-        if progress_fn:
-            progress_fn(f"[{frame_id}] Rendering with Manim (1080p60)...")
-
         settings = get_settings()
+        renderer_label = "OpenGL" if settings.animation_use_opengl else "Cairo"
+        if progress_fn:
+            progress_fn(
+                f"[{frame_id}] Rendering with Manim ({renderer_label}, 1080p60)..."
+            )
         output_dir = os.path.join(
             settings.manim_output_dir,
             frame.get("_goal_id", "local"),
@@ -372,16 +625,50 @@ async def _generate_manim_visual(
         )
 
         render_start = time.time()
-        mp4_path, render_error = await render_manim_scene(
+        # 600s (10 min) gives complex 3D scenes plenty of room. We emit
+        # periodic progress ticks at 60/150/300/450s so the user can see
+        # the render is still alive during long compiles — this messaging
+        # is promoted to System Execution Logs by pipeline.progress().
+        render_task = asyncio.create_task(render_manim_scene(
             code=py_code,
             output_dir=output_dir,
             quality=settings.animation_render_quality,
-            timeout=300,
-        )
+            timeout=600,
+            use_opengl=settings.animation_use_opengl,
+        ))
+
+        render_tick_thresholds = [60, 150, 300, 450]
+        thresholds_hit: set[int] = set()
+        while not render_task.done():
+            done_set, _ = await asyncio.wait([render_task], timeout=15)
+            if done_set:
+                break
+            elapsed_now = time.time() - render_start
+            for threshold in render_tick_thresholds:
+                if elapsed_now >= threshold and threshold not in thresholds_hit:
+                    thresholds_hit.add(threshold)
+                    tick_msg = (
+                        f"[{frame_id}] Manim still rendering... "
+                        f"{elapsed_now:.0f}s elapsed (timeout 600s)"
+                    )
+                    logger.info(f"[AnimV2] {tick_msg}")
+                    if progress_fn:
+                        progress_fn(tick_msg)
+
+        mp4_path, render_error = await render_task
         render_elapsed = time.time() - render_start
 
         if render_error:
-            logger.error(f"[AnimV2] {frame_id}: Render failed ({render_elapsed:.0f}s): {render_error[:100]}")
+            # Full render stderr AND the Python that produced it. The code is
+            # the most important piece for diagnosing render timeouts
+            # (infinite self.wait, runaway run_time, bad loop, etc.).
+            logger.error(
+                f"[AnimV2] {frame_id}: Manim render failed after {render_elapsed:.0f}s\n"
+                f"---- FULL RENDER ERROR ----\n{render_error}\n"
+                f"---- END RENDER ERROR ----\n"
+                f"---- PYTHON THAT FAILED TO RENDER (full) ----\n{py_code}\n"
+                f"---- END FAILED PYTHON ----"
+            )
             if progress_fn:
                 progress_fn(f"[{frame_id}] Render failed: {render_error[:60]}")
             return {
@@ -429,7 +716,7 @@ async def _generate_manim_visual(
         logger.info(
             f"[AnimV2] {frame_id}: Manim render complete — "
             f"{len(py_code)} chars Python, {mp4_size // 1024}KB MP4, "
-            f"{total_elapsed:.0f}s total (gen {gen_elapsed:.0f}s + render {render_elapsed:.0f}s)"
+            f"{total_elapsed:.0f}s total (gen {gen_elapsed:.1f}s + render {render_elapsed:.0f}s)"
         )
 
         if progress_fn:
@@ -445,17 +732,100 @@ async def _generate_manim_visual(
             "status": "completed",
             "elapsed_seconds": total_elapsed,
             "renderer": "manim",
+            "key_index": meta.get("key_index"),
+            "tokens_in": meta.get("tokens_in"),
+            "tokens_out": meta.get("tokens_out"),
         }
 
+    except GeminiPoolExhausted as e:
+        logger.error(
+            f"[AnimV2] {frame_id}: Gemini pool exhausted (manim): {e}",
+            exc_info=True,
+        )
+        if progress_fn:
+            progress_fn(f"[{frame_id}] Pool exhausted")
+        return {
+            "frame_id": frame_id,
+            "status": "failed",
+            "error": f"Gemini pool exhausted: {e}",
+        }
     except Exception as e:
-        logger.error(f"[AnimV2] {frame_id}: Manim generation failed: {e}")
+        logger.error(
+            f"[AnimV2] {frame_id}: Manim generation crashed: {e}",
+            exc_info=True,
+        )
         if progress_fn:
             progress_fn(f"[{frame_id}] Failed: {str(e)[:50]}")
         return {
             "frame_id": frame_id,
             "status": "failed",
-            "error": str(e),
+            "error": f"Manim generation crashed: {e}",
         }
+
+
+async def _generate_manim_visual(
+    gemini: GeminiClient,
+    frame: dict,
+    progress_fn=None,
+    previous_error: str | None = None,
+    previous_code: str | None = None,
+) -> dict:
+    """Manim generation wrapper with inner retry loop.
+
+    Each attempt calls Gemini, renders with Manim, and — on any failure —
+    feeds the error + failing code back into the next attempt's fix prompt.
+    Mirrors the browser retry loop in _generate_browser_visual.
+    """
+    frame_id = frame.get("frame_id", "unknown")
+
+    # --- Pre-generate images for steps that need them ---
+    available_images = await _pregenerate_step_images(frame, progress_fn)
+
+    last_result: dict = {}
+    last_error: str | None = previous_error
+    last_code: str | None = previous_code
+
+    for attempt in range(1, MAX_MANIM_RETRY_ATTEMPTS + 1):
+        is_fix = bool(last_error and last_code)
+        logger.info(
+            f"[AnimV2] {frame_id} manim attempt {attempt}/{MAX_MANIM_RETRY_ATTEMPTS} "
+            f"starting (fix={is_fix}"
+            + (f", prev_error={last_error[:120]}" if is_fix else "")
+            + ")"
+        )
+        if progress_fn:
+            progress_fn(f"[{frame_id}] manim attempt {attempt}/{MAX_MANIM_RETRY_ATTEMPTS}")
+
+        result = await _generate_manim_once(
+            gemini,
+            frame,
+            progress_fn=progress_fn,
+            previous_error=last_error,
+            previous_code=last_code,
+            available_images=available_images or None,
+        )
+        last_result = result
+
+        if result.get("status") == "completed":
+            return result
+
+        # Feed the error + failing code into the next attempt's fix prompt.
+        last_error = result.get("error") or "manim generation failed"
+        last_code = result.get("failed_code") or last_code
+        # Full error to backend stdout so the developer can see why it failed
+        # without waiting for the pipeline to finish.
+        logger.warning(
+            f"[AnimV2] {frame_id} manim FAIL attempt "
+            f"{attempt}/{MAX_MANIM_RETRY_ATTEMPTS}\n"
+            f"---- FULL ATTEMPT ERROR ----\n{last_error}\n"
+            f"---- END ATTEMPT ERROR ----"
+        )
+
+    # All attempts exhausted — return last failure so the lesson can still
+    # play with a placeholder for this frame.
+    last_result["status"] = "failed"
+    last_result.setdefault("error", last_error or "manim generation failed")
+    return last_result
 
 
 # ��════════════════════════════��═════════════════════════════
@@ -463,7 +833,7 @@ async def _generate_manim_visual(
 # ══════���══════════════��═════════════════════════════════════
 
 async def generate_frame_visual(
-    engine: ClaudeEngine,
+    gemini: GeminiClient,
     frame: dict,
     progress_fn=None,
     previous_error: str | None = None,
@@ -478,9 +848,144 @@ async def generate_frame_visual(
 
     if renderer == "manim":
         return await _generate_manim_visual(
-            engine, frame, progress_fn, previous_error, previous_code,
+            gemini, frame, progress_fn, previous_error, previous_code,
         )
     else:
         return await _generate_browser_visual(
-            engine, frame, progress_fn, previous_error, previous_code,
+            gemini, frame, progress_fn, previous_error, previous_code,
         )
+
+
+# ═══════════════════════════════════════════════════════════
+# Browser generation wrapper — runtime validator + visual critic loop
+# ═══════════════════════════════════════════════════════════
+
+async def _generate_browser_visual(
+    gemini: GeminiClient,
+    frame: dict,
+    progress_fn=None,
+    previous_error: str | None = None,
+    previous_code: str | None = None,
+) -> dict:
+    """Generate browser HTML, then validate it in a real browser before
+    accepting it.
+
+    Pipeline per attempt:
+      1. Call _generate_browser_visual_once to produce HTML.
+      2. Run Playwright validator: pageerror, animationAPI presence,
+         GSAP labels match the planner's expected step labels, screenshots
+         per label.
+      3. If validator fails → feed `validator.blocking` back as the next
+         attempt's `previous_error`. Up to MAX_BROWSER_RETRY_ATTEMPTS total.
+      4. On the last passing attempt, run the visual critic on the
+         screenshots; soft fail (advisory only) — don't block on taste-level
+         issues at this layer.
+    """
+    frame_id = frame.get("frame_id", "unknown")
+    expected_labels = [
+        s.get("label", "") for s in (frame.get("steps") or [])
+        if isinstance(s, dict) and s.get("label")
+    ]
+
+    # --- Pre-generate images for steps that need them ---
+    raw_images = await _pregenerate_step_images(frame, progress_fn)
+    image_b64 = _images_to_base64(raw_images) if raw_images else {}
+
+    last_result: dict = {}
+    last_error: str | None = previous_error
+    last_code: str | None = previous_code
+
+    for attempt in range(1, MAX_BROWSER_RETRY_ATTEMPTS + 1):
+        is_fix = bool(last_error and last_code)
+        logger.info(
+            f"[AnimV2] {frame_id} browser attempt {attempt}/{MAX_BROWSER_RETRY_ATTEMPTS} "
+            f"starting (fix={is_fix}"
+            + (f", prev_error={last_error[:120]}" if is_fix else "")
+            + ")"
+        )
+        if progress_fn:
+            progress_fn(f"[{frame_id}] browser attempt {attempt}/{MAX_BROWSER_RETRY_ATTEMPTS}")
+
+        result = await _generate_browser_visual_once(
+            gemini,
+            frame,
+            progress_fn=progress_fn,
+            previous_error=last_error,
+            previous_code=last_code,
+            image_data=image_b64 or None,
+        )
+        last_result = result
+
+        if result.get("status") != "completed":
+            # Generation itself failed (no JS / syntax error) — feed back to next attempt
+            last_error = result.get("error") or "generation failed"
+            last_code = result.get("failed_code")
+            continue
+
+        html = result.get("html", "")
+        if not html:
+            last_error = "empty HTML"
+            continue
+
+        # ── Runtime validator ──
+        if progress_fn:
+            progress_fn(f"[{frame_id}] validating in headless browser...")
+        runtime = await validate_animation_runtime(
+            html=html,
+            expected_labels=expected_labels,
+            capture_screenshots=True,
+        )
+        result["runtime"] = runtime.to_dict()
+
+        if not runtime.passed:
+            last_error = "; ".join(runtime.blocking)[:600] or "runtime validation failed"
+            last_code = html
+            # Full blocking list to backend stdout for triage — the truncated
+            # version goes into the fix prompt, but the developer sees everything.
+            full_blocking = "\n  - " + "\n  - ".join(runtime.blocking) if runtime.blocking else " (none captured)"
+            logger.warning(
+                f"[AnimV2] {frame_id} runtime FAIL attempt "
+                f"{attempt}/{MAX_BROWSER_RETRY_ATTEMPTS}\n"
+                f"---- RUNTIME BLOCKING ISSUES ----{full_blocking}\n"
+                f"---- END RUNTIME ISSUES ----"
+            )
+            if progress_fn:
+                progress_fn(f"[{frame_id}] runtime FAIL: {last_error[:80]}")
+            continue
+
+        # ── Visual critic (advisory) ──
+        if runtime.screenshots_b64:
+            try:
+                vspec = frame.get("visual_spec", {})
+                description = (vspec.get("description") or "")[:400]
+                visual = await review_animation_screenshots(
+                    screenshots_b64=runtime.screenshots_b64,
+                    step_labels=runtime.step_labels_for_screenshots,
+                    visual_type=frame.get("visual_type", "animation"),
+                    description=description,
+                )
+                result["visual_critic"] = {
+                    "score": visual.score,
+                    "verdict": visual.verdict,
+                    "issues": visual.issues,
+                    "feedback": visual.feedback,
+                }
+                # Visual critic is advisory at this layer — don't reject; the
+                # final lesson critic will surface low-scoring frames.
+                if not visual.passed:
+                    logger.info(
+                        f"[AnimV2] {frame_id} visual critic advisory: "
+                        f"score={visual.score} verdict={visual.verdict}"
+                    )
+            except Exception as e:
+                logger.warning(f"[AnimV2] {frame_id} visual critic crashed: {e}")
+
+        if progress_fn:
+            progress_fn(f"[{frame_id}] runtime PASS on attempt {attempt}")
+        return result
+
+    # All attempts failed — return the last result with a failure marker so
+    # the lesson can still play with a placeholder frame.
+    last_result["status"] = "failed"
+    last_result.setdefault("error", last_error or "runtime validation failed")
+    return last_result

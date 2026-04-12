@@ -262,11 +262,12 @@ async def extract_animation_step_specs(
 async def serve_animation(goal_id: str, lesson_id: str, frame_id: str):
     """Serve animation HTML with correct content-type.
 
-    Tries local file first, falls back to Supabase proxy. Sends no-cache
-    headers because we iterate on these files frequently and a stale
-    iframe cache produced a confusing source-code-in-iframe bug once.
+    Proxies from Supabase Storage (the v2 pipeline uploads there).
+    Sends no-cache headers because we iterate on these files frequently
+    and a stale iframe cache produced a confusing source-code-in-iframe
+    bug once.
     """
-    import os
+    import httpx
 
     no_cache_headers = {
         "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
@@ -274,23 +275,6 @@ async def serve_animation(goal_id: str, lesson_id: str, frame_id: str):
         "Expires": "0",
     }
 
-    # Try local file first (faster, no network)
-    local_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        "generated_visuals",
-        f"{frame_id}.html",
-    )
-    if os.path.exists(local_path):
-        with open(local_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        if not content.lstrip().lower().startswith("<!doctype"):
-            # Sanity check: an unrendered template would start with `\\` or
-            # plain text. Refuse to serve so the iframe shows the fallback.
-            raise HTTPException(status_code=500, detail="Animation file is not valid HTML")
-        return HTMLResponse(content=content, status_code=200, headers=no_cache_headers)
-
-    # Fallback: proxy from Supabase
-    import httpx
     sb = get_supabase()
     storage_path = f"visuals/{goal_id}/{lesson_id}/{frame_id}.html"
     public_url = sb.storage.from_("animations").get_public_url(storage_path)
@@ -474,8 +458,29 @@ async def _handle_teaching_session(
             if not fid:
                 continue
             specs = await extract_animation_step_specs(goal_id, lesson_id, fid)
+            source = "gsap_html"
             if not specs:
-                specs = [{"label": "main", "anim_time": 0.0}]
+                # Fallback: use storyboard steps (essential for Manim video
+                # frames which have no GSAP labels, and for v2 pipeline frames
+                # whose HTML is in Supabase Storage, not local disk).
+                frame_steps = frame.get("steps") or []
+                if frame_steps:
+                    source = "storyboard"
+                    cumulative = 0.0
+                    specs = []
+                    for s in frame_steps:
+                        label = s.get("label", s.get("step_id", f"step-{len(specs)}"))
+                        specs.append({"label": label, "anim_time": cumulative})
+                        cumulative += s.get("duration_seconds", 3.0)
+                else:
+                    source = "fallback_main"
+                    specs = [{"label": "main", "anim_time": 0.0}]
+            labels = [s["label"] for s in specs]
+            print(
+                f"[TEACHER WS] step_specs {fid}: "
+                f"source={source} count={len(specs)} labels={labels}",
+                flush=True,
+            )
             frame_step_specs[fid] = specs
 
         navigator = FrameNavigator(
@@ -526,13 +531,16 @@ async def _handle_teaching_session(
                 msg_type = msg.get("type", "")
 
                 if msg_type == "speech_done":
+                    print(f"[TEACHER WS] <- speech_done", flush=True)
                     navigator.acknowledge_speech()
 
                 elif msg_type == "frame_done":
+                    print(f"[TEACHER WS] <- frame_done", flush=True)
                     if hasattr(navigator, "acknowledge_frame_done"):
                         navigator.acknowledge_frame_done()
 
                 elif msg_type == "response":
+                    print(f"[TEACHER WS] <- response: {msg.get('text', '')[:60]}", flush=True)
                     navigator.receive_response(msg.get("text", ""))
 
                 elif msg_type == "raise_hand":

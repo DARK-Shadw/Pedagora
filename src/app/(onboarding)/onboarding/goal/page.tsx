@@ -40,7 +40,9 @@ export default function GoalPage() {
     setGoal({
       title: data.title,
       endGoal: data.endGoal ?? "",
-      motivation: data.motivation ?? "",
+      // motivation is no longer asked in onboarding — backend agents don't
+      // consume it. Kept on the type for store compatibility.
+      motivation: goal.motivation ?? "",
       isExamPrep: data.isExamPrep,
       examName: data.examName ?? "",
       examDate: data.examDate ?? "",
@@ -82,17 +84,6 @@ export default function GoalPage() {
             id="endGoal"
             placeholder="e.g. Pass the AP Physics exam, Build a SaaS product..."
             {...register("endGoal")}
-          />
-        </div>
-
-        <div className="space-y-4">
-          <Label htmlFor="motivation" className="text-base font-bold">
-            What motivates you?
-          </Label>
-          <Input
-            id="motivation"
-            placeholder="e.g. Career change, curiosity, academic requirement..."
-            {...register("motivation")}
           />
         </div>
 

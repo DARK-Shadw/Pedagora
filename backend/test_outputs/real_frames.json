@@ -1,0 +1,844 @@
+[
+  {
+    "frame_id": "f01",
+    "visual_type": "animation",
+    "description": "A single die rolls on screen, then multiplies to dozens, then hundreds. Results scatter onto a number line, then lift into 2D, 3D, and finally a swirling high-dimensional point cloud. The cloud pulses with hidden structure.",
+    "steps": [
+      {
+        "label": "single-die",
+        "description": "A single die tumbles across the screen, lands on a face, value appears on a number line",
+        "narration_spoken": "One die. Six faces. You already know the odds.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "many-dice",
+        "description": "Dozens of dice roll simultaneously, results scatter as dots on a number line forming an uneven histogram",
+        "narration_spoken": "But throw a hundred dice at once. The results cluster into a shape... a pattern hiding inside randomness.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "higher-dimensions",
+        "description": "Number line lifts into 2D scatter, then 3D rotating point cloud. Points form a structured blob with density variations.",
+        "narration_spoken": "Push this further. Thousands of random numbers, arranged across hundreds of dimensions. The cloud has geometry. Can you ",
+        "duration_seconds": 16
+      },
+      {
+        "label": "question-posed",
+        "description": "Cloud pulses. Text overlay fades in: 'What language describes this?'",
+        "narration_spoken": "What mathematical language captures the shape of randomness? That is our question today.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "connection-tease",
+        "description": "Quick flash: a generative model pulls a point from the cloud, and an image materializes beside it",
+        "narration_spoken": "Aswin, every generative model you want to understand starts right here... inside this cloud.",
+        "duration_seconds": 14
+      }
+    ],
+    "estimated_seconds": 70
+  },
+  {
+    "frame_id": "f02",
+    "visual_type": "animation",
+    "description": "A clean image dissolves into noise through forward diffusion steps. Then the process reverses — noise sharpens back into the image. Camera zooms into the noise, revealing each pixel is a sample from a bell curve. Lesson roadmap appears.",
+    "steps": [
+      {
+        "label": "diffusion-forward",
+        "description": "A clean photograph dissolves through five noise steps into pure static grain",
+        "narration_spoken": "A diffusion model adds noise until an image becomes static. Pure chaos.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "diffusion-reverse",
+        "description": "The noise reverses through five denoising steps back to a coherent image",
+        "narration_spoken": "Then it reverses the process. Step by step, structure returns from noise.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "zoom-into-noise",
+        "description": "Camera zooms into the noise layer. Individual pixels enlarge, each connected by an arrow to a point on a bell curve",
+        "narration_spoken": "But where does the starting noise come from? Each pixel is a random draw from a Gaussian distribution.",
+        "duration_seconds": 15
+      },
+      {
+        "label": "bridge-to-lesson",
+        "description": "Bell curve highlighted with labels. Text appears: 'Random Variables + PDF'",
+        "narration_spoken": "To control that draw, you need two tools. Random variables and probability density functions.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "roadmap",
+        "description": "Lesson roadmap fades in: four connected nodes labeled RV → PMF → PDF → Gaussian",
+        "narration_spoken": "Those are exactly what we build today. The foundation beneath every generative model.",
+        "duration_seconds": 12
+      }
+    ],
+    "estimated_seconds": 65
+  },
+  {
+    "frame_id": "f03",
+    "visual_type": "diagram",
+    "description": "Left side shows a bubble labeled 'Experiment' containing icons (coin, die, thermometer). Right side shows a number line labeled 'Real Numbers'. Arrows map specific outcomes to numbers. The function is labeled X. A highlight emphasizes that randomness lives in the experiment, not the function.",
+    "steps": [
+      {
+        "label": "experiment-space",
+        "description": "Bubble on left labeled 'Experiment' fills with icons: a coin, a die, a thermometer",
+        "narration_spoken": "Start with an experiment. A coin flip, a die roll, measuring temperature... anything with uncertain outcomes.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "number-line",
+        "description": "Number line appears on the right side, labeled 'Real Numbers' with tick marks",
+        "narration_spoken": "On the other side, a number line. Every possible numerical value lives here.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "mapping-arrows",
+        "description": "Animated arrows draw from 'Heads' to 1, 'Tails' to 0. Die faces map to 1 through 6.",
+        "narration_spoken": "A random variable is a function. It takes each outcome and assigns it a number. Heads becomes one, tails becomes zero.",
+        "duration_seconds": 16
+      },
+      {
+        "label": "formal-label",
+        "description": "The function is labeled with a large capital X. Formula appears: X maps from omega to the reals.",
+        "narration_spoken": "We write it as capital X. A function from the set of all outcomes to the real number line. Why capital? Because the valu",
+        "duration_seconds": 14
+      },
+      {
+        "label": "key-insight",
+        "description": "Highlight pulse on the experiment side: 'Randomness is HERE'. The arrow and number line dim to secondary. Text: 'The fun",
+        "narration_spoken": "Here is the crucial point. The function itself is deterministic. The randomness lives in which outcome nature selects. T",
+        "duration_seconds": 19
+      }
+    ],
+    "estimated_seconds": 75
+  },
+  {
+    "frame_id": "f04",
+    "visual_type": "animation",
+    "description": "Die rolling animation with mapping to number line. Coin flips with 0/1 mapping. A counter showing 'emails received today' mapping to {0,1,2,3,...}. All three have dots on the number line with visible gaps between values.",
+    "steps": [
+      {
+        "label": "die-experiment",
+        "description": "Die rolls, lands on 4. Arrow animates from the face to the number 4 on a number line.",
+        "narration_spoken": "Roll a standard die. The random variable X maps the top face to its number. This roll gave us four.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "all-outcomes",
+        "description": "All six die faces appear, each with an arrow pointing to its dot on {1,2,3,4,5,6}. Gaps between dots are highlighted.",
+        "narration_spoken": "Six faces mean six possible values. One through six, nothing in between. What sits between three and four? Nothing. Empt",
+        "duration_seconds": 12
+      },
+      {
+        "label": "discrete-definition",
+        "description": "Dots glow on the number line at exactly {1,2,3,4,5,6}. Label appears: 'Discrete Random Variable'.",
+        "narration_spoken": "When a random variable lands only on isolated dots... we call it discrete. Countable, separated values with gaps between",
+        "duration_seconds": 16
+      },
+      {
+        "label": "coin-example",
+        "description": "Coin flips. Heads maps to 1, Tails maps to 0. Two dots on the number line.",
+        "narration_spoken": "A coin flip is even simpler. Two outcomes, two dots. Zero or one, nothing else.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "counting-example",
+        "description": "Email counter increments: 0, 1, 2, 3, ... Dots extend rightward on the number line with gaps.",
+        "narration_spoken": "Counting emails received today? Zero, one, two, three... The dots go on forever, but each is isolated. Still discrete.",
+        "duration_seconds": 14
+      }
+    ],
+    "estimated_seconds": 70
+  },
+  {
+    "frame_id": "f05",
+    "visual_type": "interactive",
+    "description": "Four scenario cards appear: (A) Number of heads in 10 flips, (B) Exact height of a person, (C) Typos on a page, (D) Waiting time for next bus. Cards flip to reveal discrete (dots) or continuous (filled interval) classifications.",
+    "steps": [
+      {
+        "label": "show-scenarios",
+        "description": "Four cards slide in from the sides, face down with letters A through D",
+        "narration_spoken": "Time to test your intuition, Aswin. Four experiments, four random variables.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "reveal-cards",
+        "description": "Cards flip to reveal: A) Heads in 10 flips, B) Exact height, C) Typos on a page, D) Bus wait time",
+        "narration_spoken": "Number of heads in ten flips. Exact height of a stranger. Typo count on a page. Waiting time for the next bus.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "pose-question",
+        "description": "Question text overlays: 'Which are discrete? Which are continuous?' Cards pulse waiting for selection.",
+        "narration_spoken": "Which ones land on isolated dots? Which could take any value in a range?",
+        "duration_seconds": 10
+      },
+      {
+        "label": "student-thinks",
+        "description": "Pause state. A subtle hint fades in: 'Can the value fall between two neighbors?'",
+        "narration_spoken": "Think carefully. The key question is... can the value fall between two neighboring possibilities?",
+        "duration_seconds": 15
+      },
+      {
+        "label": "reveal-answer",
+        "description": "A and C glow blue with dot patterns beneath. B and D glow orange with filled interval lines beneath.",
+        "narration_spoken": "Heads and typos are counts... discrete. Height and waiting time can be any value in an interval... continuous. The gaps ",
+        "duration_seconds": 14
+      }
+    ],
+    "estimated_seconds": 65
+  },
+  {
+    "frame_id": "f06",
+    "visual_type": "animation",
+    "description": "A die rolls repeatedly. After each roll, a histogram bar increments. The simulation accelerates: 10 rolls produce a jagged histogram, 100 rolls smooth it, 1000 rolls converge to near-equal bars at 1/6 each. Bars are labeled with fractions. A 'Total = 1' counter glows at the top.",
+    "steps": [
+      {
+        "label": "ten-rolls",
+        "description": "Die rolls 10 times in quick succession. A histogram with 6 bins forms, bars are uneven and jagged.",
+        "narration_spoken": "Roll a fair die ten times. The histogram is messy. Some numbers appeared twice, others not at all.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "hundred-rolls",
+        "description": "Roll counter accelerates to 100. Bars grow more evenly, approaching similar heights.",
+        "narration_spoken": "A hundred rolls. Can you see the shape forming? The bars start evening out.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "thousand-rolls",
+        "description": "Counter hits 1000. All six bars converge to nearly equal heights, each close to 1/6.",
+        "narration_spoken": "A thousand rolls... and every bar hovers near one-sixth. The true probabilities emerge from the chaos.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "pmf-label",
+        "description": "Bars labeled with exact fractions. Title text fades in: 'PMF of a Fair Die'.",
+        "narration_spoken": "This histogram has a name. The probability mass function. It assigns a probability to each possible value.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "mass-metaphor",
+        "description": "Each bar glows with the word 'mass' inside. A counter at the top accumulates: 1/6 + 1/6 + ... = 1.0.",
+        "narration_spoken": "Think of probability as mass. Each bar holds some. The total across all bars... exactly one.",
+        "duration_seconds": 10
+      }
+    ],
+    "estimated_seconds": 60
+  },
+  {
+    "frame_id": "f07",
+    "visual_type": "equation",
+    "description": "Mathematical definition of PMF built piece by piece. P(X=x) notation appears large. Two properties animate in: non-negativity and sum-to-one. Then a two-dice PMF histogram appears with a triangular shape, peak at 7 highlighted. An arrow connects to a neural network icon representing token prediction",
+    "steps": [
+      {
+        "label": "definition",
+        "description": "Large text: P(X = x). Beneath it: 'The probability that random variable X takes the value x.'",
+        "narration_spoken": "Capital P, X equals small x. This is the PMF. It answers one question... what is the probability X lands exactly on this",
+        "duration_seconds": 16
+      },
+      {
+        "label": "property-nonneg",
+        "description": "First property animates in: P(X=x) is greater than or equal to zero for all x. A bar chart shows no bars below the axis.",
+        "narration_spoken": "First property. Every probability is zero or positive. Negative probability would make no physical sense.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "property-sum",
+        "description": "Second property: sum over all x of P(X=x) equals 1. An animated accumulator adds bar heights, reaching 1.0.",
+        "narration_spoken": "Second property. Add up every bar in the histogram. The total must equal one. All the probability mass is accounted for.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "two-dice-pmf",
+        "description": "Two-dice PMF histogram appears: triangular shape from sum 2 to 12. Bar at 7 glows brightest. Labels: 6 ways to make 7, 1",
+        "narration_spoken": "Two dice summed. The PMF is no longer flat. Seven has the most mass... six ways to make seven. Two and twelve? Only one ",
+        "duration_seconds": 18
+      },
+      {
+        "label": "ml-connection",
+        "description": "Arrow from PMF to a neural network icon. Text: 'Token prediction = PMF over vocabulary.'",
+        "narration_spoken": "Why care? Every discrete distribution in machine learning is a PMF. Token prediction in a language model? That is a PMF ",
+        "duration_seconds": 15
+      }
+    ],
+    "estimated_seconds": 75
+  },
+  {
+    "frame_id": "f08",
+    "visual_type": "diagram",
+    "description": "The two-dice PMF histogram extrudes into 3D columns, forming a probability landscape. Camera rotates to show peaks and valleys. A second landscape (loaded die) appears for comparison. Both landscapes shown side by side with the label 'Shape = Distribution'.",
+    "steps": [
+      {
+        "label": "flat-histogram",
+        "description": "Standard 2D PMF histogram of two dice sums. Bars of varying heights.",
+        "narration_spoken": "The two-dice PMF from before. Bars of different heights across possible sums.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "extrude-3d",
+        "description": "Bars extrude into 3D columns. Camera rotates 45 degrees to reveal the probability landscape as terrain.",
+        "narration_spoken": "Lift these bars into three dimensions. A landscape of probability. Mountains where outcomes are likely, valleys where th",
+        "duration_seconds": 16
+      },
+      {
+        "label": "navigate-terrain",
+        "description": "Camera flies over the terrain. The peak at sum 7 glows. A flag plants on the summit.",
+        "narration_spoken": "The peak at seven... that is where the probability mass concentrates. If you had to bet, where would you place your chip",
+        "duration_seconds": 14
+      },
+      {
+        "label": "loaded-landscape",
+        "description": "A second 3D landscape appears: loaded die PMF. One face dominates with a tall spike, others are low.",
+        "narration_spoken": "A loaded die produces a different landscape. One face dominates. The terrain is lopsided, asymmetric.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "shape-is-distribution",
+        "description": "Both landscapes side by side. Text appears: 'Shape = Distribution'.",
+        "narration_spoken": "The shape of the landscape is the distribution. Reading these shapes... that is the core skill we are building.",
+        "duration_seconds": 14
+      }
+    ],
+    "estimated_seconds": 70
+  },
+  {
+    "frame_id": "f09",
+    "visual_type": "interactive",
+    "description": "A complete PMF table for the sum of two fair dice (values 2-12 with exact probabilities). The question P(X >= 10) is highlighted. Bars for 10, 11, 12 glow while others dim. After the student answers, the three bars merge into a single highlighted region labeled 1/6.",
+    "steps": [
+      {
+        "label": "show-table",
+        "description": "Full PMF table fades in: two columns, sum values 2 through 12 with probabilities as fractions of 36.",
+        "narration_spoken": "The complete PMF for the sum of two fair dice. Every sum from two to twelve, with its exact probability.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "pose-problem",
+        "description": "Question text highlights in bold: 'What is P(X >= 10)?'",
+        "narration_spoken": "Your task, Aswin. What is the probability the sum is ten or greater?",
+        "duration_seconds": 12
+      },
+      {
+        "label": "hint-visual",
+        "description": "Bars for 10, 11, and 12 glow bright. All other bars dim to 20% opacity.",
+        "narration_spoken": "Which bars do you need? Isolate them. Sum their heights.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "student-calculates",
+        "description": "Pause state. Hint text appears: '3/36 + 2/36 + 1/36 = ?'",
+        "narration_spoken": "P of ten is three out of thirty-six. P of eleven is two out of thirty-six. P of twelve... one out of thirty-six.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "reveal-answer",
+        "description": "The three bars merge into a single highlighted region. Answer appears: 6/36 = 1/6.",
+        "narration_spoken": "Add them up. Six out of thirty-six, which simplifies to one-sixth. The PMF made that calculation mechanical.",
+        "duration_seconds": 13
+      }
+    ],
+    "estimated_seconds": 65
+  },
+  {
+    "frame_id": "f10",
+    "visual_type": "animation",
+    "description": "Animated transition from discrete to continuous. A 6-sided die PMF has wide bars. Switch to 20-sided: thinner bars. 100-sided: slivers tracing a curve. Infinite: bars dissolve into a smooth continuous curve. A single point is highlighted with P = 0.",
+    "steps": [
+      {
+        "label": "six-bars",
+        "description": "Fair die PMF: six wide, equal-height bars on a number line from 1 to 6.",
+        "narration_spoken": "Start familiar. Six outcomes, six bars. Each bar has real height, real width.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "twenty-bars",
+        "description": "Bars morph: twenty thinner bars appear for a 20-sided die. Still visible individual bars.",
+        "narration_spoken": "A twenty-sided die. More outcomes, thinner bars. Each bar shrinks, but they still sum to one.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "hundred-bars",
+        "description": "One hundred very thin bars. The tops trace out a nearly smooth curve.",
+        "narration_spoken": "A hundred sides. The bars are slivers now. Squint... and the tops trace out a curve.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "infinite-limit",
+        "description": "Bars dissolve entirely. A smooth continuous curve remains. Label: 'From bars to curve'.",
+        "narration_spoken": "Push to infinity. The bars vanish. A smooth curve remains. This is the leap from discrete to continuous.",
+        "duration_seconds": 16
+      },
+      {
+        "label": "zero-probability",
+        "description": "Arrow points to a single point on the curve. An infinitely thin line has zero area. Label: 'P(X = exactly this) = 0'.",
+        "narration_spoken": "And here is the strange consequence. Any single exact value has probability zero. The bar has no width to hold mass.",
+        "duration_seconds": 14
+      }
+    ],
+    "estimated_seconds": 70
+  },
+  {
+    "frame_id": "f11",
+    "visual_type": "diagram",
+    "description": "Three examples of continuous random variables with smooth distribution curves: temperature (bell curve), human height (bell curve), pixel intensity in [0,1] (arbitrary curve). A number line comparison shows dots (discrete) versus filled solid interval (continuous).",
+    "steps": [
+      {
+        "label": "temperature",
+        "description": "Thermometer icon with a smooth bell curve beside it. Labels: 22.1, 22.13, 22.137 degrees.",
+        "narration_spoken": "Temperature at noon tomorrow. It could be 22.1 degrees, or 22.13, or 22.137. Infinite precision, infinite possibilities.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "height",
+        "description": "Height chart with measuring tape and smooth distribution curve.",
+        "narration_spoken": "Human height. Not just 170 centimeters... but 170.34 or 170.342. The number line is fully filled.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "pixel-intensity",
+        "description": "Single pixel square with a [0,1] range slider and a distribution curve above it. Arrow to a generative model icon.",
+        "narration_spoken": "A pixel value in a generated image. Any real number between zero and one. This is the continuous random variable generat",
+        "duration_seconds": 14
+      },
+      {
+        "label": "no-gaps",
+        "description": "Split comparison: top row shows discrete dots with gaps, bottom row shows solid filled interval. Gap arrows highlight th",
+        "narration_spoken": "Where discrete variables leave gaps... continuous variables fill every point. What happened to the spaces between dots? ",
+        "duration_seconds": 12
+      },
+      {
+        "label": "definition",
+        "description": "Formal text appears: 'X is continuous if it can take any value in an interval.'",
+        "narration_spoken": "Continuous means the random variable can land anywhere within an interval. No gaps, no jumps.",
+        "duration_seconds": 10
+      }
+    ],
+    "estimated_seconds": 60
+  },
+  {
+    "frame_id": "f12",
+    "visual_type": "animation",
+    "description": "A smooth bell curve with y-axis initially unlabeled. 'Probability?' label appears near the peak, gets crossed out, replaced by 'Density'. A metal rod analogy shows varying thickness = varying density. A narrow tall spike exceeding height 1.0 demonstrates density can surpass one. Finally, a shaded re",
+    "steps": [
+      {
+        "label": "the-curve",
+        "description": "Smooth bell curve on screen. Y-axis has no label. Question mark floats near the peak.",
+        "narration_spoken": "This smooth curve replaced our histogram. But what does the height actually mean?",
+        "duration_seconds": 12
+      },
+      {
+        "label": "not-probability",
+        "description": "Label 'Probability?' fades in near the peak, then a red X crosses it out. 'Density' replaces it in green.",
+        "narration_spoken": "The height is not probability. Repeat that. The height of the PDF at a point is not the probability of that point. It is",
+        "duration_seconds": 16
+      },
+      {
+        "label": "density-analogy",
+        "description": "A horizontal metal rod appears below the curve. Thick sections align with high-density regions. Thin sections align with",
+        "narration_spoken": "Think of a metal rod with varying thickness. Dense regions are heavier per centimeter. Similarly, dense regions of the P",
+        "duration_seconds": 14
+      },
+      {
+        "label": "can-exceed-one",
+        "description": "A narrow, tall spike PDF appears. The peak clearly exceeds height 1.0. A horizontal line at y=1 shows the peak above it.",
+        "narration_spoken": "Density can exceed one. Surprising? A thin interval packed with probability has high density. The constraint is on area,",
+        "duration_seconds": 16
+      },
+      {
+        "label": "area-preview",
+        "description": "Return to bell curve. A region between two bounds is shaded blue. Area label shows 0.3.",
+        "narration_spoken": "The probability lives in the area. Shade a region under the curve... that area equals the probability of landing in that",
+        "duration_seconds": 17
+      }
+    ],
+    "estimated_seconds": 75
+  },
+  {
+    "frame_id": "f13",
+    "visual_type": "equation",
+    "description": "PDF formal definition built piece by piece. f(x) notation appears. Two properties: non-negativity and total integral = 1. The probability formula P(a <= X <= b) = integral of f(x) from a to b, with a shaded region animation. Side-by-side comparison: PMF sum vs PDF integral.",
+    "steps": [
+      {
+        "label": "pdf-symbol",
+        "description": "Large text: f(x). Label below: 'Probability Density Function'. Contrast with P(X=x) from PMF, shown dimmed.",
+        "narration_spoken": "We write the PDF as lowercase f of x. Small f, not capital P. Capital P gives probability. Small f gives density.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "property-nonneg",
+        "description": "First rule appears: f(x) >= 0 for all x. The curve never dips below the x-axis.",
+        "narration_spoken": "First rule. The density is never negative. The curve never dips below the x-axis.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "property-integral",
+        "description": "Second rule: integral from negative infinity to positive infinity of f(x) dx = 1. Full area under curve shades to show t",
+        "narration_spoken": "Second rule. The total area under the entire curve equals one. Compare this to the PMF... same idea, integral replaces s",
+        "duration_seconds": 16
+      },
+      {
+        "label": "probability-formula",
+        "description": "P(a <= X <= b) = integral from a to b of f(x) dx. Region between a and b shades on the curve.",
+        "narration_spoken": "To get actual probability... integrate. P of X between a and b is the area under f from a to b.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "pmf-vs-pdf-parallel",
+        "description": "Split view: left shows PMF with summation symbol, right shows PDF with integral symbol. Both arrows point to 'Probabilit",
+        "narration_spoken": "PMF sums bars. PDF integrates area. Same logic, different mechanics. Discrete sums become continuous integrals.",
+        "duration_seconds": 14
+      }
+    ],
+    "estimated_seconds": 70
+  },
+  {
+    "frame_id": "f14",
+    "visual_type": "animation",
+    "description": "Standard normal bell curve. Progressive shading: left tail (small area ~16%), center region -1 to 1 (large area ~68%), a single point at x=0 (zero area), then a sliding fixed-width window that moves across the curve showing varying area size.",
+    "steps": [
+      {
+        "label": "full-curve",
+        "description": "Standard normal bell curve. No shading. Clean axes.",
+        "narration_spoken": "A bell-shaped PDF. The most famous curve in all of probability.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "shade-left-tail",
+        "description": "Region X < -1 shades in blue. Area label: approximately 16%.",
+        "narration_spoken": "Shade everything below negative one. That small area... about sixteen percent. The probability of landing in the left ta",
+        "duration_seconds": 14
+      },
+      {
+        "label": "shade-center",
+        "description": "Clear previous shade. Region -1 to 1 shades in green. Area label: approximately 68%.",
+        "narration_spoken": "Shade between negative one and positive one. That wide region holds sixty-eight percent of all the probability.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "shade-single-point",
+        "description": "Clear previous shade. An infinitely thin vertical line at x=0. Area label: 0%.",
+        "narration_spoken": "Shade a single point. X equals exactly zero. The line has no width... so the area is zero. Why we need intervals.",
+        "duration_seconds": 16
+      },
+      {
+        "label": "sliding-window",
+        "description": "A fixed-width rectangle slides left to right across the curve. Area value updates in real time — large near the peak, sm",
+        "narration_spoken": "Slide a fixed-width window across the curve. Near the peak, the area is large. In the tails, the area shrinks. Where wou",
+        "duration_seconds": 19
+      }
+    ],
+    "estimated_seconds": 75
+  },
+  {
+    "frame_id": "f15",
+    "visual_type": "interactive",
+    "description": "Side-by-side comparison: discrete PMF with P(X=3) = 1/6 bar highlighted (positive width), and continuous PDF with infinitely thin line at X=3.0 (zero width). The question asks why exact-value probability is zero. A hint shows width shrinking to zero. The reveal animation shows width → 0 × height = 0",
+    "steps": [
+      {
+        "label": "recall-discrete",
+        "description": "Discrete PMF on left. Bar at X=3 highlighted with label P(X=3) = 1/6. The bar has visible width.",
+        "narration_spoken": "For a fair die, P of X equals three is one-sixth. A real, positive number. The bar has height and width.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "contrast-continuous",
+        "description": "Continuous PDF on right. An infinitely thin vertical line at X=3.0. No visible width.",
+        "narration_spoken": "For a continuous variable, P of X equals exactly three-point-zero... is zero. The line has no width.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "pose-question",
+        "description": "Question text: 'Why must P(X = exact value) = 0 for a continuous RV?' Think bubble appears.",
+        "narration_spoken": "Aswin, explain why. Why must the probability of any single exact value be zero?",
+        "duration_seconds": 12
+      },
+      {
+        "label": "student-thinks",
+        "description": "Pause for thinking. Hint fades in: 'Think about area...'",
+        "narration_spoken": "Hint... probability is area. What is the area of a region with zero width?",
+        "duration_seconds": 12
+      },
+      {
+        "label": "explanation",
+        "description": "Animation: bar width shrinks from 0.5 to 0.1 to 0.01 to 0, area counter drops to zero. Text: 'Zero width times finite he",
+        "narration_spoken": "Zero width times any finite height gives zero area. No area means no probability. This is not a flaw... it is the nature",
+        "duration_seconds": 13
+      }
+    ],
+    "estimated_seconds": 65
+  },
+  {
+    "frame_id": "f16",
+    "visual_type": "equation",
+    "description": "Worked example with a triangular PDF: f(x) = 2x for x in [0,1], zero elsewhere. Triangle shape drawn. Validity check: area = 1. Question P(0.5 <= X <= 1) posed. Integration shown step by step. Shaded region labeled 0.75. Interpretation: density pushes probability toward larger values.",
+    "steps": [
+      {
+        "label": "setup-pdf",
+        "description": "Triangle-shaped curve: straight line from (0,0) to (1,2). Label: f(x) = 2x for 0 <= x <= 1.",
+        "narration_spoken": "A simple PDF. f of x equals two x, for x between zero and one. A straight line, rising from zero to two.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "verify-valid",
+        "description": "Triangle shaded. Calculation: area = one-half times base times height = one-half times 1 times 2 = 1. Check mark.",
+        "narration_spoken": "First, verify it is a valid PDF. The area is a triangle. Base one, height two. One-half times one times two... equals on",
+        "duration_seconds": 14
+      },
+      {
+        "label": "ask-probability",
+        "description": "Question appears: P(0.5 <= X <= 1). The region from 0.5 to 1 shades under the triangle.",
+        "narration_spoken": "What is the probability X falls between one-half and one? Shade that region. We need its area.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "integrate",
+        "description": "Step-by-step integration: integral from 0.5 to 1 of 2x dx. Antiderivative: x squared. Evaluate: 1 squared minus 0.5 squa",
+        "narration_spoken": "Integrate two x from one-half to one. The antiderivative is x squared. One squared minus one-half squared equals... thre",
+        "duration_seconds": 16
+      },
+      {
+        "label": "interpret",
+        "description": "Shaded region labeled 0.75. Remaining small triangle labeled 0.25. Arrow to generative model icon.",
+        "narration_spoken": "Seventy-five percent in the upper half. The rising density pushes probability toward larger values. A generative model w",
+        "duration_seconds": 17
+      }
+    ],
+    "estimated_seconds": 75
+  },
+  {
+    "frame_id": "f17",
+    "visual_type": "code",
+    "description": "Python code editor with syntax highlighting. Left panel: dice simulation building a PMF histogram. Right panel: scipy.stats.norm generating a smooth PDF curve. Both plots render below the code. A final snippet samples from the Gaussian and overlays the histogram on the PDF.",
+    "steps": [
+      {
+        "label": "imports",
+        "description": "Code appears line by line: import numpy as np, import matplotlib.pyplot as plt, from scipy import stats.",
+        "narration_spoken": "Three Python imports. NumPy for numbers. Matplotlib for plotting. SciPy for distributions.",
+        "duration_seconds": 10
+      },
+      {
+        "label": "pmf-code",
+        "description": "Code block: rolls = np.random.randint(1,7,10000); plt.hist with density normalization. A histogram plot renders below.",
+        "narration_spoken": "Simulate ten thousand die rolls. Count how often each face appears. Plot the histogram. This is the empirical PMF... pro",
+        "duration_seconds": 16
+      },
+      {
+        "label": "pdf-code",
+        "description": "Code block: x = np.linspace(-4,4,1000); y = stats.norm.pdf(x). Smooth bell curve renders below.",
+        "narration_spoken": "For the PDF, use scipy dot stats dot norm. Generate a fine grid of x values. Compute the density at each point. Plot the",
+        "duration_seconds": 16
+      },
+      {
+        "label": "side-by-side",
+        "description": "Both plots appear side by side. PMF bars on the left, PDF curve on the right.",
+        "narration_spoken": "Side by side. Bars on the left, curve on the right. Same idea, different implementation.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "sampling-overlay",
+        "description": "Code: samples = np.random.normal(0,1,1000). Histogram of samples overlaid on the PDF curve. They match.",
+        "narration_spoken": "Sample from the Gaussian. One thousand draws. Overlay the histogram on the PDF. The samples follow the curve. This is ho",
+        "duration_seconds": 14
+      }
+    ],
+    "estimated_seconds": 70
+  },
+  {
+    "frame_id": "f18",
+    "visual_type": "split",
+    "description": "Split screen: left half labeled 'Discrete' with blue theme, right half labeled 'Continuous' with orange theme. Row-by-row comparison builds: variable type (dots vs filled interval), function type (PMF bars vs PDF curve), computation (sum vs integral), normalization (sum = 1 vs area = 1). Both sides ",
+    "steps": [
+      {
+        "label": "split-view",
+        "description": "Screen splits vertically. Left panel: blue, 'Discrete'. Right panel: orange, 'Continuous'.",
+        "narration_spoken": "Two worlds of randomness. Left, discrete. Right, continuous. Same goals, different tools.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "variable-type",
+        "description": "Left: isolated dots on number line. Right: solid filled interval on number line.",
+        "narration_spoken": "Discrete lands on dots. Continuous fills intervals. The random variable itself dictates which world you enter.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "function-type",
+        "description": "Left: PMF bar chart. Right: PDF smooth curve. Labels highlight: 'heights = probabilities' vs 'heights = densities'.",
+        "narration_spoken": "Discrete uses the PMF. Bar heights are probabilities. Continuous uses the PDF. Bar heights become densities, not probabi",
+        "duration_seconds": 14
+      },
+      {
+        "label": "computation",
+        "description": "Left: summation symbol with bars accumulating. Right: integral symbol with area shading.",
+        "narration_spoken": "To compute probability... sum the bars for discrete, integrate the curve for continuous. Sum becomes integral. That is t",
+        "duration_seconds": 16
+      },
+      {
+        "label": "total-one",
+        "description": "Left: sum of all bars = 1. Right: total area = 1. Both highlighted with green check marks.",
+        "narration_spoken": "Both worlds agree on one fact. Total probability equals one. Bars sum to one. Area integrates to one.",
+        "duration_seconds": 10
+      },
+      {
+        "label": "generative-bridge",
+        "description": "Arrows from both panels converge at the bottom center: 'Generative Models'. Text: 'Discrete for tokens, continuous for p",
+        "narration_spoken": "Generative models use both. Discrete for token choices. Continuous for pixel values and latent spaces.",
+        "duration_seconds": 9
+      }
+    ],
+    "estimated_seconds": 75
+  },
+  {
+    "frame_id": "f19",
+    "visual_type": "animation",
+    "description": "The Gaussian bell curve rises from the x-axis. Its formula appears with mu and sigma labeled. The curve slides left and right as mu changes. Then the curve widens and narrows as sigma changes. Finally, a diffusion noise schedule shows sigma increasing at each step, bells widening toward pure noise.",
+    "steps": [
+      {
+        "label": "bell-appears",
+        "description": "Standard normal bell curve rises from the x-axis with a smooth growth animation.",
+        "narration_spoken": "The Gaussian. The bell curve. The single most important PDF in all of machine learning.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "formula",
+        "description": "Formula appears above: f of x equals one over sigma times root two pi, times e to the negative x minus mu squared over t",
+        "narration_spoken": "Its formula has two parameters. Mu shifts the center left or right. Sigma controls the width... the spread of the bell.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "shift-mu",
+        "description": "Slider labeled mu moves. The bell curve slides left and right along the x-axis. Shape stays identical.",
+        "narration_spoken": "Change mu. The entire bell slides along the number line. The shape stays the same. Only the center moves.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "change-sigma",
+        "description": "Slider labeled sigma moves. Bell widens with large sigma, narrows with small sigma. Area stays constant at 1.",
+        "narration_spoken": "Change sigma. The bell widens or narrows. Small sigma means tight concentration. Large sigma means spread out. Which wou",
+        "duration_seconds": 14
+      },
+      {
+        "label": "diffusion-noise-schedule",
+        "description": "Timeline showing 5 diffusion steps. At each step, sigma increases and the bell curve widens. Final step: nearly flat — p",
+        "narration_spoken": "Diffusion models increase sigma at every step. The bell widens until it becomes pure noise. Reverse that process... and ",
+        "duration_seconds": 11
+      }
+    ],
+    "estimated_seconds": 65
+  },
+  {
+    "frame_id": "f20",
+    "visual_type": "interactive",
+    "description": "Standard Gaussian curve with labeled axes (mu=0, sigma=1). Three concentric shaded regions show the empirical rule: 68% within 1 sigma, 95% within 2 sigma, 99.7% within 3 sigma. The question asks for P(-2 <= X <= 2). After the student answers, the 95% region fills solid and the remaining 5% tail reg",
+    "steps": [
+      {
+        "label": "labeled-gaussian",
+        "description": "Standard Gaussian with mu=0, sigma=1 labeled clearly. Clean axes with sigma markers at -3, -2, -1, 0, 1, 2, 3.",
+        "narration_spoken": "Standard Gaussian. Mean zero, standard deviation one. The benchmark distribution.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "empirical-rule",
+        "description": "Three concentric shaded regions build outward: inner 68% (dark), middle 95% (medium), outer 99.7% (light). Labels on eac",
+        "narration_spoken": "The empirical rule. Sixty-eight percent within one sigma. Ninety-five within two. Ninety-nine point seven within three.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "pose-question",
+        "description": "All shading clears. Question text: 'P(-2 <= X <= 2) = ?' Region between -2 and 2 outlined with dashed lines.",
+        "narration_spoken": "Using the empirical rule... what is P of X between negative two and positive two?",
+        "duration_seconds": 12
+      },
+      {
+        "label": "student-answers",
+        "description": "Pause for student response. The region between -2 and 2 pulses gently.",
+        "narration_spoken": "Two standard deviations in each direction from the mean. What fraction of the curve does that capture?",
+        "duration_seconds": 14
+      },
+      {
+        "label": "reveal-answer",
+        "description": "Region fills solid with '95%' label. The two remaining tail regions glow red with '2.5%' each, totaling 5%.",
+        "narration_spoken": "Ninety-five percent. Almost all the probability mass sits within two sigma. In a generative model, samples beyond two si",
+        "duration_seconds": 16
+      }
+    ],
+    "estimated_seconds": 70
+  },
+  {
+    "frame_id": "f21",
+    "visual_type": "animation",
+    "description": "The high-dimensional point cloud from frame 1 reappears. It is now labeled 'Gaussian Distribution in 512 Dimensions'. A generative model reaches into the cloud, pulls out a sample point, feeds it through a neural network pipeline, and an image materializes. PMF and PDF icons appear as tools in a too",
+    "steps": [
+      {
+        "label": "return-to-cloud",
+        "description": "The swirling point cloud from frame 1 fades back in, rotating slowly.",
+        "narration_spoken": "Remember this cloud? Random numbers in higher dimensions. Back then, it was just a visual puzzle.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "label-distribution",
+        "description": "Text label animates onto the cloud: 'Gaussian Distribution in 512 Dimensions'. Bell curve icon appears beside it.",
+        "narration_spoken": "Now you see what it is. A high-dimensional Gaussian distribution. Each point is a sample. The cloud is the distribution.",
+        "duration_seconds": 14
+      },
+      {
+        "label": "generative-sampling",
+        "description": "A robotic arm reaches into the cloud, pulls out a glowing point. The point flows through a neural network diagram. An im",
+        "narration_spoken": "A generative model draws a sample from this cloud. That sample... a random variable... feeds through a neural network. A",
+        "duration_seconds": 16
+      },
+      {
+        "label": "pmf-pdf-toolkit",
+        "description": "A toolkit drawer opens showing two icons: PMF histogram and PDF curve. Arrows connect both to the distribution cloud.",
+        "narration_spoken": "The PMF and PDF are your tools for describing these clouds. Discrete choices use PMF. Continuous spaces use PDF. Togethe",
+        "duration_seconds": 16
+      },
+      {
+        "label": "next-preview",
+        "description": "Preview card slides in: 'Next Lesson: Expectation, Variance, and the Numbers That Control Generative Models.'",
+        "narration_spoken": "Aswin, you now speak the basic language. Next... we learn to measure these distributions. Mean and variance... the quant",
+        "duration_seconds": 15
+      }
+    ],
+    "estimated_seconds": 75
+  },
+  {
+    "frame_id": "f22",
+    "visual_type": "blackboard",
+    "description": "Dark chalkboard background. Four takeaway statements chalk-write in sequence. Each has a small icon: function arrow, bars/curve, zero-width line, bell curve. Final line previews the next lesson.",
+    "steps": [
+      {
+        "label": "takeaway-rv",
+        "description": "Chalk writes: 'Random Variable = Function from outcomes to numbers.' Small arrow icon beside it.",
+        "narration_spoken": "Takeaway one. A random variable is a function. It maps experimental outcomes to the number line.",
+        "duration_seconds": 12
+      },
+      {
+        "label": "takeaway-pmf-pdf",
+        "description": "Chalk writes: 'Discrete → PMF (sum bars). Continuous → PDF (integrate curve).' Bar and curve icons.",
+        "narration_spoken": "Takeaway two. Discrete variables use the PMF, where you sum bars. Continuous variables use the PDF, where you integrate ",
+        "duration_seconds": 14
+      },
+      {
+        "label": "takeaway-zero",
+        "description": "Chalk writes: 'P(X = exact) = 0 for continuous. Probability = area.' Zero-width line icon.",
+        "narration_spoken": "Takeaway three. For continuous variables, exact-value probability is zero. Probability equals area under the density cur",
+        "duration_seconds": 14
+      },
+      {
+        "label": "takeaway-gaussian",
+        "description": "Chalk writes: 'The Gaussian is the foundation of generative AI.' Bell curve icon glows.",
+        "narration_spoken": "Takeaway four. The Gaussian PDF is the noise distribution behind every diffusion model you will build.",
+        "duration_seconds": 10
+      },
+      {
+        "label": "next-lesson",
+        "description": "Chalk writes at bottom: 'Next: Expectation, Variance, and Higher Moments.' Underlined.",
+        "narration_spoken": "Next lesson, we measure these distributions. Expectation, variance... the numbers that tune generative models.",
+        "duration_seconds": 10
+      }
+    ],
+    "estimated_seconds": 60
+  }
+]

@@ -1,0 +1,1359 @@
+{
+  "frames": [
+    {
+      "frame_id": "f01",
+      "visual_type": "animation",
+      "story_phase": "hook",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "A coin flips ten times in slow motion, results appear one by one. A tally board shows 7H/3T. A slider labeled 'p' from 0 to 1 appears; as it sweeps, a likelihood bar chart responds in real time, peaking near 0.7."
+      },
+      "narration_spoken": "Ten coin flips gave us seven heads. Which value of p makes this outcome most likely?",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "coin-flips",
+          "anim_time": 0,
+          "description": "A coin flips ten times in slow motion, each result (H or T) appears in sequence",
+          "narration_spoken": "A coin spins through the air... ten flips, and seven land heads.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "tally-board",
+          "anim_time": 12,
+          "description": "Tally marks appear on a chalkboard: 7 marks under H, 3 marks under T",
+          "narration_spoken": "Seven heads. Three tails. That is our entire dataset.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "slider-appears",
+          "anim_time": 24,
+          "description": "A horizontal slider labeled p appears below, ranging from 0 to 1, with tick marks",
+          "narration_spoken": "Somewhere between zero and one sits the true probability of heads. Where exactly?",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "slider-sweep",
+          "anim_time": 39,
+          "description": "The slider sweeps from 0 to 1, a vertical likelihood bar chart responds in real time",
+          "narration_spoken": "Drag p across its range. The likelihood bar rises... peaks... then falls.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "peak-glow",
+          "anim_time": 53,
+          "description": "Slider stops at p=0.7, likelihood bar peaks and glows golden",
+          "narration_spoken": "The peak sits near zero point seven. Coincidence... or mathematics?",
+          "duration_seconds": 12,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f02"
+    },
+    {
+      "frame_id": "f02",
+      "visual_type": "animation",
+      "story_phase": "hook",
+      "estimated_seconds": 60,
+      "visual_spec": {
+        "description": "Twenty height measurements scatter on a number line. Three candidate bell curves appear one by one — wrong center, wrong width, then the perfect fit. Two labeled knobs (mu, sigma-squared) appear on the final curve."
+      },
+      "narration_spoken": "Heights on a number line. Which bell curve fits them best? Two parameters decide everything.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "height-scatter",
+          "anim_time": 0,
+          "description": "Twenty height measurements scatter along a horizontal number line, clustering around 170",
+          "narration_spoken": "Twenty students measured their heights. The dots cluster on the number line.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "bad-curve-left",
+          "anim_time": 12,
+          "description": "A narrow bell curve centered at 150 appears, poorly fitting the data",
+          "narration_spoken": "First attempt. A bell curve at one fifty... way too far left.",
+          "duration_seconds": 10,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "bad-curve-wide",
+          "anim_time": 22,
+          "description": "A wide bell curve centered at 170 but sigma=20 appears, too flat",
+          "narration_spoken": "Right center, but far too wide. What went wrong with the spread?",
+          "duration_seconds": 10,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "perfect-curve",
+          "anim_time": 32,
+          "description": "The perfect bell curve snaps into place, hugging the data tightly, edges glow green",
+          "narration_spoken": "And there... the curve that hugs every data point. How did we find it?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "two-knobs",
+          "anim_time": 46,
+          "description": "Two labeled knobs appear: mu (center) and sigma-squared (spread), with arrows pointing to curve features",
+          "narration_spoken": "Two knobs control the shape. Mu shifts the center. Sigma squared sets the width.",
+          "duration_seconds": 14,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f03"
+    },
+    {
+      "frame_id": "f03",
+      "visual_type": "diagram",
+      "story_phase": "motivation",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Eight data points float in empty space. Three candidate distribution curves fade in with different colors. Vertical likelihood bars appear beside each. The best-fitting one glows and wins. Title 'Maximum Likelihood Estimation' appears."
+      },
+      "narration_spoken": "MLE picks the parameters that make observed data most probable.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "floating-data",
+          "anim_time": 0,
+          "description": "Eight data points float in empty space, no axes, no model",
+          "narration_spoken": "Raw data points, floating free. No model, no structure, just numbers.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "three-candidates",
+          "anim_time": 12,
+          "description": "Three different distribution curves fade in, each a different color, overlaying the data",
+          "narration_spoken": "Three candidate distributions step forward. Each one claims to explain these points.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "compatibility-bars",
+          "anim_time": 27,
+          "description": "Vertical likelihood bars appear next to each distribution, showing relative data probability",
+          "narration_spoken": "Which model assigns the highest probability to the observed data? That is the core question.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "winner-highlights",
+          "anim_time": 42,
+          "description": "The best-fitting distribution glows and the others fade, its likelihood bar is tallest",
+          "narration_spoken": "The winner has the tallest likelihood bar. It makes our data most probable.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "mle-title",
+          "anim_time": 56,
+          "description": "Text 'Maximum Likelihood Estimation' appears with a golden underline",
+          "narration_spoken": "This search for the best-fitting parameters... that is Maximum Likelihood Estimation.",
+          "duration_seconds": 14,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "dissolve",
+      "next_frame": "f04"
+    },
+    {
+      "frame_id": "f04",
+      "visual_type": "equation",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "A single coin splits into two paths (H/T). Probability labels appear. A compact formula P(x) = p^x (1-p)^(1-x) builds character by character. Verification: plug x=1 to get p, plug x=0 to get 1-p."
+      },
+      "narration_spoken": "One formula encodes both heads and tails as a function of p.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "single-coin",
+          "anim_time": 0,
+          "description": "A single coin in the center, splitting into two paths: heads (left) and tails (right)",
+          "narration_spoken": "One coin. Two outcomes. This is the simplest random experiment.",
+          "duration_seconds": 10,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "prob-labels",
+          "anim_time": 10,
+          "description": "Labels appear: P(heads) = p on the left path, P(tails) = 1-p on the right path",
+          "narration_spoken": "Heads happens with probability p. Tails with probability one minus p.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "compact-formula",
+          "anim_time": 25,
+          "description": "The formula P(x) = p^x * (1-p)^(1-x) builds character by character in the center",
+          "narration_spoken": "Why pack both outcomes into one formula? p to the x, times one minus p to the one minus x.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "plug-heads",
+          "anim_time": 40,
+          "description": "x=1 substituted, formula simplifies to p, arrows connecting to heads label",
+          "narration_spoken": "Plug in x equals one. The one minus x vanishes. You get p. Heads confirmed.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "plug-tails",
+          "anim_time": 55,
+          "description": "x=0 substituted, formula simplifies to 1-p, arrows connecting to tails label",
+          "narration_spoken": "Plug in x equals zero. The p to the x term vanishes. One minus p remains. See the power of one formula?",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f05"
+    },
+    {
+      "frame_id": "f05",
+      "visual_type": "equation",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Ten coins in a row with outcomes. Multiplication signs connect individual P(xi) terms into a chain. The chain collapses into product notation, then simplifies to p^k * (1-p)^(n-k). Concrete values k=7, n=10 substitute in."
+      },
+      "narration_spoken": "Independent trials multiply. The full likelihood is one compact product.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "ten-coins",
+          "anim_time": 0,
+          "description": "Ten coins in a row, each showing H or T, a bracket groups them together",
+          "narration_spoken": "Ten coins, each flip independent. The outcomes sit side by side.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "multiply-chain",
+          "anim_time": 12,
+          "description": "Below each coin, P(xi) appears, multiplication signs connect them into a chain",
+          "narration_spoken": "Independence means multiply. Each flip contributes its own probability factor.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "product-collapse",
+          "anim_time": 26,
+          "description": "The multiplication chain collapses into product notation, then groups like terms",
+          "narration_spoken": "What happens when we group like terms? All the p factors merge into one exponent.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "count-trick",
+          "anim_time": 40,
+          "description": "Exponents sum: p^k * (1-p)^(n-k) with k = sum(xi) highlighted in a box",
+          "narration_spoken": "p to the k, times one minus p to the n minus k. Why does counting heads simplify everything?",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "concrete-numbers",
+          "anim_time": 55,
+          "description": "k=7, n=10 substituted, the expression glows with concrete values",
+          "narration_spoken": "For our coin... k equals seven, n equals ten. p to the seventh, times one minus p cubed.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f06"
+    },
+    {
+      "frame_id": "f06",
+      "visual_type": "split",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "Left: a vertical stack of 1000 tiny probabilities multiplied. A log symbol sweeps across, converting to sums. The Bernoulli log-likelihood formula builds. Right: side-by-side plots of L(p) and log L(p), both peaking at the same p."
+      },
+      "narration_spoken": "Logarithms convert products into sums. Same peak, simpler algebra.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "tiny-products",
+          "anim_time": 0,
+          "description": "A vertical stack of 1000 small probabilities being multiplied, result shrinking toward zero",
+          "narration_spoken": "What happens when you multiply a thousand numbers less than one? The product races toward zero.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "log-rescue",
+          "anim_time": 12,
+          "description": "A large log symbol sweeps across the product, converting multiplication signs into plus signs",
+          "narration_spoken": "The logarithm saves the day. Products become sums. Tiny numbers become manageable negatives.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "bernoulli-log-L",
+          "anim_time": 27,
+          "description": "The Bernoulli log-likelihood formula builds: log L = k*log(p) + (n-k)*log(1-p)",
+          "narration_spoken": "Here is the Bernoulli log-likelihood. k times log p, plus n minus k times log one minus p.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "side-by-side",
+          "anim_time": 43,
+          "description": "Left panel: L(p) curve. Right panel: log L(p) curve. Both plotted against p from 0 to 1",
+          "narration_spoken": "Two curves share the same peak location. Can you spot it on both plots?",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "same-peak-line",
+          "anim_time": 59,
+          "description": "A vertical dashed line drops from both peaks, showing they occur at the same p value",
+          "narration_spoken": "Both peak at exactly the same p. The log just turns multiplication into addition.",
+          "duration_seconds": 16,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "dissolve",
+      "next_frame": "f07"
+    },
+    {
+      "frame_id": "f07",
+      "visual_type": "equation",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "The derivative d/dp of log L is computed step by step. Two color-coded terms emerge: k/p and -(n-k)/(1-p). Set equal to zero. Cross-multiplication and algebra. Final result p-hat = k/n in a golden box."
+      },
+      "narration_spoken": "Differentiate, set to zero, solve. Three steps to the Bernoulli MLE.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "derivative-setup",
+          "anim_time": 0,
+          "description": "d/dp of the log-likelihood expression appears, derivative notation highlighted in blue",
+          "narration_spoken": "Time to hunt the peak. Take the derivative of log L with respect to p.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "chain-rule-terms",
+          "anim_time": 14,
+          "description": "The derivative expands to k/p - (n-k)/(1-p), each term color-coded blue and red",
+          "narration_spoken": "Two terms emerge. k over p in blue... minus n minus k over one minus p in red.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "set-to-zero",
+          "anim_time": 28,
+          "description": "An equals sign and zero appear on the right, equation set equal to zero",
+          "narration_spoken": "Where does the slope vanish? Set this equal to zero. That is the peak.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "cross-multiply",
+          "anim_time": 42,
+          "description": "Step-by-step algebra: cross multiplication, collecting terms, simplifying",
+          "narration_spoken": "Cross multiply. Collect terms. Aswin, the algebra here is just two clean lines.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "p-hat-reveal",
+          "anim_time": 58,
+          "description": "p-hat = k/n = sum(xi)/n appears in a golden box, the final result",
+          "narration_spoken": "p hat equals k over n. Just the fraction of heads. Does that match your intuition?",
+          "duration_seconds": 17,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f08"
+    },
+    {
+      "frame_id": "f08",
+      "visual_type": "interactive",
+      "story_phase": "practice",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "A sequence of 12 coin flip results appears. Students count heads, apply p-hat = k/n. Answer reveals 9/12 = 0.75. A biased coin icon confirms the result."
+      },
+      "narration_spoken": "Your turn. Compute the MLE from raw coin flip data.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "flip-sequence",
+          "anim_time": 0,
+          "description": "A sequence of 12 coin results appears: H H T H T H H H T H H H",
+          "narration_spoken": "Twelve coin flips on screen. Read the sequence carefully.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "count-heads",
+          "anim_time": 12,
+          "description": "The heads light up one by one as student counts",
+          "narration_spoken": "How many heads do you count? Take a moment.",
+          "duration_seconds": 12,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-3",
+          "label": "apply-formula",
+          "anim_time": 24,
+          "description": "p-hat = k/n template appears with blanks for k and n",
+          "narration_spoken": "Fill in the formula. p hat equals the number of heads divided by total flips.",
+          "duration_seconds": 14,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-4",
+          "label": "reveal-answer",
+          "anim_time": 38,
+          "description": "Answer fills in: 9/12 = 0.75, with a checkmark animation",
+          "narration_spoken": "Nine heads out of twelve. p hat equals zero point seven five. Makes sense?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "interpret-bias",
+          "anim_time": 52,
+          "description": "A biased coin icon tilts toward heads, p=0.75 label glows",
+          "narration_spoken": "This coin favors heads. The MLE captures the exact bias from the data.",
+          "duration_seconds": 13,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "computation",
+        "prompt": "Given 12 flips (H,H,T,H,T,H,H,H,T,H,H,H), compute p hat using the MLE formula.",
+        "expected_answer": "p hat = 9/12 = 0.75",
+        "hints": ["Count the heads: there are 9", "p hat = k / n"],
+        "if_correct": "Nine heads out of twelve gives p hat of zero point seven five.",
+        "if_wrong": "Count the heads again carefully. There are 9 heads in 12 flips."
+      },
+      "transition": "fade",
+      "next_frame": "f09"
+    },
+    {
+      "frame_id": "f09",
+      "visual_type": "code",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Python code builds line by line: imports, p-grid via linspace, log-likelihood evaluation, matplotlib plot. The plot renders showing a smooth curve peaking at p=0.75, marked with a red dot and dashed line."
+      },
+      "narration_spoken": "Python confirms the log-likelihood curve peaks exactly at p hat.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "imports",
+          "anim_time": 0,
+          "description": "Python code: import numpy as np, import matplotlib.pyplot as plt",
+          "narration_spoken": "Python time. NumPy for the math, Matplotlib for the plot.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "p-grid",
+          "anim_time": 14,
+          "description": "p = np.linspace(0.01, 0.99, 200) with a visual number line of dots",
+          "narration_spoken": "Two hundred p values from zero point zero one to zero point nine nine. Why not start at zero?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "log-L-compute",
+          "anim_time": 28,
+          "description": "log_L = 9*np.log(p) + 3*np.log(1-p) code highlighted and executed",
+          "narration_spoken": "Evaluate the log-likelihood at every grid point. Nine log p plus three log one minus p.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "plot-render",
+          "anim_time": 42,
+          "description": "A smooth curve renders on matplotlib axes, log L(p) vs p, clear single peak",
+          "narration_spoken": "The curve rises, peaks, and falls. Where does the maximum land?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "peak-marker",
+          "anim_time": 56,
+          "description": "A red dot marks the argmax, a dashed line drops to p=0.75 on the x-axis",
+          "narration_spoken": "The peak sits at zero point seven five. Exactly where our formula predicted.",
+          "duration_seconds": 14,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f10"
+    },
+    {
+      "frame_id": "f10",
+      "visual_type": "diagram",
+      "story_phase": "concept",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "The score function (derivative of log-likelihood) is defined. A tangent line slides along the log-likelihood curve, showing its slope. At the MLE the tangent goes flat. Left region shaded positive, right region negative. A compass needle analogy."
+      },
+      "narration_spoken": "The score function points toward the maximum like a compass.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "score-def",
+          "anim_time": 0,
+          "description": "Text: Score S(p) = d/dp log L(p), definition highlighted",
+          "narration_spoken": "What is the score function? Simply the derivative of the log-likelihood.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "tangent-slider",
+          "anim_time": 12,
+          "description": "A tangent line slides along the log-likelihood curve, slope value displayed numerically",
+          "narration_spoken": "A tangent line slides along the curve. Its slope changes sign as it crosses the peak.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "flat-tangent",
+          "anim_time": 26,
+          "description": "At the MLE, tangent goes perfectly horizontal, 'slope = 0' label appears",
+          "narration_spoken": "Right at the MLE, the tangent goes flat. Slope equals zero. The critical point.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "pos-neg-regions",
+          "anim_time": 40,
+          "description": "Left region shaded green (positive score), right region shaded red (negative score)",
+          "narration_spoken": "Left of the MLE, the score is positive. Right, negative. What does that tell you?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "compass-needle",
+          "anim_time": 54,
+          "description": "A compass needle icon points toward the MLE from both sides of the curve",
+          "narration_spoken": "The score always points toward the maximum. A built-in compass for optimization.",
+          "duration_seconds": 11,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "dissolve",
+      "next_frame": "f11"
+    },
+    {
+      "frame_id": "f11",
+      "visual_type": "equation",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "The Gaussian PDF formula appears with labeled parts. Five data points appear on a number line with small Gaussian bumps. PDFs multiply into a joint likelihood. Exponentials merge. Two unknowns (mu, sigma-squared) are highlighted."
+      },
+      "narration_spoken": "The Gaussian PDF hides two unknowns: mu and sigma squared.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "gaussian-pdf",
+          "anim_time": 0,
+          "description": "The Gaussian PDF formula with labeled normalization constant and exponential kernel",
+          "narration_spoken": "The Gaussian PDF. A normalization constant out front, an exponential decay inside.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "five-data-points",
+          "anim_time": 12,
+          "description": "Five data points appear on a number line, each with a small Gaussian bump at its location",
+          "narration_spoken": "Five observations arrive. Each one drawn independently from the same Gaussian.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "multiply-pdfs",
+          "anim_time": 26,
+          "description": "The five individual PDFs are multiplied together into a joint likelihood expression",
+          "narration_spoken": "What does independence give us? Multiply the five PDFs into one joint likelihood.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "exponential-merge",
+          "anim_time": 40,
+          "description": "The exponential terms combine into a single exp with sum of squared deviations",
+          "narration_spoken": "The exponentials merge. A single exponent holds the sum of squared deviations from mu.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "two-unknowns",
+          "anim_time": 55,
+          "description": "Mu and sigma-squared highlighted in red within the formula, arrows label them",
+          "narration_spoken": "Two unknowns hide in this expression. Mu and sigma squared. Can we find both?",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f12"
+    },
+    {
+      "frame_id": "f12",
+      "visual_type": "equation",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "Log applied to Gaussian likelihood. Three terms separate with line breaks, each color-coded: gray constant, red dispersion, green data-fit. The full expression is shown. Mu and sigma-squared glow as optimization targets."
+      },
+      "narration_spoken": "The Gaussian log-likelihood splits into three color-coded terms.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "apply-log",
+          "anim_time": 0,
+          "description": "Log symbol applied to the Gaussian likelihood, transforming the product into a sum",
+          "narration_spoken": "Apply the logarithm. The product of exponentials becomes a sum of terms.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "three-terms",
+          "anim_time": 15,
+          "description": "Three terms separate with line breaks, each labeled: constant, dispersion, fit",
+          "narration_spoken": "How many terms emerge? Three, each with a distinct role.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "full-expression",
+          "anim_time": 30,
+          "description": "Complete Gaussian log-likelihood expression assembled with all three terms",
+          "narration_spoken": "Here is the full log-likelihood. Three terms, each pulling its weight.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "color-code",
+          "anim_time": 45,
+          "description": "First term turns gray (constant), second turns red (dispersion), third turns green (fit)",
+          "narration_spoken": "Which terms actually matter for optimization? Only the red and the green.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "optimization-target",
+          "anim_time": 60,
+          "description": "Mu and sigma-squared glow as optimization targets, upward arrow labeled 'maximize'",
+          "narration_spoken": "Our goal: find mu and sigma squared that push this expression to its peak.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f13"
+    },
+    {
+      "frame_id": "f13",
+      "visual_type": "equation",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "Partial derivative with respect to mu is written. Constant and log-sigma terms strikethrough and fade. Chain rule applied to the sum. Score equation set to zero. Solution mu-hat = sample mean in golden box."
+      },
+      "narration_spoken": "Partial derivative with respect to mu yields the sample mean.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "partial-mu",
+          "anim_time": 0,
+          "description": "Partial derivative of log L with respect to mu notation appears in blue",
+          "narration_spoken": "Start with mu. Write the partial derivative of log L with respect to mu.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "terms-vanish",
+          "anim_time": 14,
+          "description": "Constant term and log-sigma term fade out with strikethroughs, only sum term remains",
+          "narration_spoken": "Which terms contain mu? Only the sum term survives. Everything else vanishes.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "chain-rule",
+          "anim_time": 29,
+          "description": "Chain rule applied: derivative yields (1/sigma-sq) * sum(xi - mu)",
+          "narration_spoken": "Differentiate each squared term. The chain rule gives negative two times each x i minus mu.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "score-zero",
+          "anim_time": 44,
+          "description": "Set equal to zero: sum(xi - mu) = 0, the score equation for mu",
+          "narration_spoken": "What equation must mu satisfy? The sum of all x i minus mu equals zero.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "mu-hat-result",
+          "anim_time": 60,
+          "description": "Solve: mu-hat = (1/n) * sum(xi) = x-bar, appears in golden box",
+          "narration_spoken": "Solve for mu... mu hat equals one over n times the sum of all x i. The sample mean.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f14"
+    },
+    {
+      "frame_id": "f14",
+      "visual_type": "interactive",
+      "story_phase": "practice",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "Five data points (2, 4, 6, 8, 10) on a number line. A summation scaffold fills in. Division by n=5. Answer: mu-hat = 6. A bell curve centered at 6 fades in to confirm."
+      },
+      "narration_spoken": "Compute mu hat from five data points.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "data-display",
+          "anim_time": 0,
+          "description": "Five data points appear on a number line: 2, 4, 6, 8, 10",
+          "narration_spoken": "Five data points: two, four, six, eight, ten. What is mu hat?",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "sum-prompt",
+          "anim_time": 12,
+          "description": "A summation scaffold: _ + _ + _ + _ + _ = ?",
+          "narration_spoken": "Add them up first. Two plus four plus six plus eight plus ten.",
+          "duration_seconds": 14,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-3",
+          "label": "divide-prompt",
+          "anim_time": 26,
+          "description": "Sum = 30 fills in, then division by n = 5 scaffold appears",
+          "narration_spoken": "The sum is thirty. Divide by five... what do you get?",
+          "duration_seconds": 13,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-4",
+          "label": "answer-reveal",
+          "anim_time": 39,
+          "description": "mu-hat = 6 appears with checkmark, number 6 highlighted on the number line",
+          "narration_spoken": "Mu hat equals six. Right at the center of gravity of these five points.",
+          "duration_seconds": 13,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "visual-bell",
+          "anim_time": 52,
+          "description": "A bell curve centered at 6 fades in, hugging the five data points",
+          "narration_spoken": "A Gaussian centered at six hugs the data tightest. Aswin, the mean was hiding in plain sight.",
+          "duration_seconds": 13,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "computation",
+        "prompt": "Given data points 2, 4, 6, 8, 10, compute mu hat.",
+        "expected_answer": "mu hat = (2 + 4 + 6 + 8 + 10) / 5 = 30 / 5 = 6",
+        "hints": ["Sum all five values first", "Divide the sum by n = 5"],
+        "if_correct": "Mu hat is six. The sample mean centers the Gaussian perfectly.",
+        "if_wrong": "Sum: 2 + 4 + 6 + 8 + 10 = 30. Divide by 5 to get 6."
+      },
+      "transition": "fade",
+      "next_frame": "f15"
+    },
+    {
+      "frame_id": "f15",
+      "visual_type": "equation",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "Partial derivative with respect to sigma-squared. Constant drops out. Two surviving terms differentiated carefully. Set to zero and solve. Result: sigma-squared-hat = (1/n) * sum(xi - mu-hat)^2 in golden box."
+      },
+      "narration_spoken": "Partial derivative with respect to sigma squared yields the sample variance.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "partial-sigma",
+          "anim_time": 0,
+          "description": "Partial derivative of log L with respect to sigma-squared notation appears",
+          "narration_spoken": "What about the second unknown? Take the partial with respect to sigma squared.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "surviving-terms",
+          "anim_time": 15,
+          "description": "Constant term fades out, two terms remain: the log-sigma and the sum term",
+          "narration_spoken": "The constant drops out again. Two terms survive... the log and the sum.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "differentiate",
+          "anim_time": 30,
+          "description": "Step-by-step differentiation: -n/(2 sigma-sq) + sum/(2 sigma^4)",
+          "narration_spoken": "Careful differentiation here. Negative n over two sigma squared from the log. Plus squared deviations over two sigma to the fourth.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "solve-algebra",
+          "anim_time": 45,
+          "description": "Set to zero, multiply through by 2 sigma^4, rearrange to isolate sigma-squared",
+          "narration_spoken": "Set to zero and isolate sigma squared. What falls out?",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "sigma-hat-result",
+          "anim_time": 60,
+          "description": "sigma-squared-hat = (1/n) * sum(xi - mu-hat)^2 in golden box",
+          "narration_spoken": "The result: sigma squared hat. Sum each x i minus mu hat squared, then divide by n.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f16"
+    },
+    {
+      "frame_id": "f16",
+      "visual_type": "diagram",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Two curves: concave (maximum) vs convex (minimum). Second derivative of Bernoulli log-L computed and shown always negative. Brief Gaussian Hessian display. Both log-likelihood surfaces shown as concave hills."
+      },
+      "narration_spoken": "The second derivative confirms: our critical points are true maxima.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "max-or-min",
+          "anim_time": 0,
+          "description": "Two curves side by side: concave hill and convex valley, question mark between them",
+          "narration_spoken": "We found critical points. But are they maxima or minima?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "bernoulli-second",
+          "anim_time": 14,
+          "description": "Second derivative of Bernoulli log-L: -k/p^2 - (n-k)/(1-p)^2",
+          "narration_spoken": "For Bernoulli, take the second derivative. Negative k over p squared, minus n minus k over one minus p squared.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "always-negative",
+          "anim_time": 28,
+          "description": "Both terms shown negative for 0 < p < 1, red 'NEGATIVE' stamp appears",
+          "narration_spoken": "Both terms are negative for any p between zero and one. Maximum confirmed.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "gaussian-hessian",
+          "anim_time": 42,
+          "description": "Gaussian Hessian matrix diagonal entries shown, both negative",
+          "narration_spoken": "For the Gaussian, the second partials form a matrix. Both diagonal entries are negative.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "concavity-visual",
+          "anim_time": 56,
+          "description": "Both log-likelihood surfaces shown as concave hills with peaks clearly marked",
+          "narration_spoken": "Concave means maximum. Convex means minimum. Which shape do our log-likelihoods have?",
+          "duration_seconds": 14,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "dissolve",
+      "next_frame": "f17"
+    },
+    {
+      "frame_id": "f17",
+      "visual_type": "code",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "Python code generates 100 samples from N(5,4). A Gaussian log-likelihood function is defined. Two plots: sweep mu (fixed sigma), sweep sigma-squared (fixed mu). Both peaks match analytical sample mean and sample variance."
+      },
+      "narration_spoken": "Numerical plots confirm every analytical formula we derived.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "generate-data",
+          "anim_time": 0,
+          "description": "Python: np.random.normal(loc=5, scale=2, size=100), histogram of data shown",
+          "narration_spoken": "Can the code match the math? Generate one hundred samples from a known Gaussian.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "define-log-L",
+          "anim_time": 15,
+          "description": "def gaussian_log_L(data, mu, sigma_sq): function with the formula inside",
+          "narration_spoken": "Define the Gaussian log-likelihood as a Python function. Three inputs: data, mu, sigma squared.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "sweep-mu",
+          "anim_time": 30,
+          "description": "Plot of log L vs mu for fixed sigma, showing a clear peak near sample mean",
+          "narration_spoken": "Sweep mu from zero to ten, holding sigma fixed. The curve peaks sharply.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "sweep-sigma",
+          "anim_time": 45,
+          "description": "Plot of log L vs sigma-squared for fixed mu, showing a peak",
+          "narration_spoken": "Sweep sigma squared from one to eight. Where does the peak land?",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "peaks-match",
+          "anim_time": 60,
+          "description": "Dashed lines from peaks to x-axis, compared with analytical values, labels match",
+          "narration_spoken": "Both peaks land on the sample mean and sample variance. Formula and code agree perfectly.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f18"
+    },
+    {
+      "frame_id": "f18",
+      "visual_type": "interactive",
+      "story_phase": "practice",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "A new dataset of 50 exam scores appears. Student predicts peak location analytically, computes by hand, then runs plotting code to verify. Analytical and numerical peaks shown side by side, matching perfectly."
+      },
+      "narration_spoken": "Predict the peak, then verify with code.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "new-dataset",
+          "anim_time": 0,
+          "description": "A dataset of 50 exam scores appears in a code cell, summary stats shown",
+          "narration_spoken": "New challenge, Aswin. Fifty exam scores loaded into a NumPy array.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "predict-peak",
+          "anim_time": 12,
+          "description": "Prompt text: 'Before running code, predict the peak location'",
+          "narration_spoken": "Before running any code... where should the log-likelihood peak?",
+          "duration_seconds": 14,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-3",
+          "label": "hand-calc",
+          "anim_time": 26,
+          "description": "Scaffold for computing sample mean and sample variance by hand",
+          "narration_spoken": "Compute the sample mean and sample variance from the data. Write them down.",
+          "duration_seconds": 14,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-4",
+          "label": "run-verify",
+          "anim_time": 40,
+          "description": "Code runs, twin plots appear, peaks marked with red dots",
+          "narration_spoken": "Run the code. Do the numerical peaks match your hand calculations?",
+          "duration_seconds": 13,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "match-confirmed",
+          "anim_time": 53,
+          "description": "Analytical values and numerical peaks shown side by side, matching, green checkmarks",
+          "narration_spoken": "A perfect match. Analytical and numerical MLE always agree for these distributions.",
+          "duration_seconds": 12,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "computation",
+        "prompt": "Given the exam score dataset, predict where the Gaussian log-likelihood will peak, then verify with code.",
+        "expected_answer": "Peak at mu hat = sample mean and sigma squared hat = sample variance of the dataset",
+        "hints": ["Compute the mean of the data first", "The variance is the average squared deviation from the mean"],
+        "if_correct": "The numerical peak matches your analytical prediction perfectly.",
+        "if_wrong": "Recompute: mu hat is the mean, sigma squared hat is the average squared deviation from the mean."
+      },
+      "transition": "dissolve",
+      "next_frame": "f19"
+    },
+    {
+      "frame_id": "f19",
+      "visual_type": "diagram",
+      "story_phase": "climax",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Multiple MLE estimates from different samples shown as dots spread around the true value. The Cramer-Rao bound appears as a floor on estimator variance. Fisher information connected to the second derivative. MLE shown hitting the bound exactly."
+      },
+      "narration_spoken": "The Cramer-Rao bound proves MLE extracts maximum information.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "mle-spread",
+          "anim_time": 0,
+          "description": "Ten different sample MLEs shown as dots on a number line, spread around the true parameter",
+          "narration_spoken": "Run the experiment ten times. Each sample gives a slightly different MLE. How precise are they?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "cramer-rao",
+          "anim_time": 14,
+          "description": "The Cramer-Rao inequality: Var(estimator) >= 1/I(theta), floor line drawn",
+          "narration_spoken": "The Cramer-Rao bound sets a floor on estimator variance. No unbiased estimator can go lower.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "fisher-info",
+          "anim_time": 28,
+          "description": "Fisher information I(theta) connected by arrow to the expected negative second derivative of log L",
+          "narration_spoken": "Fisher information powers this bound. It equals the expected negative second derivative of log L.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "mle-efficient",
+          "anim_time": 42,
+          "description": "MLE variance dot sitting exactly on the floor line, labeled 'efficient'",
+          "narration_spoken": "The MLE hits this floor exactly. It is an efficient estimator... the best you can get.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "info-extraction",
+          "anim_time": 56,
+          "description": "MLE shown extracting 100% of data information, other estimators extracting less",
+          "narration_spoken": "For Bernoulli and Gaussian, MLE extracts every drop of information. What more could you ask for?",
+          "duration_seconds": 14,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f20"
+    },
+    {
+      "frame_id": "f20",
+      "visual_type": "split",
+      "story_phase": "climax",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Screen splits into two columns: Analytical (blue, left) and Numerical (orange, right). Each column fills with its respective steps. A neural network diagram shows where analytical fails. Both columns glow with complementary strengths."
+      },
+      "narration_spoken": "Analytical MLE gives insight. Numerical MLE handles everything else.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "two-columns",
+          "anim_time": 0,
+          "description": "Screen splits: left column 'Analytical' in blue, right column 'Numerical' in orange",
+          "narration_spoken": "Two paths to the MLE. Analytical on the left, numerical on the right.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "analytical-steps",
+          "anim_time": 14,
+          "description": "Left column fills: derivative, set to zero, solve, closed-form result",
+          "narration_spoken": "The analytical path: differentiate, set to zero, solve with algebra. Familiar by now?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "numerical-steps",
+          "anim_time": 28,
+          "description": "Right column fills: grid search, evaluate, find max. Or gradient ascent loop.",
+          "narration_spoken": "The numerical path: evaluate log L on a dense grid, pick the highest point.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "when-analytical-fails",
+          "anim_time": 42,
+          "description": "A neural network diagram where the analytical column is crossed out, numerical glows",
+          "narration_spoken": "What if the derivative has no closed-form solution? Neural networks face exactly this problem.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "both-matter",
+          "anim_time": 56,
+          "description": "Both columns glow, text: 'Analytical = Insight, Numerical = Generality'",
+          "narration_spoken": "Analytical gives deep insight. Numerical handles any model. Master both.",
+          "duration_seconds": 14,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "dissolve",
+      "next_frame": "f21"
+    },
+    {
+      "frame_id": "f21",
+      "visual_type": "interactive",
+      "story_phase": "practice",
+      "estimated_seconds": 60,
+      "visual_spec": {
+        "description": "Poisson PMF appears. Student writes the likelihood, takes the log, differentiates, solves for lambda-hat. Reveal: lambda-hat = sample mean, shown alongside mu-hat = sample mean with a 'same pattern' bracket."
+      },
+      "narration_spoken": "Apply the MLE recipe to Poisson. Recognize the pattern.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "poisson-intro",
+          "anim_time": 0,
+          "description": "Poisson PMF displayed: P(x) = lambda^x * e^(-lambda) / x factorial",
+          "narration_spoken": "Surprise round, Aswin. A new distribution: Poisson with parameter lambda.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "write-likelihood",
+          "anim_time": 12,
+          "description": "Template for Poisson likelihood with blanks: L(lambda) = product of ...",
+          "narration_spoken": "Can you write the likelihood for n independent Poisson observations?",
+          "duration_seconds": 12,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-3",
+          "label": "log-and-diff",
+          "anim_time": 24,
+          "description": "Scaffolded steps: take log, differentiate with respect to lambda, set to zero",
+          "narration_spoken": "Take the log. Differentiate with respect to lambda. Set to zero.",
+          "duration_seconds": 12,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-4",
+          "label": "solve-lambda",
+          "anim_time": 36,
+          "description": "Blank for lambda-hat answer",
+          "narration_spoken": "Solve for lambda hat. What do you get?",
+          "duration_seconds": 12,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-5",
+          "label": "reveal-pattern",
+          "anim_time": 48,
+          "description": "lambda-hat = sample mean shown alongside mu-hat = sample mean, bracket labeled 'same pattern'",
+          "narration_spoken": "Lambda hat equals the sample mean. The same pattern as mu hat. The sample mean keeps winning.",
+          "duration_seconds": 12,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "computation",
+        "prompt": "Apply the MLE recipe to the Poisson distribution. What is lambda hat?",
+        "expected_answer": "lambda hat = (1/n) * sum(xi) = sample mean",
+        "hints": ["The Poisson log-likelihood has a term: sum(xi) * log(lambda) - n * lambda", "Differentiate: sum(xi) / lambda - n = 0"],
+        "if_correct": "Lambda hat is the sample mean. Same pattern as the Gaussian mu hat.",
+        "if_wrong": "Derivative of Poisson log-likelihood: sum(xi) / lambda minus n. Set to zero and solve."
+      },
+      "transition": "fade",
+      "next_frame": "f22"
+    },
+    {
+      "frame_id": "f22",
+      "visual_type": "diagram",
+      "story_phase": "resolution",
+      "estimated_seconds": 60,
+      "visual_spec": {
+        "description": "The coin from f01 and bell curve from f02 reappear with their MLE parameters. Two class Gaussians appear with a decision boundary. An arrow connects MLE to 'Naive Bayes Classifier' as the next lesson teaser."
+      },
+      "narration_spoken": "These MLEs power parametric classifiers. That bridge awaits next lesson.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "hook-callback",
+          "anim_time": 0,
+          "description": "The coin from f01 and the bell curve from f02 reappear side by side",
+          "narration_spoken": "Where did this all begin? The coin and the bell curve.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "now-solved",
+          "anim_time": 12,
+          "description": "p-hat = 0.7 on the coin, mu-hat and sigma-squared-hat on the bell curve",
+          "narration_spoken": "Both now have optimal parameters. MLE gave us the best possible fit.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "two-class-gaussians",
+          "anim_time": 24,
+          "description": "Two Gaussians labeled Class A and Class B, each with their own MLE parameters",
+          "narration_spoken": "In parametric classification, each class gets its own Gaussian with its own MLE.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "decision-boundary",
+          "anim_time": 36,
+          "description": "The two Gaussians overlap, a vertical decision boundary appears at their crossing point",
+          "narration_spoken": "Where does one class end and another begin? Right where the two likelihoods cross.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "next-lesson-tease",
+          "anim_time": 48,
+          "description": "Text: 'Next: Naive Bayes Classifier' with an arrow from MLE to the classifier",
+          "narration_spoken": "Next lesson, these MLEs become the engine inside Naive Bayes. That bridge is waiting.",
+          "duration_seconds": 12,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": null
+    }
+  ],
+  "opening_hook": "Seven heads in ten flips. Twenty heights on a number line. One question connects both: which parameters make this data most likely?",
+  "closing_summary": [
+    "MLE for Bernoulli: p hat equals the fraction of successes, k over n",
+    "MLE for Gaussian: mu hat is the sample mean, sigma squared hat is the average squared deviation",
+    "Log-likelihood peaks confirm every analytical solution numerically",
+    "These estimators hit the Cramer-Rao bound and become the foundation for parametric classifiers"
+  ]
+}

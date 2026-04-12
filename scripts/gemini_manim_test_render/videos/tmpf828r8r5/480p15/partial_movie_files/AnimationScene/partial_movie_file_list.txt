@@ -1,0 +1,5 @@
+# This file is used internally by FFMPEG.
+file 'file:C:/Programming/MyProjects/Pedagora/scripts/gemini_manim_test_render/videos/tmpf828r8r5/480p15/partial_movie_files/AnimationScene/1584795214_3816632608_32809821.mp4'
+file 'file:C:/Programming/MyProjects/Pedagora/scripts/gemini_manim_test_render/videos/tmpf828r8r5/480p15/partial_movie_files/AnimationScene/4072820271_1432596116_382016403.mp4'
+file 'file:C:/Programming/MyProjects/Pedagora/scripts/gemini_manim_test_render/videos/tmpf828r8r5/480p15/partial_movie_files/AnimationScene/4072820271_3988173042_114014865.mp4'
+file 'file:C:/Programming/MyProjects/Pedagora/scripts/gemini_manim_test_render/videos/tmpf828r8r5/480p15/partial_movie_files/AnimationScene/4072820271_4277570474_2451590287.mp4'

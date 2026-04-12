@@ -1,0 +1,494 @@
+{
+  "lesson_id": "mod1-les3",
+  "passed": false,
+  "blocking": [
+    {
+      "code": "BANNED_OPENER",
+      "message": "opens with generic tutor phrase 'welcome' — be specific",
+      "location": "f06.binomial-label"
+    }
+  ],
+  "advisory": [
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f01.bell-curve-appears"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f01.both-sliders-move"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f01.question-overlay"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f02.grid-appears"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f02.same-family"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f02.why-care"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f02"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f03.coin-flip"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f03.bar-chart-builds"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f03.parameter-p-label"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f03.p-equals-half"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f03.bernoulli-label"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f03"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f04.p-starts-low"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f04.p-goes-high"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f04.p-extreme"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f04.tilt-summary"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f05.setup-blank"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f05.reveal-answer"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f05"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f06.single-flip"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f06.histogram-builds"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f06.two-knobs-appear"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f06.binomial-label"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f06"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f07.n-five"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f07.n-twenty"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f07.n-fifty"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f07.n-hundred"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f07.convergence-hint"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f07"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f08.p-low"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f08.p-high"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f08.peak-formula"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f08.two-knobs-summary"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f08"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f09.setup-binomial"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f09.reveal-histogram"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f09.formula-confirmation"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f09"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f10.curve-draws-itself"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f10.mu-label-appears"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f10.sigma-label-appears"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f10.notation-appears"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f10.why-special"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f11.center-at-zero"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f11.slide-right"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f11.slide-left"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f11.ghost-overlay"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f11.location-principle"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 1–3. 3b1b speech asks the student to think every few beats.",
+      "location": "f11"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f12.sigma-small"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f12.sigma-one"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f12.sigma-large"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f12.area-preserved"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f12.spread-principle"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f12"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f13.vertical-axis"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f13.fifty-fifty"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f13"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f14.two-curves-shown"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f14.pose-sigma-question"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f14.reveal-sigmas"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f14.visual-intuition"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f14"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f15.full-formula"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f15.exponential-piece"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f15.normalizer-piece"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f15"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f16.bernoulli-panel"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f16.binomial-panel"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f16.gaussian-panel"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f16.convergence-morph"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 1–3. 3b1b speech asks the student to think every few beats.",
+      "location": "f16"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f17.many-scattered"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f17.single-standard"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 1–3. 3b1b speech asks the student to think every few beats.",
+      "location": "f17"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f18.import-lines"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f18.bernoulli-block"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f18.binomial-block"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f18.gaussian-block"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f18.full-output"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f18"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f19.binomial-start"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f19.gaussian-overlays"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f19.parameter-bridge"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 1–3. 3b1b speech asks the student to think every few beats.",
+      "location": "f19"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f20.binomial-shown"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f20.compute-challenge"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f20.overlay-confirms"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 1–3. 3b1b speech asks the student to think every few beats.",
+      "location": "f20"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f21.callback-sliders"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f21.labels-reveal"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f21.all-families"
+    },
+    {
+      "code": "NO_PAUSE_MARKER",
+      "message": "no '...' or em-dash. Add a deliberate pause for emphasis.",
+      "location": "f21.forward-look"
+    },
+    {
+      "code": "NO_RHETORICAL_QUESTION",
+      "message": "no question mark in steps 4–6. 3b1b speech asks the student to think every few beats.",
+      "location": "f21"
+    }
+  ],
+  "narrative": null
+}

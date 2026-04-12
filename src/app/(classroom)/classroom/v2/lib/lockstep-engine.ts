@@ -1,15 +1,23 @@
 /**
  * Lockstep sync engine for animation + audio.
  *
- * For each step in a frame:
- *   1. Seek the animation iframe to the step's label (paused)
- *   2. Play the audio chunk for that step
- *   3. After audio ends, animate the iframe forward to the next step's label
- *   4. Repeat
+ * Two playback modes, chosen per-frame at runtime:
  *
- * This guarantees zero drift between speech and animation. Validated by
- * sync_tests/test3_sync_prototype.py and test5_piper_quality.py — perfect
- * step-by-step alignment with no race conditions.
+ * LOCKSTEP MODE (labels verified):
+ *   For each step: seek → pause → play audio → animate to next label → repeat.
+ *   Perfect sync between speech and animation.
+ *
+ * FREE-PLAY MODE (labels missing or mismatched):
+ *   Animation plays naturally at its own pace. Audio plays in sequence on top.
+ *   No seeking, no pausing the animation, no 8s dead waits between steps.
+ *   The animation won't sync per-step, but it won't REPLAY or FREEZE either.
+ *
+ * The mode is determined by verifyLabels(): after the iframe loads, we seek to
+ * the first step's label and wait 500ms for a matching stepChanged event. If
+ * the animation responds, labels are present → lockstep. If not → free-play.
+ *
+ * Frame isolation: each playFrame() increments a generation counter. If a new
+ * frame starts while the old is running, the old loop exits at the next check.
  */
 
 export interface StepBundle {
@@ -40,7 +48,9 @@ export interface LockstepCallbacks {
 
 const IFRAME_READY_TIMEOUT_MS = 3000;
 const IFRAME_READY_POLL_MS = 50;
-const ANIMATE_TO_STEP_TIMEOUT_MS = 30000;
+const ANIMATE_TO_STEP_DEFAULT_TIMEOUT_MS = 20000;
+const ANIMATE_TO_STEP_MARGIN_MS = 4000;
+const LABEL_VERIFY_TIMEOUT_MS = 600;
 
 export class LockstepEngine {
   private audioCtx: AudioContext;
@@ -51,7 +61,10 @@ export class LockstepEngine {
   private stopped: boolean = false;
   private resumeWaiter: { resolve: () => void } | null = null;
   private iframeReady: boolean = false;
+  private labelsVerified: boolean = false;
   private currentFrameId: string = "";
+  private _generation: number = 0;
+  private _pendingAnimateFinish: (() => void) | null = null;
 
   constructor(
     audioCtx: AudioContext,
@@ -63,77 +76,156 @@ export class LockstepEngine {
     this.isIframeReady = isIframeReady;
   }
 
-  /**
-   * Play one frame's bundled steps end-to-end. Calls onFrameDone when finished.
-   * Safe to call concurrently with stop()/pause()/resume().
-   */
   async playFrame(frame: FrameBundle): Promise<void> {
+    this.stop();
+
+    const gen = ++this._generation;
     this.stopped = false;
     this.iframeReady = false;
+    this.labelsVerified = false;
     this.currentFrameId = frame.frame_id;
 
-    // Wait up to 3s for iframe to load + first stepChanged event.
-    // If timeout, assume animation is broken — degrade to audio-only mode.
+    console.log(
+      `[Lockstep] playFrame ${frame.frame_id} gen=${gen} (${frame.steps.length} steps, ` +
+      `labels=[${frame.steps.map(s => s.label).join(",")}])`
+    );
+
+    // Wait for iframe to load + first stepChanged event
     await this.waitForIframeReady(IFRAME_READY_TIMEOUT_MS);
 
+    // Verify labels: seek to a step, check if animation responds.
+    // NOTE: Due to the _lastStep dedup in the iframe's _notifyStepChange,
+    // this currently always returns false (FREE-PLAY mode) because the
+    // iframe already fired stepChanged(firstLabel) on initial load. This
+    // is intentional for now — FREE-PLAY works well. When we implement
+    // proper LOCKSTEP (with the iframe posting label events on seek),
+    // this will start returning true.
+    if (this.iframeReady && frame.steps.length > 0) {
+      this.labelsVerified = await this.verifyLabels(frame.steps[0].label);
+    }
+
+    const mode = !this.iframeReady
+      ? "AUDIO-ONLY"
+      : this.labelsVerified
+        ? "LOCKSTEP"
+        : "FREE-PLAY";
+    console.log(`[Lockstep] ${frame.frame_id} mode=${mode}`);
+
+    // FREE-PLAY: let animation run at its own pace, don't interfere
+    if (this.iframeReady && !this.labelsVerified) {
+      this.sendToIframe({ action: "play" });
+    }
+
     for (let i = 0; i < frame.steps.length; i++) {
-      if (this.stopped) return;
+      if (this.stopped || this._generation !== gen) return;
       if (this.paused) await this.waitForResume();
-      if (this.stopped) return;
+      if (this.stopped || this._generation !== gen) return;
 
       const step = frame.steps[i];
       const next = frame.steps[i + 1];
 
-      // 1. Seek + pause (only if iframe is alive)
-      if (this.iframeReady && step.label) {
+      console.log(
+        `[Lockstep] ${frame.frame_id} step[${i}/${frame.steps.length}] ` +
+        `label="${step.label}" dur=${step.duration_s.toFixed(1)}s txt=${step.text.length}ch`
+      );
+
+      // 1. Seek + pause (LOCKSTEP mode only)
+      if (this.labelsVerified && step.label) {
         this.sendToIframe({ action: "seekToStep", label: step.label });
         this.sendToIframe({ action: "pause" });
         this.callbacks.onStepChange(step.label);
       }
 
-      // 2. Play audio (skip if synth failed for this step)
+      // 2. Play audio
       if (step.audio_b64 && step.text) {
         this.callbacks.onSubtitle(step.text, true);
         try {
           await this.playAudio(step.audio_b64);
         } catch (e) {
           console.error("[Lockstep] audio decode failed:", e);
-          // Brief silent pause as fallback
           await this.sleep(2000);
         }
         this.callbacks.onSubtitle("", false);
       } else if (step.text) {
-        // Audio missing but text present — show subtitle for read-time
+        const readTime = Math.max(2000, step.text.length * 60);
         this.callbacks.onSubtitle(step.text, false);
-        await this.sleep(Math.max(2000, step.text.length * 60));
+        await this.sleep(readTime);
         this.callbacks.onSubtitle("", false);
       }
 
-      if (this.stopped) return;
+      if (this.stopped || this._generation !== gen) return;
 
-      // 3. Animate to next step (or just hold the last one)
-      if (next && this.iframeReady) {
-        await this.animateToStep(next.label);
+      // 3. Animate to next step (LOCKSTEP mode only)
+      if (next && this.labelsVerified) {
+        // Compute expected transition duration from anim_time difference
+        const transitionSec = Math.max(
+          (next.anim_time || 0) - (step.anim_time || 0),
+          2,
+        );
+        await this.animateToStep(next.label, transitionSec * 1000);
       }
     }
 
-    if (!this.stopped) {
+    if (!this.stopped && this._generation === gen) {
+      // In FREE-PLAY mode, pause the animation when all audio is done
+      if (this.iframeReady && !this.labelsVerified) {
+        this.sendToIframe({ action: "pause" });
+      }
+      console.log(`[Lockstep] ${frame.frame_id} DONE (${mode}) — sending frame_done`);
       this.callbacks.onFrameDone();
     }
+  }
+
+  /**
+   * Check if the animation's GSAP timeline has matching labels.
+   *
+   * Seeks to `firstLabel` and waits for a `stepChanged` event. If the
+   * animation responds within LABEL_VERIFY_TIMEOUT_MS → labels verified
+   * → LOCKSTEP mode. Otherwise → FREE-PLAY mode.
+   *
+   * Known limitation: on iframe load, _notifyStepChange() fires
+   * stepChanged(firstLabel) immediately, setting _lastStep = firstLabel.
+   * A subsequent seekToStep(firstLabel) doesn't change the step, so no
+   * event fires → this always returns false (FREE-PLAY). This is fine
+   * for now since FREE-PLAY works well for both video and GSAP frames.
+   */
+  private verifyLabels(firstLabel: string): Promise<boolean> {
+    if (!firstLabel) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (result: boolean) => {
+        if (done) return;
+        done = true;
+        window.removeEventListener("message", handler);
+        clearTimeout(timer);
+        resolve(result);
+      };
+      const handler = (e: MessageEvent) => {
+        if (
+          e.data?.event === "stepChanged" &&
+          e.data.label === firstLabel
+        ) {
+          console.log(`[Lockstep] label "${firstLabel}" VERIFIED — lockstep mode`);
+          finish(true);
+        }
+      };
+      window.addEventListener("message", handler);
+      this.sendToIframe({ action: "seekToStep", label: firstLabel });
+
+      const timer = setTimeout(() => {
+        console.log(`[Lockstep] label "${firstLabel}" NOT FOUND — free-play mode`);
+        finish(false);
+      }, LABEL_VERIFY_TIMEOUT_MS);
+    });
   }
 
   private playAudio(b64: string): Promise<void> {
     return new Promise(async (resolve, reject) => {
       try {
-        // Decode base64 -> bytes
         const bin = atob(b64);
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-
-        // Decode WAV -> AudioBuffer
         const buf = await this.audioCtx.decodeAudioData(bytes.buffer);
-
-        // Play
         const src = this.audioCtx.createBufferSource();
         src.buffer = buf;
         src.connect(this.audioCtx.destination);
@@ -149,7 +241,23 @@ export class LockstepEngine {
     });
   }
 
-  private animateToStep(targetLabel: string): Promise<void> {
+  /**
+   * Play the animation forward until the target label is reached.
+   *
+   * @param targetLabel    GSAP label (or video step) to play toward
+   * @param transitionMs   Expected duration of the transition in ms (from
+   *                       anim_time difference between steps). The timeout
+   *                       is set to this + a margin so the animation has
+   *                       time to actually reach the label.
+   */
+  private animateToStep(
+    targetLabel: string,
+    transitionMs: number = ANIMATE_TO_STEP_DEFAULT_TIMEOUT_MS,
+  ): Promise<void> {
+    const timeout = Math.max(
+      transitionMs + ANIMATE_TO_STEP_MARGIN_MS,
+      ANIMATE_TO_STEP_MARGIN_MS,
+    );
     return new Promise((resolve) => {
       let resolved = false;
       const finish = () => {
@@ -157,9 +265,12 @@ export class LockstepEngine {
         resolved = true;
         window.removeEventListener("message", handler);
         clearTimeout(timer);
+        this._pendingAnimateFinish = null;
         this.sendToIframe({ action: "pause" });
         resolve();
       };
+
+      this._pendingAnimateFinish = finish;
 
       const handler = (e: MessageEvent) => {
         if (
@@ -170,41 +281,22 @@ export class LockstepEngine {
         }
       };
       window.addEventListener("message", handler);
-
-      // Safety timeout — if step never reached, just continue
-      const timer = window.setTimeout(finish, ANIMATE_TO_STEP_TIMEOUT_MS);
-
-      // Start playing forward
+      const timer = window.setTimeout(finish, timeout);
       this.sendToIframe({ action: "play" });
     });
   }
 
-  /**
-   * Wait for the iframe to be ready, but POLL the store flag instead of
-   * listening for an event. The store flag is published by AnimationFrame's
-   * own message listener as soon as the iframe fires its first stepChanged.
-   *
-   * Why polling and not a fresh event listener: for the first frame, the
-   * iframe is pre-loaded via show_frame BEFORE this engine starts running.
-   * Its initial stepChanged event has already fired (and was caught by
-   * AnimationFrame, which set the store flag). A fresh listener attached
-   * here would wait forever for an event that already happened.
-   */
   private async waitForIframeReady(timeoutMs: number): Promise<void> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       if (this.stopped) return;
       if (this.isIframeReady()) {
         this.iframeReady = true;
-        // Force-pause: the generated HTML starts paused, but if a stray
-        // tl.play() slips through this catches it before the audio starts.
         this.sendToIframe({ action: "pause" });
         return;
       }
       await this.sleep(IFRAME_READY_POLL_MS);
     }
-    // Timeout — animation is broken or never loaded. iframeReady stays
-    // false and the playFrame loop degrades to audio-only.
   }
 
   private sendToIframe(msg: object): void {
@@ -250,9 +342,16 @@ export class LockstepEngine {
       /* already stopped */
     }
     this.currentSource = null;
+    // Pause the old iframe animation so it doesn't fire stale stepChanged
+    // events that could set iframeReady=true before the new frame loads.
+    this.sendToIframe({ action: "pause" });
     if (this.resumeWaiter) {
       this.resumeWaiter.resolve();
       this.resumeWaiter = null;
+    }
+    if (this._pendingAnimateFinish) {
+      this._pendingAnimateFinish();
+      this._pendingAnimateFinish = null;
     }
   }
 }

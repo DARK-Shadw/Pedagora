@@ -108,8 +108,20 @@ async def _prefetch_session_audio(
                 goal_id, lesson_id, frame_id
             )
             if not step_specs:
-                # Single-step fallback for animations with no labels
-                step_specs = [{"label": "main", "anim_time": 0.0}]
+                # Fallback: use storyboard steps from the frame dict.
+                # Essential for v2 frames (HTML in Supabase, not local disk)
+                # and Manim video frames (no GSAP labels).
+                frame_steps = frame.get("steps") or []
+                if frame_steps:
+                    cumulative = 0.0
+                    step_specs = []
+                    for s in frame_steps:
+                        label = s.get("label", s.get("step_id", f"step-{len(step_specs)}"))
+                        step_specs.append({"label": label, "anim_time": cumulative})
+                        cumulative += s.get("duration_seconds", 3.0)
+                else:
+                    # Single-step fallback for animations with no labels
+                    step_specs = [{"label": "main", "anim_time": 0.0}]
 
             # Generate per-step speech text via LLM
             try:

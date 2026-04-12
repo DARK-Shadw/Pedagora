@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     # Google AI
     google_api_key: str
 
+    # Gemini 3.1 Flash Lite key pool for Animation Agent v2.
+    # Comma-separated list of API keys. Falls back to [google_api_key] if empty.
+    gemini_api_keys: str = ""
+
     # Groq
     groq_api_key: str = ""
 
@@ -62,6 +66,13 @@ class Settings(BaseSettings):
     animation_search_enabled: bool = True
     animation_max_retries: int = 3
     animation_render_quality: str = "h"
+    # Use Manim's experimental OpenGL renderer (--renderer opengl --write_to_movie).
+    # GPU-accelerated raster — ~30% faster than Cairo on our 3D scenes at the
+    # same quality. Python scene-graph overhead (Dot3D mesh builds, animate
+    # interpolation) still dominates, so gains are modest, not dramatic.
+    # Requires moderngl + pyglet (already installed). Marked experimental in
+    # ManimCE; disable if you see render regressions.
+    animation_use_opengl: bool = True
     manim_output_dir: str = "media/animations"
     animation_storage_bucket: str = "animations"
 
@@ -72,7 +83,13 @@ class Settings(BaseSettings):
     # Frontend
     frontend_url: str = "http://localhost:3000"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        # Ignore env vars not declared above — keeps the backend bootable when
+        # .env accumulates unrelated tokens (e.g. CLAUDE_SETUP_TOKEN, GROQ_API_KEYS).
+        "extra": "ignore",
+    }
 
     @property
     def effective_extract_model(self) -> str:
@@ -122,6 +139,13 @@ class Settings(BaseSettings):
                 )
             )
         return configs
+
+    def get_gemini_api_keys(self) -> list[str]:
+        """Parse GEMINI_API_KEYS into a list. Falls back to [google_api_key] if empty."""
+        raw = (self.gemini_api_keys or "").strip()
+        if not raw:
+            return [self.google_api_key] if self.google_api_key else []
+        return [k.strip() for k in raw.split(",") if k.strip()]
 
     def get_planner_pool_configs(self) -> list:
         """Parse planner pool config strings into ModelConfig objects."""

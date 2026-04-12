@@ -1,0 +1,489 @@
+{
+  "modules": [
+    {
+      "order": 1,
+      "title": "The Math That Powers Magic",
+      "lessons": [
+        {
+          "title": "Why Randomness is Everything: Probability & Distributions for Generative AI",
+          "lesson_id": "mod1-les1",
+          "lesson_type": "visualization",
+          "key_formulas": [
+            "Gaussian PDF: p(x) = (1/\u221a(2\u03c0\u03c3\u00b2)) exp(-(x-\u03bc)\u00b2/2\u03c3\u00b2)",
+            "KL Divergence: D_KL(P||Q) = \u03a3 P(x) log(P(x)/Q(x))",
+            "Bayes' Theorem: P(A|B) = P(B|A)P(A) / P(B)",
+            "Reparameterization trick: z = \u03bc + \u03c3\u00b7\u03b5 where \u03b5 ~ N(0,1)"
+          ],
+          "prerequisites": [],
+          "key_code_demos": [
+            "Animate sampling from Gaussian vs multimodal distributions \u2014 watch dots materialize from the density curve",
+            "Animate KL divergence as two Gaussians drift apart \u2014 divergence meter updates live",
+            "Interactive: drag \u03bc and \u03c3 sliders, watch the bell curve reshape in real time"
+          ],
+          "topics_covered": [
+            "Probability & Statistics for Deep Learning"
+          ],
+          "estimated_minutes": 40,
+          "learning_objectives": [
+            "Explain Gaussian distributions, KL divergence, and conditional probability using visual intuition",
+            "Interpret probability density functions and what 'sampling from a distribution' means geometrically",
+            "Connect Bayes' theorem to how generative models reason about data"
+          ]
+        },
+        {
+          "title": "The Convolution Superpower: CNNs That See at Every Scale",
+          "lesson_id": "mod1-les2",
+          "lesson_type": "visualization",
+          "key_formulas": [
+            "2D Convolution: (I * K)[i,j] = \u03a3\u03a3 I[i+m, j+n] \u00b7 K[m,n]",
+            "Residual connection: y = F(x, W) + x",
+            "Group Normalization: x\u0302 = (x - \u03bc_g) / \u221a(\u03c3\u00b2_g + \u03b5) per group g"
+          ],
+          "prerequisites": [
+            "mod1-les1"
+          ],
+          "key_code_demos": [
+            "Animate a 3\u00d73 filter sliding over an image \u2014 feature map pixels light up as kernel sweeps",
+            "Layer-by-layer activation map viewer: shallow = Gabor-like edges, deep = object parts",
+            "Training loss curves with/without residual connections \u2014 show gradient flow collapse without them"
+          ],
+          "topics_covered": [
+            "CNN Architecture & Deep Learning Components"
+          ],
+          "estimated_minutes": 40,
+          "learning_objectives": [
+            "Illustrate how convolution filters detect edges, textures, and high-level patterns layer by layer",
+            "Explain spatial downsampling, residual connections, and GroupNorm in modern CNN blocks",
+            "Compare feature map resolutions \u2014 show how shallow layers see edges, deep layers see semantics"
+          ]
+        },
+        {
+          "title": "Training Machines to Learn: Backprop & Optimization Demystified",
+          "lesson_id": "mod1-les3",
+          "lesson_type": "practice",
+          "key_formulas": [
+            "Chain rule: \u2202L/\u2202w = \u2202L/\u2202y \u00b7 \u2202y/\u2202w",
+            "Adam update: m_t = \u03b2\u2081m_{t-1} + (1-\u03b2\u2081)g_t; v_t = \u03b2\u2082v_{t-1} + (1-\u03b2\u2082)g\u00b2_t; w -= \u03b1\u00b7m\u0302_t/\u221a(v\u0302_t)+\u03b5",
+            "Gradient clipping: g\u0303 = g \u00b7 min(1, threshold/||g||)"
+          ],
+          "prerequisites": [
+            "mod1-les2"
+          ],
+          "key_code_demos": [
+            "Full training loop from scratch: DataLoader \u2192 forward \u2192 loss \u2192 .backward() \u2192 optimizer.step()",
+            "Live per-layer gradient norm plot \u2014 watch gradients vanish in deep networks without normalization",
+            "Adam vs SGD+momentum race on MNIST: side-by-side loss curves updating in real time"
+          ],
+          "topics_covered": [
+            "Deep Learning Training Loop Mastery"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Implement a manual forward + backward pass in PyTorch to solidify gradient intuition",
+            "Compare Adam, SGD, and cosine LR scheduling using live loss curve visualization",
+            "Diagnose vanishing/exploding gradients and apply gradient clipping and normalization fixes"
+          ]
+        }
+      ],
+      "module_id": "mod1",
+      "description": "Lock in the probability, statistics, and CNN intuition that every generative model is secretly built on. Visually-driven \u2014 no formula without a picture.",
+      "estimated_minutes": 125
+    },
+    {
+      "order": 2,
+      "title": "Teaching Machines to Create",
+      "lessons": [
+        {
+          "title": "The Compression Secret: VAEs and the Geometry of Latent Space",
+          "lesson_id": "mod2-les1",
+          "lesson_type": "visualization",
+          "key_formulas": [
+            "ELBO: L = E[log p(x|z)] - D_KL(q(z|x) || p(z))",
+            "Reparameterization: z = \u03bc_\u03c6(x) + \u03c3_\u03c6(x) \u00b7 \u03b5 where \u03b5 ~ N(0,I)",
+            "Reconstruction loss: -E_q[log p_\u03b8(x|z)]",
+            "\u03b2-VAE objective: L_\u03b2 = reconstruction_loss + \u03b2 \u00b7 D_KL"
+          ],
+          "prerequisites": [
+            "mod1-les1",
+            "mod1-les3"
+          ],
+          "key_code_demos": [
+            "Train VAE on MNIST \u2014 animate latent space 2D scatter plot forming digit clusters epoch by epoch",
+            "Latent interpolation: smoothly morph digit '3' into '8' by walking through z-space",
+            "Show \u03b2-VAE effect: \u03b2=1 (blurry but structured) vs \u03b2=10 (sharp disentanglement)"
+          ],
+          "topics_covered": [
+            "Generative Model Foundations: VAEs & GANs"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Explain the encoder-decoder structure and the ELBO objective with visual intuition",
+            "Describe why the reparameterization trick enables backprop through stochastic sampling",
+            "Visualize and interpret a trained VAE's latent space \u2014 interpolation paths, clusters, and disentanglement"
+          ]
+        },
+        {
+          "title": "The Adversarial Game: GANs Learning to Hallucinate Reality",
+          "lesson_id": "mod2-les2",
+          "lesson_type": "theory",
+          "key_formulas": [
+            "GAN minimax: min_G max_D E[log D(x)] + E[log(1 - D(G(z)))]",
+            "Wasserstein distance: W(P_r, P_g) = inf_{\u03b3~\u03a0(P_r,P_g)} E[(x,y)~\u03b3][||x-y||]",
+            "WGAN-GP penalty: \u03bb \u00b7 E[(||\u2207_x\u0302 D(x\u0302)||\u2082 - 1)\u00b2]"
+          ],
+          "prerequisites": [
+            "mod2-les1"
+          ],
+          "key_code_demos": [
+            "Animate discriminator decision boundary evolving as generator improves over training iterations",
+            "Mode collapse visualization \u2014 GAN generating only 2 of 10 MNIST digit classes",
+            "Loss curve comparison: vanilla GAN (oscillating/diverging) vs WGAN-GP (smooth descent)"
+          ],
+          "topics_covered": [
+            "Generative Model Foundations: VAEs & GANs"
+          ],
+          "estimated_minutes": 40,
+          "learning_objectives": [
+            "Explain the generator-discriminator minimax game using game theory intuition",
+            "Identify GAN failure modes \u2014 mode collapse, training instability \u2014 and how WGAN-GP addresses them",
+            "Compare VAE vs GAN quality trade-offs and articulate when each is preferable"
+          ]
+        },
+        {
+          "title": "Time Traveling Networks: How Models Learn Motion & Sequences",
+          "lesson_id": "mod2-les3",
+          "lesson_type": "theory",
+          "key_formulas": [
+            "Self-attention: Attention(Q,K,V) = softmax(QK\u1d40/\u221ad_k)V",
+            "Sinusoidal positional encoding: PE(pos, 2i) = sin(pos / 10000^(2i/d_model))",
+            "LSTM forget gate: f_t = \u03c3(W_f \u00b7 [h_{t-1}, x_t] + b_f)"
+          ],
+          "prerequisites": [
+            "mod1-les2",
+            "mod2-les2"
+          ],
+          "key_code_demos": [
+            "Animate attention weight matrix across a video sequence \u2014 watch frame t attend to frames t-2, t-3",
+            "LSTM hidden state activation heatmap on a video frame prediction task",
+            "Build a temporal self-attention block and visualize the (T\u00d7T) attention matrix as a heatmap"
+          ],
+          "topics_covered": [
+            "Temporal Modeling & Sequential Data in Deep Learning"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Explain temporal self-attention and how it captures long-range dependencies across frames",
+            "Compare RNN/LSTM vs Transformer approaches \u2014 and argue why Transformers dominate for video",
+            "Apply positional encoding intuition to understand how models know 'when' in a sequence"
+          ]
+        }
+      ],
+      "module_id": "mod2",
+      "description": "Understand the generative model family tree \u2014 VAEs, GANs, and temporal networks \u2014 that set the stage for diffusion. Build latent space intuition and learn why sequence modeling is the key to video.",
+      "estimated_minutes": 130
+    },
+    {
+      "order": 3,
+      "title": "Noise to Masterpiece: Diffusion Model Fundamentals",
+      "lessons": [
+        {
+          "title": "Corrupting to Learn: The Forward Process & Noise Schedules",
+          "lesson_id": "mod3-les1",
+          "lesson_type": "visualization",
+          "key_formulas": [
+            "Forward step: q(x_t|x_{t-1}) = N(x_t; \u221a(1-\u03b2_t)x_{t-1}, \u03b2_t I)",
+            "Closed-form marginal: q(x_t|x_0) = N(x_t; \u221a\u1fb1_t x_0, (1-\u1fb1_t) I)",
+            "Cumulative product: \u1fb1_t = \u03a0_{s=1}^{t}(1-\u03b2_s)",
+            "Cosine schedule: \u1fb1_t = cos\u00b2(((t/T + s)/(1+s)) \u00b7 \u03c0/2)"
+          ],
+          "prerequisites": [
+            "mod2-les1",
+            "mod2-les3"
+          ],
+          "key_code_demos": [
+            "Animate a photo dissolving into pure Gaussian noise across T=1000 steps \u2014 frame scrubber control",
+            "Side-by-side: linear vs cosine schedule \u2014 \u1fb1_t curve plotted alongside noisy image at each step",
+            "Verify closed-form marginal matches step-by-step noising \u2014 overlay histograms at t=500, t=999"
+          ],
+          "topics_covered": [
+            "Diffusion Model Fundamentals (DDPM)"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Explain the DDPM forward process q(x_t|x_0) and derive the closed-form marginal that makes training tractable",
+            "Visualize how linear vs cosine noise schedules degrade images differently across 1000 timesteps",
+            "Distinguish what the model actually learns to predict \u2014 noise \u03b5 vs original image x_0"
+          ]
+        },
+        {
+          "title": "Reversing Chaos: Training the Denoising Network from Scratch",
+          "lesson_id": "mod3-les2",
+          "lesson_type": "practice",
+          "key_formulas": [
+            "Training objective: L_simple = E_{x_0,\u03b5,t}[||\u03b5 - \u03b5_\u03b8(x_t, t)||\u00b2]",
+            "Reverse process: p_\u03b8(x_{t-1}|x_t) = N(x_{t-1}; \u03bc_\u03b8(x_t,t), \u03a3_\u03b8(x_t,t))",
+            "Predicted mean: \u03bc_\u03b8(x_t,t) = (1/\u221a\u03b1_t)(x_t - (\u03b2_t/\u221a(1-\u1fb1_t)) \u03b5_\u03b8(x_t,t))"
+          ],
+          "prerequisites": [
+            "mod3-les1"
+          ],
+          "key_code_demos": [
+            "Full DDPM training loop on MNIST \u2014 loss curve + sample grid updating every 500 steps",
+            "Animate the reverse denoising: T=1000\u21920 showing a digit emerging from static noise",
+            "Noise vs x_0 prediction comparison: train both, overlay loss curves and final sample quality"
+          ],
+          "topics_covered": [
+            "Diffusion Model Fundamentals (DDPM)"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Implement the DDPM training objective and explain noise prediction vs x_0 prediction equivalence",
+            "Build a U-Net denoiser with timestep conditioning in PyTorch from scratch",
+            "Train a DDPM on MNIST and visualize the full denoising trajectory from pure noise to digit"
+          ]
+        },
+        {
+          "title": "Speed Without Sacrifice: DDIM, Score Matching & Smarter Sampling",
+          "lesson_id": "mod3-les3",
+          "lesson_type": "theory",
+          "key_formulas": [
+            "DDIM update: x_{t-1} = \u221a\u1fb1_{t-1}\u00b7f_\u03b8(x_t) + \u221a(1-\u1fb1_{t-1}-\u03c3_t\u00b2)\u00b7\u03b5_\u03b8(x_t,t) + \u03c3_t\u00b7\u03b5",
+            "Score function: \u2207_x log p_t(x) \u2248 -\u03b5_\u03b8(x_t,t) / \u221a(1-\u1fb1_t)",
+            "Classifier-free guidance: \u03b5\u0303 = \u03b5_\u03b8(x_t,\u2205) + w\u00b7(\u03b5_\u03b8(x_t,c) - \u03b5_\u03b8(x_t,\u2205))"
+          ],
+          "prerequisites": [
+            "mod3-les2"
+          ],
+          "key_code_demos": [
+            "Generate the same image: DDPM (1000 steps, ~60s) vs DDIM (50 steps, ~3s) \u2014 quality comparison grid",
+            "Score function vector field visualization \u2014 arrows pointing toward data manifold",
+            "Guidance scale sweep w=1\u219215: diversity-vs-fidelity slider, watch images sharpen and mode-collapse"
+          ],
+          "topics_covered": [
+            "Improved Sampling: DDIM, Score Matching & Noise Schedules"
+          ],
+          "estimated_minutes": 40,
+          "learning_objectives": [
+            "Explain DDIM's deterministic non-Markovian sampling and why it enables 10\u201350\u00d7 speedup",
+            "Connect the denoising network to the score function \u2207_x log p_t(x) via Tweedie's formula",
+            "Compare DDPM, DDIM, and DPM-Solver on the speed vs quality frontier"
+          ]
+        }
+      ],
+      "module_id": "mod3",
+      "description": "Understand how DDPM systematically destroys images and learns to reverse the process \u2014 then build and train one from scratch. Unlock faster sampling with DDIM and score matching.",
+      "estimated_minutes": 130
+    },
+    {
+      "order": 4,
+      "title": "The Architecture of Dreams: Latent Diffusion & U-Net Mastery",
+      "lessons": [
+        {
+          "title": "Compress Then Create: How Latent Diffusion Breaks the Compute Wall",
+          "lesson_id": "mod4-les1",
+          "lesson_type": "theory",
+          "key_formulas": [
+            "Perceptual loss: L_perc = ||\u03c6(x) - \u03c6(x\u0302)||\u00b2 where \u03c6 extracts VGG features",
+            "LDM objective: L_LDM = E_{z~E(x), \u03b5, t}[||\u03b5 - \u03b5_\u03b8(z_t, t)||\u00b2]",
+            "Compression ratio: z \u2208 \u211d^{H/f \u00d7 W/f \u00d7 c} from x \u2208 \u211d^{H\u00d7W\u00d73} with f typically 8"
+          ],
+          "prerequisites": [
+            "mod3-les3"
+          ],
+          "key_code_demos": [
+            "Encode an image with VQ-VAE at f=8 \u2014 animate reconstruction quality vs compression ratio",
+            "Pixel diffusion vs latent diffusion: same FID at 64\u00d7 less memory \u2014 bar chart + sample grid",
+            "Latent arithmetic: encode two images, interpolate z, decode \u2014 watch smooth semantic blending"
+          ],
+          "topics_covered": [
+            "Latent Diffusion Models & U-Net Architecture"
+          ],
+          "estimated_minutes": 40,
+          "learning_objectives": [
+            "Explain why pixel-space diffusion is compute-prohibitive and how LDMs solve it via perceptual compression",
+            "Describe the two-stage LDM pipeline: train a VQ-VAE encoder, then diffuse in its latent space",
+            "Compare LDM vs pixel diffusion on FID, memory footprint, and generation speed"
+          ]
+        },
+        {
+          "title": "The U-Net Inside Every Diffusion Model: Skip Connections, Attention & Conditioning",
+          "lesson_id": "mod4-les2",
+          "lesson_type": "visualization",
+          "key_formulas": [
+            "Timestep conditioning: h = h + MLP(t_emb) then GroupNorm + SiLU activation",
+            "Cross-attention: Attention(Q=h_img, K=c_text, V=c_text) for text-guided generation",
+            "AdaGroupNorm: \u0125 = (1 + \u03b3(t))\u00b7(h - \u03bc)/\u03c3 + \u03b2(t) where \u03b3,\u03b2 learned from timestep"
+          ],
+          "prerequisites": [
+            "mod4-les1"
+          ],
+          "key_code_demos": [
+            "Animated U-Net diagram: feature maps flowing down encoder, up decoder, skip connections highlighted",
+            "Cross-attention heatmaps: 'a red car' \u2014 show 'red' attending to car pixels, 'car' to shape regions",
+            "PyTorch implementation: ResBlock + SelfAttn + CrossAttn + Upsample \u2014 full U-Net block stack"
+          ],
+          "topics_covered": [
+            "Latent Diffusion Models & U-Net Architecture"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Trace the U-Net encoder-decoder path and explain why skip connections preserve spatial detail",
+            "Implement self-attention and cross-attention blocks inside U-Net residual layers",
+            "Explain timestep and text conditioning injection via AdaGN and cross-attention"
+          ]
+        },
+        {
+          "title": "Conditioning the Dream: Text Control & Classifier-Free Guidance",
+          "lesson_id": "mod4-les3",
+          "lesson_type": "practice",
+          "key_formulas": [
+            "CFG: \u03b5\u0303_\u03b8(x_t,c) = \u03b5_\u03b8(x_t,\u2205) + w\u00b7(\u03b5_\u03b8(x_t,c) - \u03b5_\u03b8(x_t,\u2205))",
+            "CLIP similarity: cos(E_I(x), E_T(c)) where E_I, E_T are image/text towers",
+            "Dropout training: randomly set c \u2192 \u2205 with p=0.1 to learn unconditional score"
+          ],
+          "prerequisites": [
+            "mod4-les2"
+          ],
+          "key_code_demos": [
+            "Guidance scale sweep w=1\u219215 \u2014 grid showing diversity collapse into hyper-sharp samples",
+            "Text-conditional generation on CIFAR-10: prompt 'airplane', 'dog', 'ship' \u2014 see class emerge",
+            "CLIP similarity score meter updating live as guidance scale changes"
+          ],
+          "topics_covered": [
+            "Latent Diffusion Models & U-Net Architecture"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Implement classifier-free guidance for conditional image generation from scratch",
+            "Integrate a CLIP text encoder to condition the U-Net on text prompts via cross-attention",
+            "Evaluate conditional generation quality using FID and CLIP similarity scores"
+          ]
+        }
+      ],
+      "module_id": "mod4",
+      "description": "Discover how Stable Diffusion compresses images into latent space before diffusing \u2014 and master the attention-augmented U-Net that makes high-resolution generation tractable.",
+      "estimated_minutes": 130
+    },
+    {
+      "order": 5,
+      "title": "Lights, Camera, Diffusion: Building Video Generation from Scratch",
+      "lessons": [
+        {
+          "title": "Frames That Flow: Temporal Attention for Motion Consistency",
+          "lesson_id": "mod5-les1",
+          "lesson_type": "theory",
+          "key_formulas": [
+            "Temporal attention: Attn_T(Q,K,V) where Q,K,V reshape across T frames per spatial location",
+            "Factorized: Attn_ST(h) = Attn_S(Attn_T(h)) \u2014 temporal first, then spatial",
+            "Video DDPM joint forward: q(x^{1:T}_t | x^{1:T}_0) = \u03a0_i q(x^i_t | x^i_0) shared \u1fb1_t"
+          ],
+          "prerequisites": [
+            "mod4-les3"
+          ],
+          "key_code_demos": [
+            "Temporal attention heatmap: frame t attending to frames t-1, t-2 \u2014 motion consistency visualized",
+            "FVD vs FLOPs scatter plot: factorized vs full 3D attention Pareto frontier",
+            "Animate 16-frame video being noised: all frames degrade together with shared noise schedule"
+          ],
+          "topics_covered": [
+            "Video Diffusion Models: Temporal Attention & 3D Architectures"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Explain how temporal self-attention enables frames to communicate across time for motion coherence",
+            "Compare factorized spatial-temporal attention vs full 3D attention on compute and quality trade-offs",
+            "Describe how Video Diffusion Models extend DDPM to video with joint noise across all frames"
+          ]
+        },
+        {
+          "title": "Into the Third Dimension: 3D U-Net & Spatiotemporal Convolutions",
+          "lesson_id": "mod5-les2",
+          "lesson_type": "visualization",
+          "key_formulas": [
+            "3D convolution: (V * K)[t,h,w] = \u03a3\u03a3\u03a3 V[t+\u03c4, h+i, w+j] \u00b7 K[\u03c4,i,j]",
+            "Pseudo-3D: P3D(x) = Conv1D_T(Conv2D_S(x)) \u2014 decomposed for 4\u00d7 efficiency",
+            "Temporal inflation init: K_3D[\u03c4,i,j] = K_2D[i,j]/T if \u03c4=T//2, else 0"
+          ],
+          "prerequisites": [
+            "mod5-les1"
+          ],
+          "key_code_demos": [
+            "Animated 3D convolution kernel sweeping through a (T, H, W) video volume",
+            "Parameter count comparison: full 3D conv vs pseudo-3D for same receptive field",
+            "Inflate a pretrained 2D MNIST U-Net to 3D \u2014 watch fine-tuning converge in 10% the epochs"
+          ],
+          "topics_covered": [
+            "Video Diffusion Models: Temporal Attention & 3D Architectures"
+          ],
+          "estimated_minutes": 40,
+          "learning_objectives": [
+            "Implement pseudo-3D convolutions (2D spatial + 1D temporal) as an efficient alternative to full 3D",
+            "Explain how inflated 3D convolutions extend a pretrained image U-Net to video with minimal new parameters",
+            "Design a 3D U-Net that processes video clips as (T, H, W, C) spatiotemporal volumes"
+          ]
+        },
+        {
+          "title": "Your First Video Diffusion Model: Architecture to Training Loop",
+          "lesson_id": "mod5-les3",
+          "lesson_type": "practice",
+          "key_formulas": [
+            "Video training loss: L = E_{x_0,\u03b5,t}[||\u03b5 - \u03b5_\u03b8(x_t, t)||\u00b2] where x_0 \u2208 \u211d^{T\u00d7C\u00d7H\u00d7W}",
+            "Temporal consistency reg: \u03bb\u00b7||\u03b5_\u03b8(x_t,t)^{i+1} - \u03b5_\u03b8(x_t,t)^i||\u00b2 added to loss",
+            "Frame noise injection: \u03b5^i ~ N(0,I) independently per frame, shared t across clip"
+          ],
+          "prerequisites": [
+            "mod5-les2"
+          ],
+          "key_code_demos": [
+            "VideoUNet class in PyTorch: 3DResBlock \u2192 TemporalAttn \u2192 SpatialAttn layer assembly",
+            "Training loop with video batches: sample clips \u2192 add noise \u2192 predict \u2192 backprop",
+            "Generated video samples during training: watch inter-frame flickering reduce over epochs"
+          ],
+          "topics_covered": [
+            "Building a Video Generation Pipeline from Scratch"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Assemble a complete video U-Net: 3D ResBlocks, temporal attention, spatial attention",
+            "Implement the video diffusion training loop with (B, T, C, H, W) tensor batches",
+            "Train on a short video dataset and debug temporal flickering using consistency regularization"
+          ]
+        },
+        {
+          "title": "Ship It: The Complete Text-to-Video Generation Pipeline",
+          "lesson_id": "mod5-les4",
+          "lesson_type": "practice",
+          "key_formulas": [
+            "FVD: Fr\u00e9chet distance in I3D feature space between real and generated video distributions",
+            "Video DDIM: same update rule applied per-frame with shared deterministic schedule",
+            "Text injection: CrossAttn(Q=video_feat, K=CLIP(prompt), V=CLIP(prompt)) per U-Net block"
+          ],
+          "prerequisites": [
+            "mod5-les3"
+          ],
+          "key_code_demos": [
+            "End-to-end pipeline: text prompt \u2192 CLIP encode \u2192 DDIM 50-step video sample \u2192 decode \u2192 save .mp4",
+            "Temporal attention ablation: generation with vs without temporal attn \u2014 flicker comparison side-by-side",
+            "Generate 'a bouncing ball', 'ocean waves', 'rotating cube' \u2014 visualize all three .mp4 outputs"
+          ],
+          "topics_covered": [
+            "Building a Video Generation Pipeline from Scratch"
+          ],
+          "estimated_minutes": 45,
+          "learning_objectives": [
+            "Integrate CLIP text conditioning into the video U-Net for text-to-video generation",
+            "Implement DDIM sampling over video frames for fast generation (50 steps vs 1000)",
+            "Evaluate generated videos with FVD (Fr\u00e9chet Video Distance) and build an end-to-end generation script"
+          ]
+        }
+      ],
+      "module_id": "mod5",
+      "description": "Extend everything you've built to video \u2014 temporal attention, 3D convolutions, and a full end-to-end text-to-video pipeline. Final project: a working video generation model you designed.",
+      "estimated_minutes": 175
+    }
+  ],
+  "course_title": "Diffusion Models to Video Generation: Build It from Scratch",
+  "course_description": "A visual-first, hands-on journey from probability foundations through cutting-edge video diffusion models. By the end, you'll have built a working text-to-video generation pipeline from scratch \u2014 understanding every equation, every architectural choice, and every line of code.",
+  "difficulty_progression": "beginner -> intermediate -> advanced",
+  "total_estimated_minutes": 690
+}

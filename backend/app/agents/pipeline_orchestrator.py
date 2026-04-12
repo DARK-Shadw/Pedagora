@@ -21,7 +21,9 @@ from app.services.agent_task import (
     fetch_research_results,
     fetch_onboarding_data,
     get_lesson_animations,
+    fetch_research_sources,
 )
+from app.services.supabase import get_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -92,16 +94,12 @@ async def run_full_pipeline(goal_id: str, user_id: str) -> None:
 
     plan_done = 0
     plan_failed = 0
-    anim_done = 0
-    anim_failed = 0
+    storyboard_success: list[str] = []
 
-    # ── Stage 2b + 3: interleaved per-lesson (storyboard → animation) ──
+    # ── Stage 2b: ALL storyboards (free Pollinations Mistral — no cost concern) ──
     for i, lesson in enumerate(all_lessons):
         lesson_id = lesson.get("lesson_id", f"lesson-{i}")
-        lesson_title = lesson.get("title", lesson_id)[:40]
 
-        # ── Storyboard for this lesson ──
-        storyboard_ok = False
         try:
             pct = 15 + int(75 * i / total)
             lp = await generate_one_lesson_storyboard_v4(
@@ -113,7 +111,7 @@ async def run_full_pipeline(goal_id: str, user_id: str) -> None:
             )
             if lp.get("frames") and not lp.get("error"):
                 plan_done += 1
-                storyboard_ok = True
+                storyboard_success.append(lesson_id)
             else:
                 plan_failed += 1
                 logger.warning(
@@ -128,37 +126,6 @@ async def run_full_pipeline(goal_id: str, user_id: str) -> None:
             goal_id, "planning",
             progress=15 + int(75 * (i + 1) / total),
             current_task=f"Storyboards: {plan_done + plan_failed}/{total} — {plan_done} ready",
-        )
-
-        if not storyboard_ok:
-            # Still update visualization progress so the bar doesn't freeze
-            await update_agent_task(
-                goal_id, "visualization",
-                progress=int(100 * (i + 1) / total),
-                current_task=(
-                    f"{anim_done}/{total} animated"
-                    + (f" ({anim_failed} failed)" if anim_failed else "")
-                    + f" — lesson {i + 1} storyboard failed, skipped"
-                ),
-            )
-            continue  # Skip animation for this lesson
-
-        # ── Animation for this lesson ──
-        try:
-            logger.info(f"[Pipeline] Animating lesson {lesson_id}: {lesson_title}")
-            await generate_lesson_visuals(goal_id, user_id, lesson_id)
-            anim_done += 1
-        except Exception as e:
-            anim_failed += 1
-            logger.error(f"[Pipeline] Animation {lesson_id} crashed: {e}")
-
-        await update_agent_task(
-            goal_id, "visualization",
-            progress=int(100 * (i + 1) / total),
-            current_task=(
-                f"{anim_done}/{total} animated"
-                + (f" ({anim_failed} failed)" if anim_failed else "")
-            ),
         )
 
     # ── Final planning status ──
@@ -179,29 +146,60 @@ async def run_full_pipeline(goal_id: str, user_id: str) -> None:
             status="failed",
             error_message=f"All {total} storyboards failed",
         )
+        await update_agent_task(
+            goal_id, "visualization",
+            status="failed",
+            error_message="No storyboards succeeded — nothing to animate",
+        )
+        return
+
+    # ── Stage 3: Animate FIRST lesson only (Gemini API — expensive) ──
+    # Subsequent lessons are animated on-demand via the /agents/animate-lesson
+    # endpoint when the student clicks "Generate" on the course page.
+    anim_done = 0
+    anim_failed = 0
+    first_id = storyboard_success[0]
+    first_title = next(
+        (l.get("title", first_id)[:40] for l in all_lessons
+         if l.get("lesson_id") == first_id),
+        first_id,
+    )
+
+    await update_agent_task(
+        goal_id, "visualization",
+        progress=10,
+        current_task=f"Animating first lesson: {first_title}...",
+    )
+
+    try:
+        logger.info(f"[Pipeline] Animating first lesson {first_id}: {first_title}")
+        await generate_lesson_visuals(goal_id, user_id, first_id)
+        anim_done = 1
+    except Exception as e:
+        anim_failed = 1
+        logger.error(f"[Pipeline] Animation {first_id} crashed: {e}")
 
     # ── Final visualization status ──
     if anim_done > 0:
+        remaining = len(storyboard_success) - 1
+        msg = f"Lesson 1 animated — {remaining} more available to generate from course page"
         await update_agent_task(
             goal_id, "visualization",
             status="completed",
             progress=100,
-            current_task=(
-                f"All done — {anim_done}/{total} lessons animated"
-                + (f" ({anim_failed} failed)" if anim_failed else "")
-            ),
-            log_message=f"Visualization complete: {anim_done}/{total} lessons",
+            current_task=msg,
+            log_message=f"Visualization complete: 1/{total} animated (on-demand for rest)",
         )
     else:
         await update_agent_task(
             goal_id, "visualization",
             status="failed",
-            error_message=f"All {total} lessons failed to animate",
+            error_message=f"First lesson animation failed: {first_title}",
         )
 
     logger.info(
         f"[Pipeline] Done for {goal_id}: "
-        f"storyboards {plan_done}/{total}, animations {anim_done}/{total}"
+        f"storyboards {plan_done}/{total}, animations {anim_done}/1 (first lesson only)"
     )
 
 
@@ -247,38 +245,7 @@ async def resume_pipeline(goal_id: str, user_id: str) -> None:
     else:
         # Build context from existing onboarding + research (needed for storyboard prompts)
         try:
-            from app.agents.course_planner.pipeline_v4 import (
-                _build_research_context,
-                _flatten_lessons,
-            )
-            onboarding = await fetch_onboarding_data(goal_id, user_id)
-            research_results = await fetch_research_results(goal_id)
-            from app.services.agent_task import fetch_research_sources
-            research_sources = await fetch_research_sources(goal_id)
-            research_ctx = _build_research_context(research_results or {}, research_sources)
-
-            from app.services.supabase import get_supabase
-            sb = get_supabase()
-            student_name = "Student"
-            try:
-                prof = sb.table("profiles").select("name, email").eq("id", user_id).single().execute()
-                if prof.data:
-                    student_name = (
-                        prof.data.get("name")
-                        or (prof.data.get("email") or "").split("@")[0]
-                        or "Student"
-                    )
-            except Exception:
-                pass
-
-            context = {
-                "goal": onboarding.get("goal") or {},
-                "prefs": onboarding.get("preferences") or {},
-                "profile": onboarding.get("profile") or {},
-                "student_name": student_name,
-                "research_ctx": research_ctx,
-                "research_sources": research_sources,
-            }
+            context = await _build_lesson_context(goal_id, user_id)
         except Exception as e:
             logger.error(f"[Pipeline] Resume: context load failed: {e}")
             await update_agent_task(goal_id, "planning", status="failed",
@@ -322,35 +289,16 @@ async def resume_pipeline(goal_id: str, user_id: str) -> None:
 
     plan_done = 0
     plan_skipped = 0
-    anim_done = 0
-    anim_skipped = 0
     plan_failed = 0
-    anim_failed = 0
 
+    # ── Pass 1: Fill in any missing storyboards ──
     for i, lesson in enumerate(all_lessons):
         lesson_id = lesson.get("lesson_id", f"lesson-{i}")
-
         sb_done = await _storyboard_done(lesson_id)
-        an_done = await _animations_done(lesson_id)
 
-        if sb_done and an_done:
+        if sb_done:
             plan_skipped += 1
-            anim_skipped += 1
-            logger.info(f"[Pipeline] Resume: {lesson_id} fully done — skipping")
-            await update_agent_task(
-                goal_id, "planning",
-                progress=int(90 * (i + 1) / total),
-                current_task=f"Resuming: {i + 1}/{total} — {lesson_id} already complete",
-            )
-            await update_agent_task(
-                goal_id, "visualization",
-                progress=int(100 * (i + 1) / total),
-                current_task=f"Resuming: {i + 1}/{total} — {lesson_id} already complete",
-            )
-            continue
-
-        # ── Storyboard if missing ──
-        if not sb_done:
+        else:
             try:
                 pct = 15 + int(75 * i / total)
                 lp = await generate_one_lesson_storyboard_v4(
@@ -360,18 +308,14 @@ async def resume_pipeline(goal_id: str, user_id: str) -> None:
                     context=context,
                     overall_pct=pct,
                 )
-                # Refresh lesson_plans after save
                 lesson_plans[lesson_id] = lp
                 if lp.get("frames") and not lp.get("error"):
                     plan_done += 1
-                    sb_done = True
                 else:
                     plan_failed += 1
             except Exception as e:
                 plan_failed += 1
                 logger.error(f"[Pipeline] Resume: storyboard {lesson_id} crashed: {e}")
-        else:
-            plan_skipped += 1
 
         await update_agent_task(
             goal_id, "planning",
@@ -379,31 +323,9 @@ async def resume_pipeline(goal_id: str, user_id: str) -> None:
             current_task=f"Storyboards: {plan_done + plan_skipped}/{total} ready",
         )
 
-        # ── Animation if storyboard exists but animations are missing ──
-        if sb_done and not an_done:
-            try:
-                await generate_lesson_visuals(goal_id, user_id, lesson_id)
-                anim_done += 1
-            except Exception as e:
-                anim_failed += 1
-                logger.error(f"[Pipeline] Resume: animation {lesson_id} crashed: {e}")
-        elif an_done:
-            anim_skipped += 1
-
-        await update_agent_task(
-            goal_id, "visualization",
-            progress=int(100 * (i + 1) / total),
-            current_task=(
-                f"{anim_done + anim_skipped}/{total} animated"
-                + (f" ({anim_failed} failed)" if anim_failed else "")
-            ),
-        )
-
-    # ── Final status ──
     total_plan_ok = plan_done + plan_skipped
-    total_anim_ok = anim_done + anim_skipped
 
-    if total_plan_ok == total:
+    if total_plan_ok > 0:
         await update_agent_task(
             goal_id, "planning", status="completed", progress=100,
             current_task=f"All {total} storyboards done"
@@ -415,25 +337,150 @@ async def resume_pipeline(goal_id: str, user_id: str) -> None:
             goal_id, "planning", status="failed",
             error_message=f"{plan_failed}/{total} storyboards failed",
         )
-
-    if total_anim_ok == total:
-        await update_agent_task(
-            goal_id, "visualization", status="completed", progress=100,
-            current_task=f"All {total} lessons animated"
-            + (f" ({anim_done} new)" if anim_done else ""),
-            log_message=f"Visualization complete: {total_anim_ok}/{total}",
-        )
-    else:
         await update_agent_task(
             goal_id, "visualization", status="failed",
-            error_message=f"{anim_failed}/{total} animations failed",
+            error_message="No storyboards succeeded — nothing to animate",
+        )
+        return
+
+    # ── Pass 2: Animate first incomplete lesson only ──
+    # Check which lessons already have animations — if any do, skip
+    # (user will trigger remaining lessons via the "Generate" button).
+    any_animated = False
+    first_unanimated: str | None = None
+
+    for lesson in all_lessons:
+        lid = lesson.get("lesson_id", "")
+        an_done = await _animations_done(lid)
+        if an_done:
+            any_animated = True
+        elif first_unanimated is None and await _storyboard_done(lid):
+            first_unanimated = lid
+
+    if any_animated or first_unanimated is None:
+        # At least one lesson already animated, or nothing to animate
+        anim_count = sum(
+            1 for l in all_lessons
+            if await _animations_done(l.get("lesson_id", ""))
+        )
+        await update_agent_task(
+            goal_id, "visualization", status="completed", progress=100,
+            current_task=(
+                f"{anim_count}/{total} animated — generate remaining from course page"
+            ),
+            log_message=f"Resume done: {anim_count}/{total} animated",
+        )
+    else:
+        # No lessons animated yet — animate the first storyboard-ready lesson
+        await update_agent_task(
+            goal_id, "visualization",
+            progress=10,
+            current_task=f"Animating first lesson: {first_unanimated}...",
+        )
+        anim_ok = False
+        try:
+            await generate_lesson_visuals(goal_id, user_id, first_unanimated)
+            anim_ok = True
+        except Exception as e:
+            logger.error(f"[Pipeline] Resume: animation {first_unanimated} crashed: {e}")
+
+        if anim_ok:
+            remaining = total - 1
+            await update_agent_task(
+                goal_id, "visualization", status="completed", progress=100,
+                current_task=f"Lesson 1 animated — {remaining} more available from course page",
+                log_message=f"Resume done: 1/{total} animated (on-demand for rest)",
+            )
+        else:
+            await update_agent_task(
+                goal_id, "visualization", status="failed",
+                error_message=f"Animation failed for {first_unanimated}",
+            )
+
+    logger.info(f"[Pipeline] Resume done for {goal_id}")
+
+
+async def _build_lesson_context(goal_id: str, user_id: str) -> dict:
+    """Build the context dict needed for storyboard generation.
+
+    Extracted from resume_pipeline so it can be reused by
+    ensure_storyboard_and_animate for on-demand per-lesson generation.
+    """
+    from app.agents.course_planner.pipeline_v4 import _build_research_context
+
+    onboarding = await fetch_onboarding_data(goal_id, user_id)
+    research_results = await fetch_research_results(goal_id)
+    research_sources = await fetch_research_sources(goal_id)
+    research_ctx = _build_research_context(research_results or {}, research_sources)
+
+    sb = get_supabase()
+    student_name = "Student"
+    try:
+        prof = sb.table("profiles").select("name, email").eq("id", user_id).single().execute()
+        if prof.data:
+            student_name = (
+                prof.data.get("name")
+                or (prof.data.get("email") or "").split("@")[0]
+                or "Student"
+            )
+    except Exception:
+        pass
+
+    return {
+        "goal": onboarding.get("goal") or {},
+        "prefs": onboarding.get("preferences") or {},
+        "profile": onboarding.get("profile") or {},
+        "student_name": student_name,
+        "research_ctx": research_ctx,
+        "research_sources": research_sources,
+    }
+
+
+def _find_lesson_in_structure(course_structure: dict, lesson_id: str) -> dict | None:
+    """Find a lesson dict in the course structure by lesson_id."""
+    for mod in (course_structure.get("modules") or []):
+        for lesson in (mod.get("lessons") or []):
+            if lesson.get("lesson_id") == lesson_id:
+                return lesson
+    return None
+
+
+async def ensure_storyboard_and_animate(
+    goal_id: str, user_id: str, lesson_id: str,
+) -> None:
+    """Generate storyboard if missing, then animate one lesson.
+
+    Called by the /agents/animate-lesson endpoint so the user can trigger
+    per-lesson generation from the course page. Handles the case where
+    a storyboard failed during the initial pipeline run.
+    """
+    sb = get_supabase()
+    cp = sb.table("course_plans").select(
+        "lesson_plans, course_structure",
+    ).eq("goal_id", goal_id).single().execute()
+
+    if not cp.data:
+        raise RuntimeError("No course plan found")
+
+    lp = (cp.data.get("lesson_plans") or {}).get(lesson_id, {})
+
+    if not lp.get("frames"):
+        logger.info(f"[Pipeline] Storyboard missing for {lesson_id} — generating")
+        context = await _build_lesson_context(goal_id, user_id)
+        lesson = _find_lesson_in_structure(
+            cp.data.get("course_structure", {}), lesson_id,
+        )
+        if not lesson:
+            raise RuntimeError(f"Lesson {lesson_id} not found in course structure")
+        await generate_one_lesson_storyboard_v4(
+            goal_id=goal_id,
+            user_id=user_id,
+            lesson=lesson,
+            context=context,
+            overall_pct=50,
         )
 
-    logger.info(
-        f"[Pipeline] Resume done for {goal_id}: "
-        f"storyboards {total_plan_ok}/{total} ({plan_done} new), "
-        f"animations {total_anim_ok}/{total} ({anim_done} new)"
-    )
+    await generate_lesson_visuals(goal_id, user_id, lesson_id)
 
 
 async def _mark_downstream_failed(goal_id: str, reason: str) -> None:

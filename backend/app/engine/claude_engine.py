@@ -119,34 +119,84 @@ class ClaudeEngine:
                 cwd=cwd,
             )
 
-            logger.info(f"[ClaudeEngine] Process started PID: {process.pid}")
+            logger.info(
+                f"[ClaudeEngine] Process started PID: {process.pid} "
+                f"model={self.model} timeout={timeout}s"
+            )
 
-            # Timeout monitor thread
+            # Timeout monitor thread + heartbeat (so long Opus calls don't
+            # look like the server is hung)
             def monitor():
                 nonlocal process_killed
+                last_heartbeat = process_start_time
                 while process.poll() is None and not process_killed:
                     time.sleep(2)
-                    if time.time() - process_start_time > timeout:
+                    now = time.time()
+                    elapsed = now - process_start_time
+                    if elapsed > timeout:
                         process_killed = True
                         process.kill()
                         break
+                    if now - last_heartbeat >= 30:
+                        logger.info(
+                            f"[ClaudeEngine] still working… {int(elapsed)}s elapsed "
+                            f"(timeout {timeout}s, model={self.model})"
+                        )
+                        last_heartbeat = now
 
             monitor_thread = threading.Thread(target=monitor, daemon=True)
             monitor_thread.start()
 
-            # Read stdout (shows progress/summary from Claude)
+            # Drain stdout and stderr concurrently — stderr in a separate
+            # thread so the subprocess can't deadlock filling its pipe buffer,
+            # AND so we still have its contents on non-zero exit.
+            stdout_chunks: list[bytes] = []
+            stderr_chunks: list[bytes] = []
+
+            def _drain_stderr():
+                if not process.stderr:
+                    return
+                for chunk in iter(process.stderr.readline, b""):
+                    if not chunk:
+                        break
+                    stderr_chunks.append(chunk)
+
+            stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+            stderr_thread.start()
+
             for line in iter(process.stdout.readline, b""):
                 if not line or process_killed:
                     break
+                stdout_chunks.append(line)
 
             process.wait()
+            stderr_thread.join(timeout=2)
+
+            stdout_text = b"".join(stdout_chunks).decode("utf-8", errors="ignore")
+            stderr_text = b"".join(stderr_chunks).decode("utf-8", errors="ignore")
 
             if process_killed:
                 raise RuntimeError(f"Claude Code timed out after {timeout}s")
 
             if process.returncode != 0:
-                stderr = process.stderr.read().decode("utf-8", errors="ignore") if process.stderr else ""
-                raise RuntimeError(f"Claude Code failed (exit {process.returncode}): {stderr[:300]}")
+                # Surface stderr first; if empty, fall back to stdout tail and
+                # whether the output file was even touched. Empty-stderr exits
+                # usually mean the CLI rejected an arg (e.g. unknown --model
+                # alias) and printed nothing useful.
+                detail = stderr_text.strip()
+                if not detail:
+                    detail = (
+                        f"(empty stderr) stdout_tail={stdout_text[-300:]!r} "
+                        f"output_file_exists={output_file.exists()} "
+                        f"model={self.model!r}"
+                    )
+                logger.error(
+                    f"[ClaudeEngine] exit {process.returncode} | model={self.model} "
+                    f"| stderr={stderr_text[:500]!r} | stdout_tail={stdout_text[-300:]!r}"
+                )
+                raise RuntimeError(
+                    f"Claude Code failed (exit {process.returncode}): {detail[:500]}"
+                )
 
             # Read the output file Claude wrote
             if not output_file.exists():

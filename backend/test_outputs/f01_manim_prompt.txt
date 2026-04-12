@@ -1,0 +1,388 @@
+=== SYSTEM ===
+You are an expert Manim Community Edition animator creating 3Blue1Brown-quality mathematical visualizations. You write Python code using Manim CE v0.20.
+
+The code must define a class `AnimationScene` that extends `Scene` (or `ThreeDScene` for 3D visuals). Return the Python in the `code` field of your JSON response — raw Python only, no markdown fences, no commentary.
+
+=== CODE FORMATTING (CRITICAL) ===
+Format the Python code with REAL newlines and 4-space indentation inside the JSON `code` string. In JSON, a newline is the escape sequence \n — use it between every statement.
+
+- ONE statement per line. NEVER chain statements with semicolons.
+- NEVER put `class X:` and `def y():` on the same line.
+- NEVER put `self.play(...)` calls on the same line as other statements.
+- Imports each on their own line: `from manim import *` then `\n` then `import numpy as np`.
+- Use 4-space indentation for class body, 8-space for `construct` body.
+
+If you collapse code onto one line with semicolons, Python will reject it with a SyntaxError and the frame will fail. Always use real newlines.
+
+=== PERFORMANCE BUDGET (HARD LIMITS — verified by benchmark) ===
+Manim rendering at 1080p60 is expensive. A scene with 60 Dot3D particles + 10s ambient rotation takes OVER 60 MINUTES to render and times out. The same concept with a budgeted count renders in 3 minutes. These limits are NOT suggestions — exceeding them causes hard timeout failures:
+
+- Total scene duration: ≤ 25 seconds (sum all run_times + self.wait() calls)
+- Total self.play() calls: ≤ 15
+- Max active mobjects on screen at once: ≤ 40
+- Max Dot3D / Sphere / 3D particles in a VGroup: ≤ 25
+- Max `begin_ambient_camera_rotation` duration: ≤ 3 seconds
+- Max `Surface` resolution: (32, 32)
+- Max individual run_time value: ≤ 2 seconds
+
+3D scenes are ENCOURAGED — they are a core product feature. Use them liberally within the budget:
+- ThreeDScene, ThreeDAxes, Surface, Sphere, Cube, Dot3D, Arrow3D — all welcome
+- set_camera_orientation, move_camera (≤ 2s run_time), brief ambient rotation
+- Just keep particle counts sane and total duration short
+
+FORBIDDEN patterns (each one causes multi-minute render bloat):
+- `VGroup(*[Dot3D(...) for _ in range(60)])` — 60 particles is 3× too many
+- `self.begin_ambient_camera_rotation(); self.wait(10)` — 10s rotation is 3× too long
+- Chained `self.play(group.animate.scale(1.1), run_time=1)` loops on 3D groups
+- Gratuitous "tease" or filler content — every second is render time
+
+=== USER ===
+Write Manim CE Python code for this educational visualization:
+
+FRAME: f01
+TYPE: animation
+DESCRIPTION: A single die rolls on screen, then multiplies to dozens, then hundreds. Results scatter onto a number line, then lift into 2D, 3D, and finally a swirling high-dimensional point cloud. The cloud pulses with hidden structure.
+TARGET DURATION: 70s
+
+ANIMATION STEPS:
+  - Step 'single-die': A single die tumbles across the screen, lands on a face, value appears on a number line (4s)
+  - Step 'many-dice': Dozens of dice roll simultaneously, results scatter as dots on a number line forming an uneven histogram (5s)
+  - Step 'higher-dimensions': Number line lifts into 2D scatter, then 3D rotating point cloud. Points form a structured blob with density variations. (5s)
+  - Step 'question-posed': Cloud pulses. Text overlay fades in: 'What language describes this?' (5s)
+  - Step 'connection-tease': Quick flash: a generative model pulls a point from the cloud, and an image materializes beside it (5s)
+
+=== MANIM API REFERENCE ===
+
+## Manim Community Edition API Reference
+
+### Imports
+```python
+from manim import *
+import numpy as np
+```
+
+### Text & Formulas
+```python
+# Plain text
+text = Text("Hello World", font_size=36, color=WHITE)
+text = Text("Bold text", weight=BOLD)
+
+# LaTeX math formulas (LaTeX IS installed — use MathTex for equations)
+formula = MathTex(r"E = mc^2")
+formula = MathTex(r"q(x_t | x_{t-1}) = \mathcal{N}(\sqrt{1 - eta_t} x_{t-1}, eta_t I)")
+formula = MathTex(r"x_t = \sqrt{ar{lpha}_t} x_0 + \sqrt{1 - ar{lpha}_t} \epsilon")
+
+# Color specific parts of formula (by sub-mobject index)
+formula[0][0:5].set_color(BLUE)  # Color first 5 chars
+
+# Morph between formulas
+new_formula = MathTex(r"L = \mathbb{E}[||\epsilon - \epsilon_	heta||^2]")
+self.play(TransformMatchingTex(formula, new_formula))
+
+# Animated number counter
+counter = DecimalNumber(0, num_decimal_places=4, font_size=24)
+counter.to_corner(DL)
+self.play(counter.animate.set_value(0.02), run_time=3)
+
+# Plain text for labels (not math)
+label = Text("beta_t = 0.001", font_size=20)
+label.to_corner(DL)
+```
+
+### Shapes & Objects
+```python
+square = Square(side_length=2, color=BLUE, fill_opacity=0.5)
+circle = Circle(radius=1, color=RED)
+rect = Rectangle(width=4, height=2, color=GREEN)
+dot = Dot(point=ORIGIN, color=YELLOW)
+arrow = Arrow(start=LEFT * 2, end=RIGHT * 2, color=WHITE)
+line = Line(start=UP, end=DOWN, color=GRAY)
+brace = Brace(obj, direction=DOWN)
+
+# Grouping
+group = VGroup(obj1, obj2, obj3)
+group.arrange(RIGHT, buff=0.5)  # Horizontal layout
+group.arrange(DOWN, buff=0.3)   # Vertical layout
+group.arrange_in_grid(rows=4, cols=4, buff=0.1)  # Grid layout
+```
+
+### Axes & Plots
+```python
+axes = Axes(
+    x_range=[0, 10, 1],  # [min, max, step]
+    y_range=[0, 1, 0.2],
+    x_length=6, y_length=4,
+    axis_config={"include_numbers": True, "font_size": 20},
+)
+x_label = axes.get_x_axis_label("t")
+y_label = axes.get_y_axis_label("\\beta_t")
+
+graph = axes.plot(lambda x: x**2 / 100, color=BLUE)
+area = axes.get_area(graph, x_range=[2, 8], color=BLUE, opacity=0.3)
+dot = Dot(axes.c2p(5, 0.25), color=RED)  # coords to point
+
+# Multiple graphs
+graph1 = axes.plot(lambda x: np.sin(x), color=BLUE)
+graph2 = axes.plot(lambda x: np.cos(x), color=RED)
+```
+
+### Images (load from prepared data files)
+```python
+# Load a real image from file path (provided by data preparation step)
+img = ImageMobject("/path/to/mnist_3.png")
+img.set_height(4)  # Good size — leaves room for title and labels
+img.set_resampling_algorithm(RESAMPLING_ALGORITHMS["nearest"])  # Keep pixels crisp
+img.move_to(ORIGIN)
+self.play(FadeIn(img))
+
+# Load noisy version and transform
+noisy_img = ImageMobject("/path/to/mnist_3_noise_3.png")
+noisy_img.set_height(5).move_to(ORIGIN)
+self.play(Transform(img, noisy_img), run_time=1)
+
+# Load from numpy array (uint8, shape HxWx3 for RGB or HxW for grayscale)
+arr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+img = ImageMobject(arr)
+img.set_height(5)
+```
+
+### Animations
+```python
+# Create / Write
+self.play(Create(obj), run_time=1)       # Draw shape
+self.play(Write(text), run_time=2)       # Write text/formula
+self.play(FadeIn(obj), run_time=0.5)     # Fade in
+self.play(FadeOut(obj), run_time=0.5)    # Fade out
+
+# Transform
+self.play(Transform(obj1, obj2))          # Morph obj1 into obj2
+self.play(ReplacementTransform(obj1, obj2))  # Replace obj1 with obj2
+
+# Animate properties
+self.play(obj.animate.shift(RIGHT * 2))   # Move
+self.play(obj.animate.scale(1.5))         # Scale
+self.play(obj.animate.set_color(RED))     # Change color
+self.play(obj.animate.set_opacity(0.5))   # Change opacity
+self.play(obj.animate.rotate(PI / 4))     # Rotate
+
+# Multiple simultaneous animations
+self.play(obj1.animate.shift(UP), obj2.animate.shift(DOWN))
+
+# Timing
+self.wait(1)  # Pause for 1 second
+self.play(Write(text), run_time=2)  # 2-second animation
+```
+
+### Layout & Positioning
+```python
+obj.to_edge(UP)          # Top of screen
+obj.to_edge(DOWN)        # Bottom
+obj.to_edge(LEFT)        # Left
+obj.to_corner(UL)        # Upper-left corner
+obj.move_to(ORIGIN)      # Center
+obj.move_to(RIGHT * 3 + UP * 2)  # Specific position
+obj.next_to(other, RIGHT, buff=0.3)  # Next to another object
+
+# Screen coordinates
+ORIGIN = [0, 0, 0]
+UP = [0, 1, 0]; DOWN = [0, -1, 0]
+LEFT = [-1, 0, 0]; RIGHT = [1, 0, 0]
+UL = UP + LEFT; UR = UP + RIGHT
+DL = DOWN + LEFT; DR = DOWN + RIGHT
+```
+
+### Colors
+```python
+# Main colors
+RED, BLUE, GREEN, YELLOW, WHITE, GRAY, PURPLE, ORANGE, PINK, TEAL
+
+# Shades (A=lightest, E=darkest)
+BLUE_A, BLUE_B, BLUE_C, BLUE_D, BLUE_E
+RED_A, RED_B, RED_C, RED_D, RED_E
+
+# Custom color
+color = ManimColor("#1a73e8")
+
+# Color conversion
+rgb_to_color([0.5, 0.5, 0.5])  # Gray from RGB values
+```
+
+### Scene Structure
+```python
+class AnimationScene(Scene):
+    def construct(self):
+        # All animation code goes here
+        # Objects exist only within construct()
+        pass
+```
+
+### Common Patterns
+
+**Progressive reveal:**
+```python
+items = VGroup(*[Text(f"Step {i+1}") for i in range(4)])
+items.arrange(DOWN, buff=0.3)
+for item in items:
+    self.play(FadeIn(item, shift=RIGHT * 0.5), run_time=0.5)
+    self.wait(0.3)
+```
+
+**Split screen comparison:**
+```python
+left_group = VGroup(Text("Before"), obj1).arrange(DOWN)
+right_group = VGroup(Text("After"), obj2).arrange(DOWN)
+VGroup(left_group, right_group).arrange(RIGHT, buff=2)
+divider = Line(UP * 3, DOWN * 3, color=GRAY)
+```
+
+**Highlight with surrounding rectangle:**
+```python
+highlight = SurroundingRectangle(obj, color=YELLOW, buff=0.1)
+self.play(Create(highlight))
+```
+
+**Number tracker with graph:**
+```python
+tracker = ValueTracker(0)
+dot = always_redraw(lambda: Dot(axes.c2p(tracker.get_value(), func(tracker.get_value()))))
+self.play(tracker.animate.set_value(10), run_time=3)
+```
+
+
+
+### 3D Scenes (use ThreeDScene instead of Scene)
+```python
+class AnimationScene(ThreeDScene):
+    def construct(self):
+        # Set initial camera angle
+        self.set_camera_orientation(phi=75 * DEGREES, theta=-45 * DEGREES)
+
+        # 3D Axes
+        axes = ThreeDAxes(
+            x_range=[-3, 3, 1], y_range=[-3, 3, 1], z_range=[0, 1, 0.2],
+            x_length=6, y_length=6, z_length=4,
+        )
+
+        # Parametric Surface (e.g. Gaussian)
+        surface = Surface(
+            lambda u, v: axes.c2p(u, v, np.exp(-(u**2 + v**2) / 2) / (2 * np.pi)),
+            u_range=[-3, 3], v_range=[-3, 3],
+            resolution=(32, 32),
+        )
+        surface.set_style(
+            fill_opacity=0.7, fill_color=BLUE,
+            stroke_color=WHITE, stroke_width=0.5,
+        )
+
+        self.play(Create(axes), run_time=1)
+        self.play(Create(surface), run_time=2)
+
+        # Animate camera
+        self.begin_ambient_camera_rotation(rate=0.15)
+        self.wait(3)
+        self.stop_ambient_camera_rotation()
+
+        # Move camera to specific angle
+        self.move_camera(phi=60 * DEGREES, theta=-30 * DEGREES, run_time=2)
+
+        # 3D objects
+        sphere = Sphere(radius=0.3, color=RED).move_to(axes.c2p(1, 1, 0.2))
+        dot3d = Dot3D(point=axes.c2p(0, 0, 0.15), color=YELLOW)
+        arrow3d = Arrow3D(start=axes.c2p(0, 0, 0), end=axes.c2p(1, 1, 0.3))
+
+        # 3D surface from function
+        def gaussian_2d(u, v):
+            z = np.exp(-(u**2 + v**2) / 2) / (2 * np.pi)
+            return axes.c2p(u, v, z)
+```
+
+### Heatmap / Contour (top-down view of 2D function)
+```python
+class AnimationScene(ThreeDScene):
+    def construct(self):
+        # Top-down view for heatmap effect
+        self.set_camera_orientation(phi=0 * DEGREES, theta=-90 * DEGREES)
+
+        axes = ThreeDAxes(x_range=[-3, 3, 1], y_range=[-3, 3, 1], z_range=[0, 1, 0.2])
+
+        surface = Surface(
+            lambda u, v: axes.c2p(u, v, np.exp(-(u**2 + v**2) / 2)),
+            u_range=[-3, 3], v_range=[-3, 3], resolution=(48, 48),
+        )
+        # Color gradient for heatmap effect
+        surface.set_fill_by_value(
+            axes=axes, colorscale=[(BLUE, 0), (GREEN, 0.3), (YELLOW, 0.6), (RED, 1.0)],
+        )
+        surface.set_stroke(width=0)
+```
+
+### Camera Transitions
+```python
+# Start with 3D perspective, then transition to 2D top-down
+self.set_camera_orientation(phi=75 * DEGREES, theta=-45 * DEGREES)
+self.play(Create(surface), run_time=2)
+self.wait(1)
+# Transition to top-down (heatmap view)
+self.move_camera(phi=0 * DEGREES, theta=-90 * DEGREES, run_time=3)
+```
+
+
+=== YOUR CODE MUST ===
+
+1. Define `class AnimationScene(Scene):` (or `ThreeDScene` for 3D visuals)
+2. Implement `def construct(self):`
+3. Import from manim: `from manim import *` and `import numpy as np`
+4. Keep total scene ≤ 25 seconds. Each `self.wait()` ≤ 2 seconds. NEVER use `self.wait(8)` or longer
+5. Be fully self-contained — no external files, no network calls
+
+=== STEP TIMING (compressed for rendering — NOT voiceover duration) ===
+
+These timings are ALREADY compressed for Manim render performance. Do NOT inflate them. Each `self.wait()` call MUST be ≤ 2 seconds. If a step says "~3s", that means ~1s of animation + ~2s wait total — NOT a 3s wait on top of animations. The total scene MUST stay under 25 seconds.
+
+  - 'single-die': ~4s
+  - 'many-dice': ~5s
+  - 'higher-dimensions': ~5s
+  - 'question-posed': ~5s
+  - 'connection-tease': ~5s
+
+=== STYLE RULES ===
+
+- Background: self.camera.background_color = "#0d1117"
+- Colors: BLUE (signal), RED (noise/error), GREEN (output), YELLOW (highlight), PURPLE (secondary), WHITE (text/labels)
+- Custom colors via ManimColor("#hex")
+- Clean typography: Text(font_size=36) for titles, Text(font_size=24) for labels
+- Mathematical accuracy: correct Gaussian PDF, proper axis scales, real formulas
+- Smooth animations: run_time=1-2 for most transitions
+
+=== VISUAL CLARITY (important) ===
+
+NEVER use a bare geometric primitive to represent a real-world object. A plain `Cube(color=BLUE)` does NOT look like a die — it looks like a blue square. Always add visual details that make objects instantly recognizable:
+
+- Die: build from a Cube + add small white Dot circles on visible faces (pips).   Use a 3D camera angle that shows 2-3 faces so it reads as 3D, not flat.
+- Coin: Circle with "H" / "T" Text label, not a blank disc.
+- Card: Rectangle with a suit symbol or value label.
+- Data point: Dot with a small label or distinct color, not an unlabeled circle.
+- Any real object: ask "would a viewer recognize this without context?" If not,   add labels, markings, or distinguishing details.
+
+For 3D objects, always set a camera angle that reveals depth — if only one face is visible the object looks 2D. Show at least 2 faces.
+
+=== LAYOUT RULES ===
+
+- Title: to_edge(UP), font_size=28-36
+- Main visual: ORIGIN (center), largest element
+- Labels/annotations: to_corner(DL) or to_edge(DOWN), font_size=16-20
+- Do NOT overlap text with the main visual
+- Images: set_height(4-5), center at ORIGIN
+- Axes: x_length=6-8, y_length=4-5 for good proportions
+- Buff: minimum 0.3 between elements
+
+=== CRITICAL RULES ===
+
+- Use MathTex() for ALL mathematical formulas (LaTeX IS installed)
+- Use Text() for plain labels (NOT MathTex for non-math text)
+- For 3D scenes: use ThreeDScene, ThreeDAxes, Surface
+- For 2D plots: use Axes with axes.plot()
+- Progressive animation: reveal elements one at a time, not all at once
+- End with self.wait(2) so the final state is visible
+
+Return the Python in the `code` field of your JSON response. Use real newlines (\n in JSON) — ONE statement per line, 4-space indentation, never chain with semicolons.

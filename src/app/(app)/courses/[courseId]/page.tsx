@@ -63,6 +63,7 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [startingLessonId, setStartingLessonId] = useState<string | null>(null);
+  const [generatingLessonId, setGeneratingLessonId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -221,6 +222,48 @@ export default function CourseDetailPage() {
     }
   }
 
+  async function generateAnimations(lessonId: string) {
+    if (!user) return;
+    setGeneratingLessonId(lessonId);
+    setStartError(null);
+
+    const sb = createClient();
+    const { data: sessionData } = await sb.auth.getSession();
+    if (!sessionData.session?.access_token) {
+      setStartError("Not authenticated. Please refresh and sign in again.");
+      setGeneratingLessonId(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/animate-lesson`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+          body: JSON.stringify({ goal_id: goalId, lesson_id: lessonId }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to start animation generation");
+      }
+      // Existing realtime subscriptions on lesson_animations will
+      // auto-refresh the UI as animations complete — no polling needed.
+    } catch (e) {
+      console.error("[CourseDetail] generateAnimations failed:", e);
+      setStartError(
+        e instanceof Error ? e.message : "Failed to generate. Try again."
+      );
+    } finally {
+      setGeneratingLessonId(null);
+    }
+  }
+
   if (loading || userLoading) {
     return (
       <div className="p-8 max-w-5xl mx-auto w-full animate-pulse">
@@ -308,6 +351,14 @@ export default function CourseDetailPage() {
               {mod.lessons.map((lesson) => {
                 const isReady = lesson.animations_ready > 0;
                 const isStarting = startingLessonId === lesson.lesson_id;
+                const isGenerating = generatingLessonId === lesson.lesson_id;
+                const isInProgress =
+                  lesson.animations_total > 0 &&
+                  lesson.animations_ready < lesson.animations_total;
+                const canGenerate =
+                  lesson.has_planner_frames &&
+                  lesson.animations_total === 0 &&
+                  !isGenerating;
                 const animPct = lesson.animations_total
                   ? Math.round(
                       (100 * lesson.animations_ready) / lesson.animations_total
@@ -316,7 +367,7 @@ export default function CourseDetailPage() {
                 const statusText = !lesson.has_planner_frames
                   ? "Planning..."
                   : lesson.animations_total === 0
-                    ? "Animation queued..."
+                    ? "Ready to generate"
                     : `${lesson.animations_ready}/${lesson.animations_total} animations ready (${animPct}%)`;
 
                 return (
@@ -337,7 +388,7 @@ export default function CourseDetailPage() {
                           {statusText}
                         </span>
                       </p>
-                      {lesson.animations_total > 0 && !isReady && (
+                      {isInProgress && (
                         <div className="mt-2 h-1 w-full max-w-xs bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-amber-500 rounded-full transition-all"
@@ -346,23 +397,46 @@ export default function CourseDetailPage() {
                         </div>
                       )}
                     </div>
-                    <Button
-                      onClick={() => startLesson(lesson.lesson_id)}
-                      disabled={!isReady || isStarting}
-                      size="sm"
-                      className="shrink-0"
-                    >
-                      {isStarting ? (
-                        <>Starting...</>
-                      ) : isReady ? (
-                        <>
-                          Start Lesson
-                          <MaterialIcon name="play_arrow" className="text-base" />
-                        </>
-                      ) : (
-                        <>Generating...</>
+                    <div className="flex gap-2 shrink-0">
+                      {canGenerate && (
+                        <Button
+                          onClick={() => generateAnimations(lesson.lesson_id)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <MaterialIcon name="auto_awesome" className="text-base" />
+                          Generate
+                        </Button>
                       )}
-                    </Button>
+                      {isGenerating && (
+                        <Button size="sm" variant="outline" disabled>
+                          <MaterialIcon name="hourglass_top" className="text-base" />
+                          Starting...
+                        </Button>
+                      )}
+                      {isInProgress && (
+                        <Button size="sm" variant="outline" disabled>
+                          <MaterialIcon name="hourglass_top" className="text-base" />
+                          {animPct}%
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => startLesson(lesson.lesson_id)}
+                        disabled={!isReady || isStarting}
+                        size="sm"
+                      >
+                        {isStarting ? (
+                          <>Starting...</>
+                        ) : isReady ? (
+                          <>
+                            Start Lesson
+                            <MaterialIcon name="play_arrow" className="text-base" />
+                          </>
+                        ) : (
+                          <>Not Ready</>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 );
               })}

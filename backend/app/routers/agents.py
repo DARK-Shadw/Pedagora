@@ -2,13 +2,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.models.requests import ResearchRequest, CoursePlanRequest, AnimateLessonRequest
-from app.models.responses import ResearchAccepted, CoursePlanAccepted, AnimateLessonAccepted, AgentStatusResponse
+from app.models.requests import ResearchRequest, CoursePlanRequest, AnimateLessonRequest, RegenerateFrameRequest
+from app.models.responses import ResearchAccepted, CoursePlanAccepted, AnimateLessonAccepted, RegenerateFrameAccepted, AgentStatusResponse
 from app.services.agent_task import get_agent_task, update_agent_task, cleanup_previous_research, fetch_research_results, fetch_course_plan, get_lesson_animations
 from app.agents.research_v3 import run_research_v3
 from app.agents.course_planner.pipeline_v4 import run_course_planner_v4
-from app.agents.animation_v2.pipeline import generate_lesson_visuals as run_animation_pipeline_v2
-from app.agents.pipeline_orchestrator import run_full_pipeline, resume_pipeline
+from app.agents.pipeline_orchestrator import run_full_pipeline, resume_pipeline, ensure_storyboard_and_animate
 
 router = APIRouter()
 
@@ -206,8 +205,47 @@ async def trigger_animate_lesson(
             detail=f"Lesson '{lesson_id}' not found in course plan",
         )
 
-    background_tasks.add_task(run_animation_pipeline_v2, goal_id, user_id, lesson_id)
+    background_tasks.add_task(ensure_storyboard_and_animate, goal_id, user_id, lesson_id)
     return AnimateLessonAccepted(goal_id=goal_id, lesson_id=lesson_id)
+
+
+@router.post("/regenerate-frame", status_code=status.HTTP_202_ACCEPTED, response_model=RegenerateFrameAccepted)
+async def trigger_regenerate_frame(
+    request: RegenerateFrameRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
+    """Regenerate a single animation frame. Deletes existing output and re-runs."""
+    from app.agents.animation_v2.pipeline import regenerate_single_frame
+
+    user_id = user["sub"]
+    goal_id = request.goal_id
+    lesson_id = request.lesson_id
+    frame_id = request.frame_id
+
+    # Verify course plan exists and contains the frame
+    course_plan = await fetch_course_plan(goal_id)
+    if not course_plan:
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="Course plan must exist before regenerating frames",
+        )
+    lesson_plans = course_plan.get("lesson_plans", {})
+    lesson = lesson_plans.get(lesson_id, {})
+    if not lesson:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Lesson '{lesson_id}' not found in course plan",
+        )
+    frames = lesson.get("frames", [])
+    if not any(f.get("frame_id") == frame_id for f in frames):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Frame '{frame_id}' not found in lesson '{lesson_id}'",
+        )
+
+    background_tasks.add_task(regenerate_single_frame, goal_id, user_id, lesson_id, frame_id)
+    return RegenerateFrameAccepted(goal_id=goal_id, lesson_id=lesson_id, frame_id=frame_id)
 
 
 @router.get("/course-plan/{goal_id}")

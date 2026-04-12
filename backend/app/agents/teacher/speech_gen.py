@@ -412,25 +412,106 @@ STEP_SPEECHES_PROMPT = """\
 {personality}
 
 You are teaching {student_name} live. The student is looking at an animation.
-The animation has {step_count} discrete steps. At each step the animation will
-PAUSE on a specific visual state. You must explain what is visible at each step.
+The animation has {step_count} discrete steps. At each step the animation
+PAUSES on a specific visual state. Write the narration for each step.
 
 Animation description: {frame_description}
 
 Steps (in order):
 {steps_list}
 
-For EACH step, write ONE short speech (1-2 sentences, ~15 words max) that:
-- Describes what the student sees AT THAT EXACT STEP
-- Builds on what was said in previous steps (reference earlier steps when natural)
-- Sounds natural and conversational, not scripted
-- Uses spoken English only — NO LaTeX, NO math notation, NO symbols
+VOICE RULES (3Blue1Brown style — failure to follow these = rejected):
+- Each speech is 1-2 short sentences, max 14 words per sentence.
+- Use SPECIFIC concrete nouns from the step label, not "the visualization".
+- Mark deliberate pauses with "..." — Piper TTS honors them.
+- BANNED openers: "Look at...", "Notice how...", "In this video...",
+  "Let us...", "Today we...", "It is important to note...".
+- BANNED filler: "kind of like", "really cool", "amazing thing",
+  "as you can see", "let me explain".
+- NO LaTeX, NO underscores, NO subscripts. Spoken English only.
+- Ask a rhetorical question at least once across the {step_count} steps.
 
 Output a JSON array with EXACTLY {step_count} strings, in step order.
-Example format: ["First step speech here.", "Second step speech here."]
+Example format: ["First step speech.", "Second step speech."]
 
 Return ONLY the JSON array. No markdown fences. No commentary.
 """
+
+
+STEP_SPEECHES_REFINER_PROMPT = """\
+{personality}
+
+You are POLISHING planned narration for TTS playback. The narration was
+written by a senior curriculum designer in the 3Blue1Brown style — your job
+is to keep it almost verbatim, only making minimal edits for natural speech.
+
+Animation description: {frame_description}
+
+PLANNED NARRATION (one entry per step, in order):
+{narration_list}
+
+REFINER RULES (strict):
+- Preserve the SPECIFIC technical words and metaphors from the planned text.
+- Do NOT add new sentences. Do NOT replace specific nouns with vague ones.
+- Do NOT introduce filler ("kind of like", "really cool", "as you can see").
+- Do NOT use banned openers ("Look at", "Notice how", "In this video").
+- Strip any LaTeX, underscores, or math symbols — write them spelled out.
+- Keep "..." pause markers exactly where the planner placed them.
+- If a sentence is already clean, return it unchanged.
+
+Output a JSON array with EXACTLY {step_count} strings, in step order.
+Each entry corresponds to the planned narration at the same index.
+
+Return ONLY the JSON array. No markdown fences. No commentary.
+"""
+
+
+# Banned phrases the refiner / generator output must not contain.
+# Mirrors `app/agents/critic/rules.py::BANNED_PHRASES` so post-gen sanitation
+# stays in lockstep with the critic gate.
+_BANNED_PHRASE_PATTERNS = (
+    "look at this",
+    "look at the",
+    "notice how",
+    "in this video",
+    "let us ",
+    "it is important to note",
+    "as you can see",
+    "kind of like",
+    "really cool",
+    "super cool",
+    "amazing thing",
+    "let me explain",
+    "today we will learn",
+    "today we are going to",
+)
+
+
+def _strip_banned_phrases(text: str) -> str:
+    """Best-effort removal of banned filler from a single speech line.
+
+    The full critic gate runs upstream — this is a defensive net for legacy
+    Groq output that slips past the planner. Keeps the original sentence
+    structure as much as possible.
+    """
+    import re as _re
+    out = text
+    for phrase in _BANNED_PHRASE_PATTERNS:
+        # Case-insensitive removal of the phrase + any trailing comma/space
+        out = _re.sub(rf"(?i){_re.escape(phrase)}[, ]*", "", out)
+    # Collapse double spaces and leading punctuation
+    out = _re.sub(r"\s{2,}", " ", out).strip(" ,.;:")
+    return out or text  # never return empty — fall back to original
+
+
+def _token_overlap(a: str, b: str) -> float:
+    """Fraction of unique lowercase tokens in `a` that also appear in `b`."""
+    import re as _re
+    tokens_a = set(_re.findall(r"[a-zA-Z]{3,}", a.lower()))
+    tokens_b = set(_re.findall(r"[a-zA-Z]{3,}", b.lower()))
+    if not tokens_a:
+        return 1.0
+    return len(tokens_a & tokens_b) / len(tokens_a)
 
 
 async def generate_frame_speeches(
@@ -530,14 +611,20 @@ async def generate_step_speeches(
     step_labels: list[str],
     student_name: str,
     teaching_style: str,
+    step_narrations: list[str] | None = None,
 ) -> list[str]:
-    """Generate one short speech per animation step.
+    """Produce one short narration per animation step.
 
-    Each speech is 1-2 sentences (~15 words max) describing what is visible
-    at that specific step. The animation will be paused at each step while
-    the speech plays — this guarantees zero desync.
+    Two modes:
+      * REFINER (when `step_narrations` is provided): polish the planner's
+        text minimally for TTS. Diff-guarded — if Groq output drifts more
+        than 60% of the planned tokens, fall back to the planner verbatim.
+      * GENERATOR (no narrations): write fresh 3b1b-style narration from
+        the labels alone. Used as a fallback for legacy frames without
+        planner step narration.
 
-    On any failure, returns generic fallback speeches so the lesson still plays.
+    Either mode strips banned filler post-gen so the critic gate doesn't
+    re-reject in the next pipeline pass.
     """
     if not step_labels:
         return []
@@ -547,21 +634,49 @@ async def generate_step_speeches(
     if not description:
         description = str(vspec)[:300]
 
-    steps_text = "\n".join(
-        f"{i + 1}. {label}" for i, label in enumerate(step_labels)
-    )
+    refining = bool(step_narrations and any(t.strip() for t in step_narrations))
 
-    prompt = STEP_SPEECHES_PROMPT.format(
-        personality=_get_personality(teaching_style),
-        student_name=student_name or "the student",
-        frame_description=description or "an animation",
-        step_count=len(step_labels),
-        steps_list=steps_text,
-    )
+    if refining:
+        # Pad / truncate narrations to match labels exactly
+        narrations = list(step_narrations or [])
+        if len(narrations) < len(step_labels):
+            narrations = narrations + [""] * (len(step_labels) - len(narrations))
+        else:
+            narrations = narrations[: len(step_labels)]
+
+        narration_lines = "\n".join(
+            f"{i + 1}. [{label}] {text or '(empty — keep empty)'}"
+            for i, (label, text) in enumerate(zip(step_labels, narrations))
+        )
+        prompt = STEP_SPEECHES_REFINER_PROMPT.format(
+            personality=_get_personality(teaching_style),
+            frame_description=description or "an animation",
+            narration_list=narration_lines,
+            step_count=len(step_labels),
+        )
+    else:
+        steps_text = "\n".join(
+            f"{i + 1}. {label}" for i, label in enumerate(step_labels)
+        )
+        prompt = STEP_SPEECHES_PROMPT.format(
+            personality=_get_personality(teaching_style),
+            student_name=student_name or "the student",
+            frame_description=description or "an animation",
+            step_count=len(step_labels),
+            steps_list=steps_text,
+        )
+        narrations = []  # for type checker
 
     def _fallback() -> list[str]:
+        if refining:
+            # Best fallback in refiner mode is the planner's text verbatim.
+            return [
+                sanitize_for_tts(t) if t else
+                f"Now, the {label.replace('-', ' ').replace('_', ' ')}."
+                for label, t in zip(step_labels, narrations)
+            ]
         return [
-            f"Now, notice the {label.replace('-', ' ').replace('_', ' ')}."
+            f"Now, the {label.replace('-', ' ').replace('_', ' ')}."
             for label in step_labels
         ]
 
@@ -580,8 +695,31 @@ async def generate_step_speeches(
     try:
         speeches = json.loads(cleaned)
     except json.JSONDecodeError as e:
-        logger.warning(f"[step_speeches] JSON parse failed: {e}, raw={cleaned[:120]!r}")
-        return _fallback()
+        # LLM sometimes returns multiple JSON arrays on separate lines:
+        #   ["a", "b"]\n["c", "d"]
+        # Try merging them into one array.
+        merged: list[str] = []
+        parse_ok = False
+        for line in cleaned.split("\n"):
+            line = line.strip().rstrip(",")
+            if not line or not line.startswith("["):
+                continue
+            try:
+                arr = json.loads(line)
+                if isinstance(arr, list):
+                    merged.extend(str(x) for x in arr)
+                    parse_ok = True
+            except json.JSONDecodeError:
+                continue
+        if parse_ok and merged:
+            speeches = merged
+            print(
+                f"[step_speeches] merged {len(merged)} items from multi-line output",
+                flush=True,
+            )
+        else:
+            logger.warning(f"[step_speeches] JSON parse failed: {e}, raw={cleaned[:120]!r}")
+            return _fallback()
 
     if not isinstance(speeches, list):
         logger.warning(f"[step_speeches] expected list, got {type(speeches).__name__}")
@@ -591,10 +729,25 @@ async def generate_step_speeches(
         logger.warning(
             f"[step_speeches] count mismatch: got {len(speeches)} for {len(step_labels)} steps"
         )
-        # Pad or truncate to match
         if len(speeches) < len(step_labels):
             speeches = list(speeches) + _fallback()[len(speeches):]
         else:
             speeches = speeches[: len(step_labels)]
 
-    return [sanitize_for_tts(str(s)) for s in speeches]
+    # Diff guard (refiner only): if Groq drifted too far from planner text,
+    # use the planner version verbatim for that step.
+    if refining:
+        guarded: list[str] = []
+        for planned, polished in zip(narrations, speeches):
+            polished_str = str(polished)
+            if planned.strip() and _token_overlap(planned, polished_str) < 0.4:
+                logger.warning(
+                    "[step_speeches] refiner drifted (overlap<40%), using planner text"
+                )
+                guarded.append(planned)
+            else:
+                guarded.append(polished_str)
+        speeches = guarded
+
+    # Strip banned filler + sanitise for TTS
+    return [sanitize_for_tts(_strip_banned_phrases(str(s))) for s in speeches]

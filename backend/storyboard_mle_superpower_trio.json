@@ -1,0 +1,1244 @@
+{
+  "frames": [
+    {
+      "frame_id": "f01",
+      "visual_type": "animation",
+      "story_phase": "hook",
+      "estimated_seconds": 60,
+      "visual_spec": {
+        "description": "A circular dart board fills the screen. Five darts fly in and scatter randomly across the board. Then fifty darts arrive with a tighter cluster near center. Then five hundred darts pile densely onto the bullseye. Camera zooms into the tight cluster. Three glowing labels fade in: Consistency, Efficiency, Normality."
+      },
+      "narration_spoken": "Five darts hit the board. They scatter everywhere... total randomness. Fifty darts now. The cluster tightens. Coincidence... or something deeper? Five hundred darts pile onto the bullseye. The spread nearly vanishes. Why does more data force this convergence? Three properties hold the answer. The superpower trio of estimation.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "five-darts-scatter",
+          "anim_time": 0,
+          "description": "Five darts land randomly across the entire target board, far from the bullseye",
+          "narration_spoken": "Five darts hit the board. They scatter everywhere... total randomness.",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "fifty-darts-cluster",
+          "anim_time": 12,
+          "description": "Fifty darts fly in and form a tighter cluster around the center region of the board",
+          "narration_spoken": "Fifty darts now. The cluster tightens. Coincidence... or something deeper?",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "five-hundred-darts-bullseye",
+          "anim_time": 24,
+          "description": "Five hundred darts pile densely onto the bullseye, nearly all touching the center point",
+          "narration_spoken": "Five hundred darts. They pile onto the bullseye... the spread nearly vanishes.",
+          "duration_seconds": 12,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-4",
+          "label": "convergence-question",
+          "anim_time": 36,
+          "description": "Camera zooms into the dense cluster at center, text overlay: 'What guarantees this?'",
+          "narration_spoken": "Why does more data force this convergence? What guarantee makes it inevitable?",
+          "duration_seconds": 12,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "trio-reveal",
+          "anim_time": 48,
+          "description": "Three glowing labels fade in around the bullseye: Consistency, Efficiency, Normality",
+          "narration_spoken": "Three properties hold the answer. The superpower trio of estimation.",
+          "duration_seconds": 12,
+          "pause_after": false
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f02"
+    },
+    {
+      "frame_id": "f02",
+      "visual_type": "diagram",
+      "story_phase": "motivation",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "Three shield icons arranged in a triangle, each glowing a different color (blue for consistency, gold for efficiency, green for normality). Each shield lights up in sequence with a label and one-line summary. Then connecting lines appear between all three, forming a unified triangle with 'MLE' at the center. A roadmap arrow points forward to future methods."
+      },
+      "narration_spoken": "Aswin, maximum likelihood owns statistics for three reasons. First: consistency. Your estimate locks onto the true parameter value. Second: efficiency. Among all unbiased estimators, MLE has the smallest variance. It wastes nothing. Third: asymptotic normality. The MLE distribution becomes a perfect bell curve. Why does this matter? Confidence intervals fall out automatically. These three make MLE the foundation for everything ahead... hypothesis tests, model selection, Bayesian inference. Master these, and every later method clicks into place.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "consistency-shield",
+          "anim_time": 0,
+          "description": "Blue shield icon lights up with label 'Consistency' and subtitle 'Converges to truth'",
+          "narration_spoken": "Aswin, maximum likelihood owns statistics for three reasons. First: consistency. Your estimate locks onto the true parameter value.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "efficiency-shield",
+          "anim_time": 15,
+          "description": "Gold shield icon lights up with label 'Efficiency' and subtitle 'Minimum variance'",
+          "narration_spoken": "Second: efficiency. Among all unbiased estimators, MLE has the smallest variance. It wastes nothing.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "normality-shield",
+          "anim_time": 30,
+          "description": "Green shield icon lights up with label 'Asymptotic Normality' and subtitle 'Bell curve distribution'",
+          "narration_spoken": "Third: asymptotic normality. The MLE distribution becomes a perfect bell curve. Why does this matter? Confidence intervals fall out automatically.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "trio-connected",
+          "anim_time": 45,
+          "description": "Lines connect all three shields into a triangle with 'MLE' at center, roadmap arrow points to future methods: hypothesis tests, model selection, Bayesian inference",
+          "narration_spoken": "These three make MLE the foundation for everything ahead... hypothesis tests, model selection, Bayesian inference. Master these, and every later method clicks into place.",
+          "duration_seconds": 20,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f03"
+    },
+    {
+      "frame_id": "f03",
+      "visual_type": "animation",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "A horizontal number line with a red diamond marking the true parameter theta-star. Blue dots appear one at a time for increasing sample sizes: n=10 (far from truth), n=100 (closer), n=1000 (nearly on top). Each dot is labeled with its sample size. Finally, the formal probability statement fades in above the number line: P(|theta-hat - theta-star| > epsilon) approaches 0."
+      },
+      "narration_spoken": "Here is a number line. The red diamond marks the true parameter... the value we are hunting. With ten data points, our MLE estimate lands here. Far from the target. One hundred data points. The estimate drifts closer. Is it just luck... or a guarantee? One thousand points. The estimate sits almost exactly on the truth. This is consistency. The probability of being far from truth goes to zero. Given enough data, MLE hits the target.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "number-line-truth",
+          "anim_time": 0,
+          "description": "Horizontal number line appears with a red diamond at theta-star, labeled 'True Parameter'",
+          "narration_spoken": "Here is a number line. The red diamond marks the true parameter... the value we are hunting.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "n-ten-estimate",
+          "anim_time": 14,
+          "description": "A blue dot labeled 'n=10' lands far from the red diamond on the number line",
+          "narration_spoken": "With ten data points, our MLE estimate lands here. Far from the target.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "n-hundred-estimate",
+          "anim_time": 28,
+          "description": "A blue dot labeled 'n=100' lands much closer to the red diamond",
+          "narration_spoken": "One hundred data points. The estimate drifts closer. Is it just luck... or a guarantee?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "n-thousand-estimate",
+          "anim_time": 42,
+          "description": "A blue dot labeled 'n=1000' lands nearly on top of the red diamond",
+          "narration_spoken": "One thousand points. The estimate sits almost exactly on the truth.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "formal-statement",
+          "anim_time": 56,
+          "description": "Above the number line, text fades in: 'P(|theta-hat - theta-star| > epsilon) approaches 0 as n approaches infinity'",
+          "narration_spoken": "This is consistency. The probability of being far from truth goes to zero. Given enough data, MLE hits the target.",
+          "duration_seconds": 14,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f04"
+    },
+    {
+      "frame_id": "f04",
+      "visual_type": "animation",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "A histogram of 1000 MLE estimates is shown for increasing sample sizes. At n=10, the histogram is wide and flat. At n=50, it contracts. At n=200, it becomes a narrow spike. At n=1000, nearly all mass sits at the true value. Finally, a variance-vs-n curve overlays, showing the 1/n decay pattern."
+      },
+      "narration_spoken": "A thousand experiments, each with n equals ten. The histogram of estimates spans a wide range. Fifty samples per experiment now. The histogram contracts. The tails pull inward. Two hundred samples. The distribution is a narrow spike around the truth. One thousand samples. Almost every estimate equals the true value. What pattern do you see? The variance drops like one over n. Double the data... halve the spread. That is the consistency engine.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "histogram-n-ten",
+          "anim_time": 0,
+          "description": "Wide, flat histogram showing 1000 MLE estimates with n=10, spread across a broad range around the true parameter",
+          "narration_spoken": "A thousand experiments, each with n equals ten. The histogram of estimates spans a wide range.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "histogram-n-fifty",
+          "anim_time": 15,
+          "description": "Histogram morphs to show n=50 estimates, noticeably narrower and taller",
+          "narration_spoken": "Fifty samples per experiment now. The histogram contracts. The tails pull inward.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "histogram-n-two-hundred",
+          "anim_time": 30,
+          "description": "Histogram morphs again to n=200, a narrow spike centered on the true parameter",
+          "narration_spoken": "Two hundred samples. The distribution is a narrow spike around the truth.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "histogram-n-thousand",
+          "anim_time": 45,
+          "description": "Histogram at n=1000, extremely tight spike with nearly all mass at the true value",
+          "narration_spoken": "One thousand samples. Almost every estimate equals the true value. What pattern do you see?",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "variance-decay-curve",
+          "anim_time": 60,
+          "description": "Overlay graph showing variance vs sample size, a smooth 1/n decay curve with data points from each histogram",
+          "narration_spoken": "The variance drops like one over n. Double the data... halve the spread. That is the consistency engine.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f05"
+    },
+    {
+      "frame_id": "f05",
+      "visual_type": "code",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Python code editor showing a consistency simulation. Top section: imports (numpy, matplotlib) and parameter setup (true_p = 0.6, Bernoulli). Middle section: loop over sample sizes [10, 50, 200, 1000], generating MLE estimates. Bottom section: matplotlib plot of estimates vs sample size, with horizontal line at true_p = 0.6. Code highlights each section as narration progresses. Final line is highlighted: extending to n=10000 with a question mark."
+      },
+      "narration_spoken": "Here is the simulation in Python. We set the true parameter to 0.6... a Bernoulli coin with sixty percent heads. For each sample size, we draw n coin flips and compute the MLE. The MLE here is just the sample mean. The plot traces each estimate against the sample size. Watch the trajectory collapse toward 0.6. The code runs up to n equals one thousand. If we push to n equals ten thousand... how tight will the spread be?",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "import-setup",
+          "anim_time": 0,
+          "description": "Code highlights: import numpy, matplotlib. Variable true_p = 0.6 for a Bernoulli model",
+          "narration_spoken": "Here is the simulation in Python. We set the true parameter to 0.6... a Bernoulli coin with sixty percent heads.",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "sample-loop",
+          "anim_time": 18,
+          "description": "Code highlights: for loop over sample_sizes = [10, 50, 200, 1000], computing p_hat = np.mean(samples) for each",
+          "narration_spoken": "For each sample size, we draw n coin flips and compute the MLE. The MLE here is just the sample mean.",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "plot-results",
+          "anim_time": 36,
+          "description": "Code highlights: plt.plot showing estimates converging toward horizontal line at 0.6. Animated plot appears beside code",
+          "narration_spoken": "The plot traces each estimate against the sample size. Watch the trajectory collapse toward 0.6.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "predict-challenge",
+          "anim_time": 52,
+          "description": "Code line highlighted: n=10000 with question mark. Plot extends with dashed line to n=10000 region",
+          "narration_spoken": "The code runs up to n equals one thousand. If we push to n equals ten thousand... how tight will the spread be?",
+          "duration_seconds": 18,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "predict",
+        "prompt": "The spread of estimates at n equals 1000 is about 0.03. Using the one-over-n variance rule, predict the spread at n equals 10000.",
+        "expected_reasoning": "Variance scales as 1/n, so 10x more data means variance drops by 10. Standard deviation scales as 1/sqrt(n), so the spread shrinks by sqrt(10), roughly 3.16. The spread drops from 0.03 to about 0.01.",
+        "follow_up": "The spread drops by a factor of about 3.2, from 0.03 to roughly 0.01. Standard deviation scales as one over root n, not one over n."
+      },
+      "transition": "fade",
+      "next_frame": "f06"
+    },
+    {
+      "frame_id": "f06",
+      "visual_type": "animation",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "The Neyman-Scott problem visualized. One hundred small groups appear, each containing exactly 2 data points. Group means are estimated (dots shown at each group center). A running variance estimate is computed from residuals, displayed as a bar that should reach the true sigma-squared line but stops at half. An arrow points from the estimate to sigma-squared/2 instead of sigma-squared. Label: 'Neyman-Scott Problem'."
+      },
+      "narration_spoken": "Here is a surprise. Consistency is not guaranteed for every MLE problem. Imagine one hundred groups, two observations each. Each group has its own mean. MLE estimates each group mean from just two data points. MLE also estimates the shared variance. But something goes wrong... why does the estimate drift below the truth? The variance MLE converges to sigma squared over two... not sigma squared. Half the true value. Permanently biased. This is the Neyman-Scott problem. More data, more groups, more individual means to estimate. But the variance estimate never recovers.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "groups-appear",
+          "anim_time": 0,
+          "description": "One hundred small groups materialize on screen, each containing exactly 2 data point dots",
+          "narration_spoken": "Here is a surprise. Consistency is not guaranteed for every MLE problem. Imagine one hundred groups, two observations each.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "group-means-estimated",
+          "anim_time": 15,
+          "description": "A center dot appears in each group, representing the estimated group mean from just 2 points",
+          "narration_spoken": "Each group has its own mean. MLE estimates each group mean from just two data points.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "variance-drifts-low",
+          "anim_time": 30,
+          "description": "A running variance estimate bar grows but plateaus below the true sigma-squared line marked in red",
+          "narration_spoken": "MLE also estimates the shared variance. But something goes wrong... why does the estimate drift below the truth?",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "converge-to-half",
+          "anim_time": 45,
+          "description": "Arrow points from estimate to a label: sigma-squared/2, with the true sigma-squared shown above as unreached",
+          "narration_spoken": "The variance MLE converges to sigma squared over two... not sigma squared. Half the true value. Permanently biased.",
+          "duration_seconds": 15,
+          "pause_after": true
+        },
+        {
+          "step_id": "step-5",
+          "label": "neyman-scott-label",
+          "anim_time": 60,
+          "description": "Label 'Neyman-Scott Problem' appears prominently. Groups keep multiplying but the variance bar stays at half",
+          "narration_spoken": "This is the Neyman-Scott problem. More data, more groups, more individual means to estimate. But the variance estimate never recovers.",
+          "duration_seconds": 15,
+          "pause_after": false
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f07"
+    },
+    {
+      "frame_id": "f07",
+      "visual_type": "diagram",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Two-column diagram. Left column: 'Structural Parameters' with sigma-squared shown as one fixed block. Right column: 'Incidental Parameters' with mu-1 through mu-100 stacking up as n grows. A bar chart shows parameter count growing linearly with sample size. A rule box at bottom states: 'Consistency requires fixed parameter count as n grows.' Final panel highlights that each group mean is estimated from only 2 points, with a question prompt."
+      },
+      "narration_spoken": "The problem is the parameter count. Each new group adds a new mean parameter. The number of unknowns grows with the data. Sigma squared is structural... one parameter shared by all groups. The individual means are incidental. They multiply with each observation. Consistency needs the parameter count to stay fixed as n grows. When incidental parameters invade... MLE breaks its promise. So here is the question, Aswin. Each group mean is estimated from only two points. Why does that contaminate the variance estimate?",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "parameter-count-grows",
+          "anim_time": 0,
+          "description": "Bar chart: as n increases, number of parameters increases linearly alongside it",
+          "narration_spoken": "The problem is the parameter count. Each new group adds a new mean parameter. The number of unknowns grows with the data.",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "structural-vs-incidental",
+          "anim_time": 18,
+          "description": "Two columns: left shows sigma-squared as one fixed block, right shows mu-1 through mu-100 stacking up",
+          "narration_spoken": "Sigma squared is structural... one parameter shared by all groups. The individual means are incidental. They multiply with each observation.",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "consistency-condition",
+          "anim_time": 36,
+          "description": "Rule box appears at bottom: 'Consistency requires: parameter count stays fixed as n grows'",
+          "narration_spoken": "Consistency needs the parameter count to stay fixed as n grows. When incidental parameters invade... MLE breaks its promise.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "contamination-question",
+          "anim_time": 52,
+          "description": "Highlight showing each group has only 2 data points for its mean estimate, with question overlay",
+          "narration_spoken": "So here is the question, Aswin. Each group mean is estimated from only two points. Why does that contaminate the variance estimate?",
+          "duration_seconds": 18,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "reasoning",
+        "prompt": "Each group mean is estimated from just 2 observations, making each estimate very noisy. How does this noise in the group means affect the variance estimate?",
+        "expected_reasoning": "The variance is estimated using deviations from the estimated group means. Since each group mean is estimated from only 2 points, it overfits to those points, making the residuals appear smaller than the true deviations. This systematically underestimates the variance.",
+        "follow_up": "Each group mean overfits its two data points. The residuals from those estimates are artificially small... pulling the variance estimate down to exactly half its true value."
+      },
+      "transition": "fade",
+      "next_frame": "f08"
+    },
+    {
+      "frame_id": "f08",
+      "visual_type": "animation",
+      "story_phase": "concept",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "Two archers at a shooting range, both aiming at the same bullseye target. Archer A (blue) shoots a tight grouping of arrows all near the center. Archer B (orange) shoots a wider grouping, still centered on the bullseye but with more spread. A variance measurement bar appears under each grouping. Label: 'Efficiency = minimal variance among consistent estimators'. The MLE badge appears on Archer A."
+      },
+      "narration_spoken": "Two archers aim at the same bullseye. Both are consistent... given enough arrows, both hit the center. Archer A groups tightly. Every arrow lands close to the last. Archer B scatters more widely. Still centered on the target, but less precise. Which archer would you trust with one shot? Efficiency answers this. The tightest grouping wins. MLE is Archer A... the minimum variance consistent estimator.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "two-archers-setup",
+          "anim_time": 0,
+          "description": "Two archers side by side aiming at the same bullseye target, both labeled 'consistent'",
+          "narration_spoken": "Two archers aim at the same bullseye. Both are consistent... given enough arrows, both hit the center.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "archer-a-tight",
+          "anim_time": 16,
+          "description": "Archer A (blue) shoots arrows that form a very tight cluster near the bullseye center",
+          "narration_spoken": "Archer A groups tightly. Every arrow lands close to the last.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "archer-b-scattered",
+          "anim_time": 32,
+          "description": "Archer B (orange) shoots arrows that scatter more widely, still centered on bullseye but with larger spread",
+          "narration_spoken": "Archer B scatters more widely. Still centered on the target, but less precise. Which archer would you trust with one shot?",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "efficiency-label",
+          "anim_time": 48,
+          "description": "Variance bars appear under each grouping (A much shorter). Label: 'Efficiency = minimal variance'. MLE badge appears on Archer A",
+          "narration_spoken": "Efficiency answers this. The tightest grouping wins. MLE is Archer A... the minimum variance consistent estimator.",
+          "duration_seconds": 17,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f09"
+    },
+    {
+      "frame_id": "f09",
+      "visual_type": "equation",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "A smooth log-likelihood curve for a Bernoulli parameter p, peaking at the MLE. The second derivative is highlighted at the peak, showing the curvature. Fisher information formula appears: I(theta) = -E[d-squared log L / d theta-squared]. Side-by-side comparison of a flat log-likelihood (low information) and a sharply peaked one (high information). Finally, the Bernoulli Fisher information 1/(p(1-p)) is computed and plotted as a U-shaped curve."
+      },
+      "narration_spoken": "The log-likelihood curve holds a secret. Its shape at the peak tells you how much information the data carries. The steeper the curvature at the maximum, the more informative the data. A sharp peak means precise estimation. Fisher information equals the negative expected second derivative of the log-likelihood. Curvature, averaged over all possible data. A flat curve means low information. Why? Many parameter values look equally plausible. A sharp curve pins down the truth. For the Bernoulli coin, Fisher information is one over p times one minus p. The most information sits at extreme probabilities.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "log-likelihood-curve",
+          "anim_time": 0,
+          "description": "Smooth log-likelihood curve for Bernoulli parameter p, peak highlighted at the MLE value",
+          "narration_spoken": "The log-likelihood curve holds a secret. Its shape at the peak tells you how much information the data carries.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "curvature-highlight",
+          "anim_time": 15,
+          "description": "Second derivative highlighted at the peak, arrows showing the steepness of curvature",
+          "narration_spoken": "The steeper the curvature at the maximum, the more informative the data. A sharp peak means precise estimation.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "fisher-formula",
+          "anim_time": 30,
+          "description": "Formula fades in: I(theta) = -E[d-squared log L / d theta-squared], each part labeled",
+          "narration_spoken": "Fisher information equals the negative expected second derivative of the log-likelihood. Curvature, averaged over all possible data.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "flat-vs-sharp",
+          "anim_time": 45,
+          "description": "Side by side: flat log-likelihood (labeled 'Low Information') vs sharply peaked one (labeled 'High Information')",
+          "narration_spoken": "A flat curve means low information. Why? Many parameter values look equally plausible. A sharp curve pins down the truth.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "bernoulli-fisher",
+          "anim_time": 60,
+          "description": "Bernoulli Fisher information formula: 1/(p(1-p)), plotted as a U-shaped curve from p=0 to p=1",
+          "narration_spoken": "For the Bernoulli coin, Fisher information is one over p times one minus p. The most information sits at extreme probabilities.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f10"
+    },
+    {
+      "frame_id": "f10",
+      "visual_type": "diagram",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Vertical axis shows variance, horizontal axis lists different estimators. A horizontal red line marks the Cramer-Rao bound at 1/(n times I(theta)). Several estimator dots are plotted above this line: Method of Moments (higher), Sample Median (highest). The MLE dot descends and lands exactly on the red line. Labels appear for each estimator with its variance value."
+      },
+      "narration_spoken": "Every unbiased estimator has some variance. But there is a floor... a hard limit no estimator can break through. The Cramer-Rao bound. Variance can never drop below one over n times Fisher information. This is physics for estimators. Other estimators float above this line. Method of moments sits here. The sample median sits higher. All above the floor. And MLE? It sits exactly on the line. Asymptotically, its variance matches the Cramer-Rao bound. No waste.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "variance-axis",
+          "anim_time": 0,
+          "description": "Vertical variance axis appears with horizontal estimator axis. The concept of a variance floor is introduced",
+          "narration_spoken": "Every unbiased estimator has some variance. But there is a floor... a hard limit no estimator can break through.",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "cr-bound-line",
+          "anim_time": 18,
+          "description": "A horizontal red line appears at 1/(n*I(theta)), labeled 'Cramer-Rao Bound'",
+          "narration_spoken": "The Cramer-Rao bound. Variance can never drop below one over n times Fisher information. This is physics for estimators.",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "estimators-above",
+          "anim_time": 36,
+          "description": "Dots appear above the red line: Method of Moments (orange, mid-high), Sample Median (purple, highest)",
+          "narration_spoken": "Other estimators float above this line. Method of moments sits here. The sample median sits higher. All above the floor.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "mle-on-bound",
+          "anim_time": 52,
+          "description": "MLE dot (blue) descends and lands exactly on the red Cramer-Rao bound line with a satisfying click",
+          "narration_spoken": "And MLE? It sits exactly on the line. Asymptotically, its variance matches the Cramer-Rao bound. No waste.",
+          "duration_seconds": 18,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f11"
+    },
+    {
+      "frame_id": "f11",
+      "visual_type": "split",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Split screen. Left: MLE sampling distribution (blue bell curve) overlaid on the Cramer-Rao bound width marker. Right: Sample median distribution (orange bell curve), visibly wider. Both centered on the true parameter. An efficiency ratio label appears: ARE = Var(MLE)/Var(competitor). Numbers shown for the normal distribution case: MLE variance = sigma-squared/n, median variance = (pi/2)(sigma-squared/n). Interactive prompt asks to compute the ratio."
+      },
+      "narration_spoken": "The MLE distribution at large n forms a bell curve. Its width matches exactly one over root n times Fisher information. The method of moments estimator is also bell-shaped... but wider. Why the gap, if both use the same data? The efficiency ratio measures this gap. Divide the MLE variance by the competing variance. Closer to one means closer to MLE. For a normal distribution with unknown mean... the MLE variance is sigma squared over n. The median has variance pi over two times sigma squared over n. Compute the efficiency ratio.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "mle-bell-curve",
+          "anim_time": 0,
+          "description": "Left panel: blue bell curve (MLE distribution) with width matching the Cramer-Rao bound marker",
+          "narration_spoken": "The MLE distribution at large n forms a bell curve. Its width matches exactly one over root n times Fisher information.",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "mom-wider-bell",
+          "anim_time": 18,
+          "description": "Right panel: orange bell curve (median distribution), visibly wider than the MLE curve, both centered on truth",
+          "narration_spoken": "The method of moments estimator is also bell-shaped... but wider. Why the gap, if both use the same data?",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "efficiency-ratio-intro",
+          "anim_time": 36,
+          "description": "Efficiency ratio label appears between the two panels: ARE = Var(MLE) / Var(competitor)",
+          "narration_spoken": "The efficiency ratio measures this gap. Divide the MLE variance by the competing variance. Closer to one means closer to MLE.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "compute-challenge",
+          "anim_time": 52,
+          "description": "Numbers appear: MLE variance = sigma-squared/n, Median variance = (pi/2)(sigma-squared/n). Question prompt highlighted",
+          "narration_spoken": "For a normal distribution with unknown mean... the MLE variance is sigma squared over n. The median has variance pi over two times sigma squared over n. Compute the efficiency ratio.",
+          "duration_seconds": 18,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "compute",
+        "prompt": "The MLE (sample mean) has variance sigma squared over n. The sample median has variance pi over two times sigma squared over n. What is the asymptotic relative efficiency of the median compared to the MLE?",
+        "expected_reasoning": "ARE = Var(MLE) / Var(median) = (sigma-squared/n) / ((pi/2)(sigma-squared/n)) = 1/(pi/2) = 2/pi, which is approximately 0.637. The median is only about 64 percent as efficient as the MLE.",
+        "follow_up": "The ratio is two over pi, roughly 0.64. The sample median throws away over a third of the information. That is the cost of not using MLE."
+      },
+      "transition": "fade",
+      "next_frame": "f12"
+    },
+    {
+      "frame_id": "f12",
+      "visual_type": "split",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "Side-by-side histogram comparison for two distributions. First: exponential with lambda=2, showing MLE and MoM histograms (both identical since MLE=MoM for exponential). Then switch to Gamma(alpha=2, beta=1) where MLE and MoM diverge. Left panel: MLE histogram (blue, tight). Right panel: MoM histogram (orange, wider with fatter tails). Variance labels under each histogram."
+      },
+      "narration_spoken": "Time for a head-to-head contest. An exponential distribution with rate lambda equals two. Two estimators compete. On the left, the MLE. It uses the reciprocal of the sample mean. The histogram clusters tightly around two. On the right, method of moments. Same formula here, actually... but what happens for distributions where they diverge? Switch to a Gamma distribution. Now the formulas differ. The MLE uses the full likelihood. Method of moments matches only the first two moments. The difference is visible. MLE wraps tighter around the truth. The MoM histogram has fatter tails... more extreme misses.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "exponential-setup",
+          "anim_time": 0,
+          "description": "Exponential PDF shown with lambda=2. Two estimator labels appear: MLE and Method of Moments",
+          "narration_spoken": "Time for a head-to-head contest. An exponential distribution with rate lambda equals two. Two estimators compete.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "mle-histogram",
+          "anim_time": 15,
+          "description": "Left panel: blue histogram of 10000 MLE estimates for exponential lambda, tightly clustered around 2",
+          "narration_spoken": "On the left, the MLE. It uses the reciprocal of the sample mean. The histogram clusters tightly around two.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "mom-histogram-same",
+          "anim_time": 30,
+          "description": "Right panel: orange histogram of MoM estimates, identical shape to MLE for exponential case",
+          "narration_spoken": "On the right, method of moments. Same formula here, actually... but what happens for distributions where they diverge?",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "gamma-switch",
+          "anim_time": 45,
+          "description": "Scene transitions to Gamma(alpha=2, beta=1). New formulas shown: MLE uses numerical optimization, MoM uses mean and variance matching",
+          "narration_spoken": "Switch to a Gamma distribution. Now the formulas differ. The MLE uses the full likelihood. Method of moments matches only the first two moments.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "gamma-comparison",
+          "anim_time": 60,
+          "description": "Side-by-side: MLE histogram (blue, tight) vs MoM histogram (orange, visibly wider with fatter tails). Variance labels underneath",
+          "narration_spoken": "The difference is visible. MLE wraps tighter around the truth. The MoM histogram has fatter tails... more extreme misses.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f13"
+    },
+    {
+      "frame_id": "f13",
+      "visual_type": "code",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Python code showing the Gamma distribution MLE vs MoM comparison. Top: MLE code using scipy.optimize.minimize to maximize log-likelihood. Middle: MoM code matching sample mean and variance. Bottom: variance comparison after 10000 simulations. Output: MLE variance = 0.0098, MoM variance = 0.0147. Efficiency ratio = 0.67 highlighted."
+      },
+      "narration_spoken": "Here is the Python code. For the Gamma distribution, MLE has no closed form. We maximize the log-likelihood numerically. Method of moments is simpler. Match the sample mean to alpha over beta... match the sample variance to alpha over beta squared. Solve. But does simpler mean better? After ten thousand simulations, the MLE variance is 0.0098. The MoM variance is 0.0147. MLE wins by a wide margin. The efficiency ratio is 0.67. Method of moments captures only two-thirds of the available information. That gap never closes.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "gamma-mle-code",
+          "anim_time": 0,
+          "description": "Code highlight: scipy.optimize.minimize on negative log-likelihood for Gamma parameters",
+          "narration_spoken": "Here is the Python code. For the Gamma distribution, MLE has no closed form. We maximize the log-likelihood numerically.",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "mom-code",
+          "anim_time": 18,
+          "description": "Code highlight: MoM formulas — alpha_hat = mean-squared/var, beta_hat = mean/var",
+          "narration_spoken": "Method of moments is simpler. Match the sample mean to alpha over beta... match the sample variance to alpha over beta squared. Solve. But does simpler mean better?",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "variance-comparison",
+          "anim_time": 36,
+          "description": "Code output: Var(MLE) = 0.0098, Var(MoM) = 0.0147, both highlighted with MLE value in green",
+          "narration_spoken": "After ten thousand simulations, the MLE variance is 0.0098. The MoM variance is 0.0147. MLE wins by a wide margin.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "efficiency-ratio",
+          "anim_time": 52,
+          "description": "Efficiency ratio computed and displayed prominently: 0.0098/0.0147 = 0.67, with interpretation label",
+          "narration_spoken": "The efficiency ratio is 0.67. Method of moments captures only two-thirds of the available information. That gap never closes.",
+          "duration_seconds": 18,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f14"
+    },
+    {
+      "frame_id": "f14",
+      "visual_type": "animation",
+      "story_phase": "concept",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "Sampling from Poisson(lambda=3). Three panels animate in sequence. Panel 1: n=5, a jagged asymmetric histogram of MLE estimates. Panel 2: n=30, smoother and more symmetric. Panel 3: n=500, a near-perfect bell curve. A question overlay appears asking about the CLT connection."
+      },
+      "narration_spoken": "Poisson data with lambda equals three. Five observations per experiment. The MLE histogram looks jagged and asymmetric. Thirty observations. The histogram smooths. A familiar shape is forming. Can you name it? Five hundred observations. A near-perfect bell curve. The Poisson itself is not normal... but the MLE is. Aswin, the underlying data is discrete Poisson. The MLE is a sample mean of counts. Why does its distribution become a bell curve?",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "poisson-n-five",
+          "anim_time": 0,
+          "description": "Jagged, asymmetric histogram of 1000 MLE estimates from Poisson(3) with n=5 each",
+          "narration_spoken": "Poisson data with lambda equals three. Five observations per experiment. The MLE histogram looks jagged and asymmetric.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "poisson-n-thirty",
+          "anim_time": 16,
+          "description": "Histogram morphs to n=30, smoother and more symmetric, bell shape emerging",
+          "narration_spoken": "Thirty observations. The histogram smooths. A familiar shape is forming. Can you name it?",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "poisson-n-five-hundred",
+          "anim_time": 32,
+          "description": "Histogram at n=500, a near-perfect bell curve with normal PDF overlay",
+          "narration_spoken": "Five hundred observations. A near-perfect bell curve. The Poisson itself is not normal... but the MLE is.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "clt-question",
+          "anim_time": 48,
+          "description": "Question overlay on the bell curve: 'Why does discrete Poisson data produce a normal MLE distribution?'",
+          "narration_spoken": "Aswin, the underlying data is discrete Poisson. The MLE is a sample mean of counts. Why does its distribution become a bell curve?",
+          "duration_seconds": 17,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "reasoning",
+        "prompt": "The Poisson data is discrete and skewed, yet the MLE distribution becomes a bell curve at large n. What theorem explains this transformation?",
+        "expected_reasoning": "The Central Limit Theorem. The MLE for Poisson (sample mean) is a sum of independent random variables divided by n. By the CLT, the distribution of the sum approaches a normal distribution as n grows, regardless of the original distribution shape.",
+        "follow_up": "The central limit theorem is the engine. The MLE is an average of independent terms. As n grows, that average converges to a normal distribution... no matter what shape the original data has."
+      },
+      "transition": "fade",
+      "next_frame": "f15"
+    },
+    {
+      "frame_id": "f15",
+      "visual_type": "equation",
+      "story_phase": "concept",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "Formal asymptotic normality statement built step by step. First: the CLT reminder formula. Then: the MLE version with Fisher information replacing sigma-squared. Fisher information highlighted as the width controller with side arrows. Confidence interval formula derived from the asymptotic distribution. Final panel shows the Fisher-doubling question."
+      },
+      "narration_spoken": "The central limit theorem in one line. Root n times X bar minus mu... converges to a normal. For MLE, the same structure appears. Root n times theta hat minus theta converges to normal. The variance equals one over Fisher information. Fisher information sets the width. High information, narrow bell. Low information, wide bell. The data curvature controls your precision. This hands you confidence intervals automatically. Theta hat plus or minus 1.96 over root n times Fisher information. Quick challenge. If Fisher information doubles... what happens to the confidence interval width?",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "clt-formula",
+          "anim_time": 0,
+          "description": "CLT formula appears: sqrt(n)(X-bar - mu) converges in distribution to N(0, sigma-squared)",
+          "narration_spoken": "The central limit theorem in one line. Root n times X bar minus mu... converges to a normal.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "mle-asymptotic-formula",
+          "anim_time": 15,
+          "description": "MLE version: sqrt(n)(theta-hat - theta) converges to N(0, 1/I(theta)), with Fisher information highlighted",
+          "narration_spoken": "For MLE, the same structure appears. Root n times theta hat minus theta converges to normal. The variance equals one over Fisher information.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "fisher-width-control",
+          "anim_time": 30,
+          "description": "Fisher information highlighted with arrows showing: high I = narrow bell, low I = wide bell",
+          "narration_spoken": "Fisher information sets the width. High information, narrow bell. Low information, wide bell. The data curvature controls your precision.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "confidence-interval",
+          "anim_time": 45,
+          "description": "Confidence interval formula derived: theta-hat plus/minus 1.96 / sqrt(n * I(theta))",
+          "narration_spoken": "This hands you confidence intervals automatically. Theta hat plus or minus 1.96 over root n times Fisher information.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "fisher-double-challenge",
+          "anim_time": 60,
+          "description": "Question highlighted: 'If I(theta) doubles, what happens to CI width?' with the formula terms pulsing",
+          "narration_spoken": "Quick challenge. If Fisher information doubles... what happens to the confidence interval width?",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f16"
+    },
+    {
+      "frame_id": "f16",
+      "visual_type": "animation",
+      "story_phase": "concept",
+      "estimated_seconds": 70,
+      "visual_spec": {
+        "description": "Q-Q plots testing normality of MLE estimates for increasing sample sizes. Panel 1: n=10, dots wander off the diagonal line. Panel 2: n=100, dots straighten but tails still bend. Panel 3: n=1000, near-perfect diagonal. Final panel: histogram of MLE estimates at n=1000 with a normal PDF overlay sitting perfectly on top."
+      },
+      "narration_spoken": "A Q-Q plot tests normality. Each dot compares an MLE quantile to a normal quantile. With n equals ten, the dots wander off the diagonal. N equals one hundred. The dots straighten. The tails still bend slightly... but is the core trend clear? N equals one thousand. A near-perfect diagonal. The MLE distribution is indistinguishable from a normal curve. Here is the same result as a histogram. The orange bell curve sits perfectly on top. Asymptotic normality is not an approximation... it is a convergence guarantee.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "qq-n-ten",
+          "anim_time": 0,
+          "description": "Q-Q plot for n=10: dots scatter away from the diagonal reference line, especially in the tails",
+          "narration_spoken": "A Q-Q plot tests normality. Each dot compares an MLE quantile to a normal quantile. With n equals ten, the dots wander off the diagonal.",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "qq-n-hundred",
+          "anim_time": 18,
+          "description": "Q-Q plot for n=100: dots align more closely to diagonal, slight tail deviation remains",
+          "narration_spoken": "N equals one hundred. The dots straighten. The tails still bend slightly... but is the core trend clear?",
+          "duration_seconds": 18,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "qq-n-thousand",
+          "anim_time": 36,
+          "description": "Q-Q plot for n=1000: dots form a near-perfect diagonal line",
+          "narration_spoken": "N equals one thousand. A near-perfect diagonal. The MLE distribution is indistinguishable from a normal curve.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "histogram-overlay",
+          "anim_time": 52,
+          "description": "Histogram of MLE estimates at n=1000 with orange normal PDF overlay fitting perfectly",
+          "narration_spoken": "Here is the same result as a histogram. The orange bell curve sits perfectly on top. Asymptotic normality is not an approximation... it is a convergence guarantee.",
+          "duration_seconds": 18,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f17"
+    },
+    {
+      "frame_id": "f17",
+      "visual_type": "diagram",
+      "story_phase": "concept",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "Confidence interval construction from asymptotic normality. A number line with theta-hat at center. The CI formula is broken into labeled parts: z-score (sets confidence level), sqrt(n*I(theta)) (precision from data). The interval is drawn symmetrically around theta-hat with the true parameter falling inside. A comparison shows: asymptotic CI (one formula, instant) vs bootstrap CI (thousands of resamples, slow)."
+      },
+      "narration_spoken": "Asymptotic normality delivers a concrete tool. The confidence interval. Theta hat sits at the center. The margin of error has two pieces. The z-score sets the confidence level. The denominator uses root n times Fisher information. On the number line, the interval stretches symmetrically around theta hat. The true parameter falls inside 95 percent of the time. Why 95 and not 100? Without asymptotic normality, you would need the bootstrap... thousands of resamples. The normal approximation hands you the interval in one formula.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "ci-formula-parts",
+          "anim_time": 0,
+          "description": "Confidence interval formula with each component labeled: theta-hat at center, z-score, sqrt(n*I(theta))",
+          "narration_spoken": "Asymptotic normality delivers a concrete tool. The confidence interval. Theta hat sits at the center.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "margin-breakdown",
+          "anim_time": 16,
+          "description": "Margin of error expanded: z * 1/sqrt(n*I(theta)), z-score and Fisher information labeled with arrows",
+          "narration_spoken": "The margin of error has two pieces. The z-score sets the confidence level. The denominator uses root n times Fisher information.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "ci-on-number-line",
+          "anim_time": 32,
+          "description": "Number line with CI drawn symmetrically around theta-hat, true parameter marked inside the interval",
+          "narration_spoken": "On the number line, the interval stretches symmetrically around theta hat. The true parameter falls inside 95 percent of the time. Why 95 and not 100?",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "asymptotic-vs-bootstrap",
+          "anim_time": 48,
+          "description": "Comparison panel: left shows 'Asymptotic CI: 1 formula, instant', right shows 'Bootstrap CI: 10000 resamples, slow'",
+          "narration_spoken": "Without asymptotic normality, you would need the bootstrap... thousands of resamples. The normal approximation hands you the interval in one formula.",
+          "duration_seconds": 17,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f18"
+    },
+    {
+      "frame_id": "f18",
+      "visual_type": "animation",
+      "story_phase": "concept",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "Equivariance property demonstration. An exponential distribution with MLE of lambda shown as 3.2. A transformation arrow: g(lambda) = 1/lambda (mean waiting time). The arrow applies directly to the MLE: g(3.2) = 1/3.2 = 0.3125. A rule box states: 'MLE of g(theta) = g(MLE of theta)'. Interactive prompt asks to compute the transformed MLE."
+      },
+      "narration_spoken": "The MLE of lambda for the exponential distribution is one over the sample mean. Suppose it equals 3.2. Now you want the mean waiting time... one over lambda. Do you re-derive the MLE from scratch? Equivariance says no. Apply the transformation directly to the MLE. The MLE of g of theta is g of theta hat. Always. Aswin, the MLE of lambda is 3.2. Using equivariance, compute the MLE of one over lambda... the mean waiting time.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "lambda-mle-value",
+          "anim_time": 0,
+          "description": "Exponential distribution shown with MLE of lambda = 1/X-bar, current value displayed as 3.2",
+          "narration_spoken": "The MLE of lambda for the exponential distribution is one over the sample mean. Suppose it equals 3.2.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "transform-question",
+          "anim_time": 16,
+          "description": "Transformation arrow: g(lambda) = 1/lambda, labeled 'Mean Waiting Time'. Question mark on whether to re-derive",
+          "narration_spoken": "Now you want the mean waiting time... one over lambda. Do you re-derive the MLE from scratch?",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "equivariance-rule",
+          "anim_time": 32,
+          "description": "Rule box: 'MLE of g(theta) = g(MLE of theta)'. Arrow shows g applied directly to 3.2",
+          "narration_spoken": "Equivariance says no. Apply the transformation directly to the MLE. The MLE of g of theta is g of theta hat. Always.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "compute-prompt",
+          "anim_time": 48,
+          "description": "Interactive prompt: lambda-hat = 3.2, compute MLE of 1/lambda. Blank answer box highlighted",
+          "narration_spoken": "Aswin, the MLE of lambda is 3.2. Using equivariance, compute the MLE of one over lambda... the mean waiting time.",
+          "duration_seconds": 17,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "compute",
+        "prompt": "The MLE of lambda is 3.2. By equivariance, what is the MLE of one over lambda, the mean waiting time?",
+        "expected_reasoning": "By equivariance, MLE of g(lambda) = g(MLE of lambda). Here g(x) = 1/x. So MLE of 1/lambda = 1/3.2 = 0.3125.",
+        "follow_up": "One over 3.2 equals 0.3125. No new optimization needed. Equivariance is a free lunch... transform the estimate, and the result is automatically the MLE."
+      },
+      "transition": "fade",
+      "next_frame": "f19"
+    },
+    {
+      "frame_id": "f19",
+      "visual_type": "animation",
+      "story_phase": "climax",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "The three shields from f02 return, now arranged as pillars supporting a grand structure. Each pillar lights up in sequence: blue (Consistency), gold (Efficiency), green (Asymptotic Normality). The three pillars merge into a single glowing 'MLE' emblem at center. A radiant connection line flows from MLE to future methods: hypothesis testing, model selection, Bayesian inference."
+      },
+      "narration_spoken": "The three properties converge. Each one alone is powerful. But what happens when all three combine? Consistency guarantees convergence. Given enough data, your estimate arrives at the truth. The foundation. Efficiency guarantees precision. Among all consistent estimators, MLE wastes the least. The sharpest tool. Asymptotic normality guarantees inference. Confidence intervals, hypothesis tests, p-values... all flow from the bell curve. Convergence. Precision. Inference. Three guarantees in one estimator. This is why MLE is the default across all of statistics.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "trio-returns",
+          "anim_time": 0,
+          "description": "Three shield pillars from f02 return, arranged as columns supporting a grand structure",
+          "narration_spoken": "The three properties converge. Each one alone is powerful. But what happens when all three combine?",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "consistency-pillar",
+          "anim_time": 15,
+          "description": "Blue pillar lights up: 'Consistency' with summary 'Estimate converges to truth' and convergence animation",
+          "narration_spoken": "Consistency guarantees convergence. Given enough data, your estimate arrives at the truth. The foundation.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "efficiency-pillar",
+          "anim_time": 30,
+          "description": "Gold pillar lights up: 'Efficiency' with summary 'Minimum variance at Cramer-Rao bound' and tight bell curve",
+          "narration_spoken": "Efficiency guarantees precision. Among all consistent estimators, MLE wastes the least. The sharpest tool.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "normality-pillar",
+          "anim_time": 45,
+          "description": "Green pillar lights up: 'Asymptotic Normality' with summary 'Bell curve and free CIs' and normal curve",
+          "narration_spoken": "Asymptotic normality guarantees inference. Confidence intervals, hypothesis tests, p-values... all flow from the bell curve.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "trio-merge",
+          "anim_time": 60,
+          "description": "Three pillars merge into a single glowing 'MLE' emblem. Connection lines radiate to future methods",
+          "narration_spoken": "Convergence. Precision. Inference. Three guarantees in one estimator. This is why MLE is the default across all of statistics.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f20"
+    },
+    {
+      "frame_id": "f20",
+      "visual_type": "code",
+      "story_phase": "practice",
+      "estimated_seconds": 75,
+      "visual_spec": {
+        "description": "Full Python simulation combining all three properties. Setup: exponential data with lambda=2, MLE and MoM compared. Ten thousand experiments at n=100. Output panel shows: both means near 2 (consistency), both variances printed (efficiency comparison), histogram overlay with normal PDF (normality check). Then switch to Gamma distribution with a prediction prompt before running."
+      },
+      "narration_spoken": "One final simulation ties everything together. Exponential data, lambda equals two. We compare MLE and method of moments head to head. Ten thousand experiments. Each draws n equals one hundred observations. Both estimators compute their lambda hat. Both estimators center near the truth. Consistency confirmed. But the spread tells the real story. MLE variance: 0.041. MoM variance: 0.041. Wait... they match? For the exponential, method of moments and MLE use identical formulas. Now switch to a Gamma distribution where MLE and MoM diverge. Before running the code... predict which estimator will have the narrower spread.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "full-sim-setup",
+          "anim_time": 0,
+          "description": "Python code: exponential lambda=2, arrays for MLE and MoM estimates, 10000 experiments",
+          "narration_spoken": "One final simulation ties everything together. Exponential data, lambda equals two. We compare MLE and method of moments head to head.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "run-experiments",
+          "anim_time": 15,
+          "description": "Loop runs: 10000 experiments, n=100 each. Progress bar fills. Both estimator arrays populated",
+          "narration_spoken": "Ten thousand experiments. Each draws n equals one hundred observations. Both estimators compute their lambda hat.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "consistency-confirmed",
+          "anim_time": 30,
+          "description": "Output: mean(MLE) = 2.003, mean(MoM) = 2.001. Both near truth. Green checkmark for consistency",
+          "narration_spoken": "Both estimators center near the truth. Consistency confirmed. But the spread tells the real story.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "exponential-tie",
+          "anim_time": 45,
+          "description": "Output: Var(MLE) = 0.041, Var(MoM) = 0.041. Equal! Note: for exponential, MLE = MoM",
+          "narration_spoken": "MLE variance: 0.041. MoM variance: 0.041. Wait... they match? For the exponential, method of moments and MLE use identical formulas.",
+          "duration_seconds": 15,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-5",
+          "label": "gamma-prediction",
+          "anim_time": 60,
+          "description": "Code switches to Gamma(2,1). Prediction prompt appears before the simulation runs",
+          "narration_spoken": "Now switch to a Gamma distribution where MLE and MoM diverge. Before running the code... predict which estimator will have the narrower spread.",
+          "duration_seconds": 15,
+          "pause_after": true
+        }
+      ],
+      "interaction": {
+        "type": "predict",
+        "prompt": "We switch from exponential to Gamma with alpha equals 2 and beta equals 1. MLE uses numerical optimization of the full likelihood. MoM matches mean and variance. Which estimator will have smaller variance, and why?",
+        "expected_reasoning": "MLE achieves the Cramer-Rao bound asymptotically, so it will have the smallest possible variance. MoM only uses the first two moments, discarding information in higher-order moments. MLE will have the narrower spread.",
+        "follow_up": "MLE wins. It extracts information from the entire likelihood surface, not just the first two moments. The Gamma shape parameter alpha is especially sensitive to this... MLE captures tail behavior that moments miss."
+      },
+      "transition": "fade",
+      "next_frame": "f21"
+    },
+    {
+      "frame_id": "f21",
+      "visual_type": "diagram",
+      "story_phase": "resolution",
+      "estimated_seconds": 65,
+      "visual_spec": {
+        "description": "A decision tree for choosing an estimator. Root: 'Can you write the likelihood?' Yes branch: 'MLE is your default' with the three property badges. Caution flags: incidental parameters (Neyman-Scott), model misspecification. No/caution branch: alternatives listed — robust estimators, Bayesian methods, method of moments as fallback."
+      },
+      "narration_spoken": "When should you reach for MLE? A simple decision tree. Start with: can you write down the likelihood? If yes, MLE is the default. Consistency, efficiency, normality... all three come standard. Two caution flags. Incidental parameters... like the Neyman-Scott problem. And model misspecification... when the likelihood itself is wrong. When MLE breaks, robust estimators or Bayesian methods step in. But for well-specified models with fixed parameters... MLE is king.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "decision-root",
+          "anim_time": 0,
+          "description": "Decision tree root node: 'Can you write the likelihood?' with Yes/No branches extending",
+          "narration_spoken": "When should you reach for MLE? A simple decision tree. Start with: can you write down the likelihood?",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "yes-mle-default",
+          "anim_time": 16,
+          "description": "Yes branch leads to 'MLE is your default' node, three property badges (blue, gold, green) attached",
+          "narration_spoken": "If yes, MLE is the default. Consistency, efficiency, normality... all three come standard.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "caution-flags",
+          "anim_time": 32,
+          "description": "Two warning triangles on the Yes branch: 'Incidental Parameters' and 'Model Misspecification'",
+          "narration_spoken": "Two caution flags. Incidental parameters... like the Neyman-Scott problem. And model misspecification... when the likelihood itself is wrong.",
+          "duration_seconds": 16,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "alternatives-branch",
+          "anim_time": 48,
+          "description": "No/Caution branch leads to alternatives: Robust Estimators, Bayesian Methods, Method of Moments",
+          "narration_spoken": "When MLE breaks, robust estimators or Bayesian methods step in. But for well-specified models with fixed parameters... MLE is king.",
+          "duration_seconds": 17,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": "f22"
+    },
+    {
+      "frame_id": "f22",
+      "visual_type": "animation",
+      "story_phase": "resolution",
+      "estimated_seconds": 55,
+      "visual_spec": {
+        "description": "Return to the dart board from f01. The tight cluster at the bullseye now has a bell curve overlay showing asymptotic normality. The tight grouping is compared to a faded wider grouping (alternative estimator). A road stretches forward from the dartboard toward signposts: Hypothesis Testing, Model Selection, Bayesian Inference. The three property labels glow along the road."
+      },
+      "narration_spoken": "Back to the dart board. The darts cluster on the bullseye... that is consistency. The bell curve overlay matches the cluster shape. Asymptotic normality, visible in the data. The grouping is the tightest possible. Efficiency in action. Could any other estimator beat this? Aswin, these three properties are your foundation. Hypothesis testing, model selection, Bayesian methods... all build on what you learned today.",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "label": "dartboard-callback",
+          "anim_time": 0,
+          "description": "Dart board from f01 returns with the dense cluster at bullseye. Label: 'Consistency'",
+          "narration_spoken": "Back to the dart board. The darts cluster on the bullseye... that is consistency.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-2",
+          "label": "bell-overlay",
+          "anim_time": 14,
+          "description": "A bell curve overlays the dart cluster, matching its shape. Label: 'Asymptotic Normality'",
+          "narration_spoken": "The bell curve overlay matches the cluster shape. Asymptotic normality, visible in the data.",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-3",
+          "label": "tightest-grouping",
+          "anim_time": 28,
+          "description": "A faded wider grouping appears behind, showing MLE grouping is tightest. Label: 'Efficiency'",
+          "narration_spoken": "The grouping is the tightest possible. Efficiency in action. Could any other estimator beat this?",
+          "duration_seconds": 14,
+          "pause_after": false
+        },
+        {
+          "step_id": "step-4",
+          "label": "road-ahead",
+          "anim_time": 42,
+          "description": "Road stretches forward from dartboard to signposts: Hypothesis Testing, Model Selection, Bayesian Inference. Three property labels glow along the road",
+          "narration_spoken": "Aswin, these three properties are your foundation. Hypothesis testing, model selection, Bayesian methods... all build on what you learned today.",
+          "duration_seconds": 13,
+          "pause_after": true
+        }
+      ],
+      "interaction": null,
+      "transition": "fade",
+      "next_frame": null
+    }
+  ],
+  "opening_hook": "What if every estimate you ever compute could be guaranteed to hit the truth, waste nothing, and hand you error bars for free?",
+  "closing_summary": [
+    "Consistency guarantees MLE converges to the true parameter as sample size grows",
+    "Efficiency means MLE achieves the smallest possible variance, hitting the Cramer-Rao bound",
+    "Asymptotic normality turns the MLE distribution into a bell curve, giving confidence intervals automatically",
+    "Together these three properties make MLE the default estimation method across statistics"
+  ]
+}

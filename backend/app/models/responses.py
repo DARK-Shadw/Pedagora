@@ -19,6 +19,13 @@ class AnimateLessonAccepted(BaseModel):
     lesson_id: str
 
 
+class RegenerateFrameAccepted(BaseModel):
+    message: str = "Frame regeneration started"
+    goal_id: str
+    lesson_id: str
+    frame_id: str
+
+
 class AgentStatusResponse(BaseModel):
     goal_id: str
     agent_type: str
