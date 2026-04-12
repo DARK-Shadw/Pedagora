@@ -57,3 +57,6 @@ backend/test_*.py
 backend/test_*.html
 backend/test_*.js
 backend/generated_visuals/*_failed_code.js
+
+
+UIReference/
