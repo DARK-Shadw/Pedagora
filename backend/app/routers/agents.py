@@ -8,6 +8,7 @@ from app.services.agent_task import get_agent_task, update_agent_task, cleanup_p
 from app.agents.research_v3 import run_research_v3
 from app.agents.course_planner.pipeline_v4 import run_course_planner_v4
 from app.agents.pipeline_orchestrator import run_full_pipeline, resume_pipeline, ensure_storyboard_and_animate
+from app.agents.episode_planner import run_episode_planner
 
 router = APIRouter()
 
@@ -70,6 +71,60 @@ async def trigger_research(
     background_tasks.add_task(run_full_pipeline, goal_id, user_id)
 
     return ResearchAccepted(goal_id=goal_id, task_id=task["id"])
+
+
+@router.post("/plan-episode", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_episode_planner(
+    request: CoursePlanRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
+    """Trigger single-episode planner (Gemini). Skips research entirely.
+
+    If planning already completed but visualization didn't, only re-runs animations.
+    """
+    from app.agents.episode_planner import _run_episode_animations
+
+    user_id = user["sub"]
+    goal_id = request.goal_id
+
+    task = await get_agent_task(goal_id, "planning")
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Planning task not found for this goal",
+        )
+    if task.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized",
+        )
+
+    # If planning done but visualization incomplete → just run animations
+    if task.get("status") == "completed":
+        viz_task = await get_agent_task(goal_id, "visualization")
+        if viz_task and viz_task.get("status") == "completed":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Episode already fully completed",
+            )
+        # Get frame count from course plan
+        course_plan = await fetch_course_plan(goal_id)
+        frame_count = len((course_plan or {}).get("lesson_plans", {}).get("mod1-les1", {}).get("frames", []))
+        background_tasks.add_task(_run_episode_animations, goal_id, user_id, frame_count or 15)
+        return {"goal_id": goal_id, "task_id": task["id"], "message": "Animation generation started"}
+
+    if task.get("status") in ("failed", "active", "queued"):
+        await update_agent_task(
+            goal_id, "planning",
+            status="queued", progress=0,
+            current_task=None, error_message=None,
+            log_message="Episode planner reset for retry",
+            log_level="system",
+        )
+
+    background_tasks.add_task(run_episode_planner, goal_id, user_id)
+    return {"goal_id": goal_id, "task_id": task["id"], "message": "Episode planner started"}
 
 
 @router.post("/course-plan", status_code=status.HTTP_202_ACCEPTED, response_model=CoursePlanAccepted)
@@ -289,11 +344,15 @@ class AssessmentRequest(BaseModel):
 
 @router.post("/generate-assessment")
 async def generate_assessment(request: AssessmentRequest):
-    """Generate skill assessment questions using Claude Code."""
-    from app.engine.claude_engine import ClaudeEngine
-    # NOTE: use "sonnet" — "haiku" alias causes silent CLI failures on some
-    # Claude Code versions (subprocess exits 1 with empty stderr).
-    engine = ClaudeEngine(model="sonnet")
+    """Generate skill assessment questions using Groq."""
+    import json
+    import httpx
+    from app.config import get_settings
+
+    settings = get_settings()
+    groq_key = settings.groq_api_key
+    if not groq_key:
+        raise HTTPException(status_code=500, detail="Groq API key not configured")
 
     prereqs_text = "\n".join(
         f"- {p.get('skillName', p.get('skill_name', '?'))}: "
@@ -301,36 +360,52 @@ async def generate_assessment(request: AssessmentRequest):
         for p in request.prerequisites
     ) if request.prerequisites else "None provided"
 
-    result = await engine.run(
-        prompt=f"""Generate 6-10 prerequisite assessment questions for a student.
+    prompt = f"""Generate 6-10 skill assessment questions for a student learning "{request.goal_title}".
 
 STUDENT PROFILE:
 - Education level: {request.education_level}
-- Learning goal: {request.goal_title}
-- Self-reported skills:
-{prereqs_text}
+- Self-reported skills: {prereqs_text}
 
-Generate questions that PROBE whether the student truly understands the
-prerequisites needed for this learning goal. Focus on foundational knowledge
-that will be essential — don't ask surface-level questions.
+For each question, identify a prerequisite SKILL AREA that matters for this
+learning goal. The student will rate their comfort level with each skill
+(none / beginner / intermediate / advanced).
 
-For a goal like "video diffusion models", good questions would probe:
-- Probability distributions and Bayes' theorem
-- Neural network architectures (what is a U-Net?)
-- Loss functions and optimization
-- Basic linear algebra (matrix multiplication, eigenvalues)
+Focus on foundational knowledge areas the student needs. For example, for
+"Binary Search", relevant skills would be: arrays/lists, sorting, loops,
+conditionals, algorithm complexity, recursion, etc.
 
-Each question should have a "context" explaining WHY this knowledge matters
-for the student's specific goal.
+Each question should:
+- Name a specific skill/concept (not a vague topic)
+- Include "context" explaining WHY this skill matters for their goal
 
-Return ONLY valid JSON (no markdown):
-{{"questions": [{{"id": "q1", "question": "Can you explain...", "context": "This matters because..."}}]}}""",
-        timeout=60,
-    )
+Return ONLY valid JSON:
+{{"questions": [{{"id": "q1", "question": "Arrays and indexing", "context": "Binary search operates on sorted arrays, so you need to understand how array indices work."}}]}}"""
 
-    import json
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "openai/gpt-oss-120b",
+                "messages": [
+                    {"role": "system", "content": "You generate skill assessment questions. Return ONLY valid JSON."},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.3,
+                "max_tokens": 2000,
+                "response_format": {"type": "json_object"},
+            },
+        )
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Groq error: {resp.text[:200]}")
+
+    content = resp.json()["choices"][0]["message"]["content"]
     try:
-        return json.loads(result["result"])
+        return json.loads(content)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Failed to parse assessment questions")
 

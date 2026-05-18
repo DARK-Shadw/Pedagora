@@ -12,7 +12,7 @@ interface AnimationFrameProps {
   onLoad?: () => void;
 }
 
-const FAILURE_TIMEOUT_MS = 3000;
+const FAILURE_TIMEOUT_MS = 12000;
 
 /**
  * Renders the animation HTML in an iframe with:
@@ -33,6 +33,7 @@ function AnimationFrameInner({
   const [hasFailed, setHasFailed] = useState(false);
   const [hasRendered, setHasRendered] = useState(false);
   const setIframeReady = useClassroomStore((s) => s.setIframeReady);
+  const setIframeLabels = useClassroomStore((s) => s.setIframeLabels);
 
   // Reset failure detection on each new URL.
   // Also clear the store iframeReady flag so the lockstep engine waits
@@ -42,6 +43,7 @@ function AnimationFrameInner({
     setHasFailed(false);
     setHasRendered(false);
     setIframeReady(false);
+    setIframeLabels([]);
     const timer = setTimeout(() => {
       setHasFailed((prev) => (hasRendered ? prev : true));
     }, FAILURE_TIMEOUT_MS);
@@ -55,15 +57,22 @@ function AnimationFrameInner({
   // racing with its own message listener.
   useEffect(() => {
     function handleMessage(e: MessageEvent) {
-      if (e.data?.event === "stepChanged") {
+      const evt = e.data?.event;
+      if (evt === "stepChanged") {
         if (!hasRendered) setHasRendered(true);
         setIframeReady(true);
         if (onStepChange) onStepChange(e.data.label);
+      } else if (evt === "iframeReady") {
+        if (!hasRendered) setHasRendered(true);
+        setIframeReady(true);
+        if (Array.isArray(e.data.labels)) {
+          setIframeLabels(e.data.labels);
+        }
       }
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [onStepChange, hasRendered, setIframeReady]);
+  }, [onStepChange, hasRendered, setIframeReady, setIframeLabels]);
 
   const handleIframeError = useCallback(() => {
     setHasFailed(true);

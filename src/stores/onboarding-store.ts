@@ -28,6 +28,7 @@ interface OnboardingState {
 }
 
 const initialGoal: OnboardingGoalData = {
+  contentType: "course",
   title: "",
   endGoal: "",
   motivation: "",
@@ -99,6 +100,20 @@ export const useOnboardingStore = create<OnboardingState>()(
     }),
     {
       name: "pedagora-onboarding",
+      merge: (persisted, current) => {
+        const p = persisted as Partial<OnboardingState> | undefined;
+        if (!p) return current;
+        return {
+          ...current,
+          ...p,
+          goal: { ...initialGoal, ...p.goal },
+          preferences: { ...initialPreferences, ...p.preferences },
+          prerequisites: { ...initialPrerequisites, ...p.prerequisites },
+          timeline: { ...initialTimeline, ...p.timeline },
+          assessment: { ...initialAssessment, ...p.assessment },
+          resources: { ...initialResources, ...p.resources },
+        };
+      },
     }
   )
 );

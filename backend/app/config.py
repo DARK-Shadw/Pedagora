@@ -11,9 +11,18 @@ class Settings(BaseSettings):
     # Google AI
     google_api_key: str
 
-    # Gemini 3.1 Flash Lite key pool for Animation Agent v2.
-    # Comma-separated list of API keys. Falls back to [google_api_key] if empty.
+    # Gemini key pool for Animation Agent v2.
+    # Comma-separated list of API keys. Falls back to google_api_keys, then google_api_key.
     gemini_api_keys: str = ""
+    google_api_keys: str = ""
+
+    # Paid Gemini key — automatic fallback when free keys hit 429/503.
+    gemini_paid_api_key: str = ""
+    gemini_paid_model: str = "gemini-2.5-flash"
+
+    # NVIDIA NIM (Kimi K2.6)
+    nvidia_api_key: str = ""
+    nvidia_api_keys: str = ""
 
     # Groq
     groq_api_key: str = ""
@@ -141,8 +150,10 @@ class Settings(BaseSettings):
         return configs
 
     def get_gemini_api_keys(self) -> list[str]:
-        """Parse GEMINI_API_KEYS into a list. Falls back to [google_api_key] if empty."""
+        """Parse GEMINI_API_KEYS into a list. Falls back to GOOGLE_API_KEYS, then GOOGLE_API_KEY."""
         raw = (self.gemini_api_keys or "").strip()
+        if not raw:
+            raw = (self.google_api_keys or "").strip()
         if not raw:
             return [self.google_api_key] if self.google_api_key else []
         return [k.strip() for k in raw.split(",") if k.strip()]

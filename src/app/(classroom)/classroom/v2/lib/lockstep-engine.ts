@@ -1,20 +1,23 @@
 /**
  * Lockstep sync engine for animation + audio.
  *
- * Two playback modes, chosen per-frame at runtime:
+ * Three playback modes, chosen per-frame at runtime:
  *
  * LOCKSTEP MODE (labels verified):
  *   For each step: seek → pause → play audio → animate to next label → repeat.
  *   Perfect sync between speech and animation.
  *
- * FREE-PLAY MODE (labels missing or mismatched):
+ * FREE-PLAY MODE (iframe ready but labels don't match):
  *   Animation plays naturally at its own pace. Audio plays in sequence on top.
- *   No seeking, no pausing the animation, no 8s dead waits between steps.
- *   The animation won't sync per-step, but it won't REPLAY or FREEZE either.
+ *   No seeking, no pausing the animation.
  *
- * The mode is determined by verifyLabels(): after the iframe loads, we seek to
- * the first step's label and wait 500ms for a matching stepChanged event. If
- * the animation responds, labels are present → lockstep. If not → free-play.
+ * AUDIO-ONLY MODE (iframe not ready — broken or slow-loading):
+ *   Only audio plays. No animation commands sent.
+ *
+ * Label verification: the iframe posts an `iframeReady` event with its GSAP
+ * labels. If the bundle's step labels are a subset → LOCKSTEP. For older
+ * frames without the iframeReady event, we send a `queryLabels` command and
+ * wait for a `labelsResponse`. If neither works → FREE-PLAY or AUDIO-ONLY.
  *
  * Frame isolation: each playFrame() increments a generation counter. If a new
  * frame starts while the old is running, the old loop exits at the next check.
@@ -46,16 +49,17 @@ export interface LockstepCallbacks {
   onError: (msg: string) => void;
 }
 
-const IFRAME_READY_TIMEOUT_MS = 3000;
+const IFRAME_READY_TIMEOUT_MS = 10000;
 const IFRAME_READY_POLL_MS = 50;
 const ANIMATE_TO_STEP_DEFAULT_TIMEOUT_MS = 20000;
 const ANIMATE_TO_STEP_MARGIN_MS = 4000;
-const LABEL_VERIFY_TIMEOUT_MS = 600;
+const QUERY_LABELS_TIMEOUT_MS = 1500;
 
 export class LockstepEngine {
   private audioCtx: AudioContext;
   private callbacks: LockstepCallbacks;
   private isIframeReady: () => boolean;
+  private getIframeLabels: () => string[];
   private currentSource: AudioBufferSourceNode | null = null;
   private paused: boolean = false;
   private stopped: boolean = false;
@@ -70,10 +74,12 @@ export class LockstepEngine {
     audioCtx: AudioContext,
     callbacks: LockstepCallbacks,
     isIframeReady: () => boolean,
+    getIframeLabels: () => string[],
   ) {
     this.audioCtx = audioCtx;
     this.callbacks = callbacks;
     this.isIframeReady = isIframeReady;
+    this.getIframeLabels = getIframeLabels;
   }
 
   async playFrame(frame: FrameBundle): Promise<void> {
@@ -90,18 +96,12 @@ export class LockstepEngine {
       `labels=[${frame.steps.map(s => s.label).join(",")}])`
     );
 
-    // Wait for iframe to load + first stepChanged event
+    // Wait for iframe to load and report ready
     await this.waitForIframeReady(IFRAME_READY_TIMEOUT_MS);
 
-    // Verify labels: seek to a step, check if animation responds.
-    // NOTE: Due to the _lastStep dedup in the iframe's _notifyStepChange,
-    // this currently always returns false (FREE-PLAY mode) because the
-    // iframe already fired stepChanged(firstLabel) on initial load. This
-    // is intentional for now — FREE-PLAY works well. When we implement
-    // proper LOCKSTEP (with the iframe posting label events on seek),
-    // this will start returning true.
+    // Check if the bundle's step labels exist in the iframe's reported labels
     if (this.iframeReady && frame.steps.length > 0) {
-      this.labelsVerified = await this.verifyLabels(frame.steps[0].label);
+      this.labelsVerified = await this.checkLabels(frame);
     }
 
     const mode = !this.iframeReady
@@ -157,7 +157,6 @@ export class LockstepEngine {
 
       // 3. Animate to next step (LOCKSTEP mode only)
       if (next && this.labelsVerified) {
-        // Compute expected transition duration from anim_time difference
         const transitionSec = Math.max(
           (next.anim_time || 0) - (step.anim_time || 0),
           2,
@@ -167,7 +166,6 @@ export class LockstepEngine {
     }
 
     if (!this.stopped && this._generation === gen) {
-      // In FREE-PLAY mode, pause the animation when all audio is done
       if (this.iframeReady && !this.labelsVerified) {
         this.sendToIframe({ action: "pause" });
       }
@@ -177,19 +175,97 @@ export class LockstepEngine {
   }
 
   /**
-   * Check if the animation's GSAP timeline has matching labels.
+   * Check if the iframe's GSAP labels match the bundle's step labels.
    *
-   * Seeks to `firstLabel` and waits for a `stepChanged` event. If the
-   * animation responds within LABEL_VERIFY_TIMEOUT_MS → labels verified
-   * → LOCKSTEP mode. Otherwise → FREE-PLAY mode.
+   * Strategy:
+   * 1. Check labels from the store (set by iframeReady event from new templates)
+   * 2. If empty, send queryLabels command and wait for labelsResponse (new templates)
+   * 3. If still empty, fall back to seek-based verification (old templates)
    *
-   * Known limitation: on iframe load, _notifyStepChange() fires
-   * stepChanged(firstLabel) immediately, setting _lastStep = firstLabel.
-   * A subsequent seekToStep(firstLabel) doesn't change the step, so no
-   * event fires → this always returns false (FREE-PLAY). This is fine
-   * for now since FREE-PLAY works well for both video and GSAP frames.
+   * When names differ but counts match, remap bundle labels to iframe labels
+   * by position (Nth storyboard step → Nth GSAP label). This handles the
+   * common case where the LLM used different label names than the planner.
    */
-  private verifyLabels(firstLabel: string): Promise<boolean> {
+  private async checkLabels(frame: FrameBundle): Promise<boolean> {
+    const bundleLabels = frame.steps.map(s => s.label).filter(Boolean);
+    if (bundleLabels.length === 0) return false;
+
+    // Strategy 1: labels already in store from iframeReady event
+    let iframeLabels = this.getIframeLabels();
+
+    // Strategy 2: send queryLabels and wait for response
+    if (iframeLabels.length === 0) {
+      iframeLabels = await this.queryLabelsFromIframe();
+    }
+
+    // Strategy 3: seek-based fallback for old templates
+    if (iframeLabels.length === 0) {
+      const verified = await this.verifyLabelBySeek(bundleLabels[0]);
+      if (verified) {
+        console.log(`[Lockstep] labels verified via seek fallback`);
+      }
+      return verified;
+    }
+
+    // Exact match — all bundle labels exist in iframe
+    const iframeLabelSet = new Set(iframeLabels);
+    const allMatch = bundleLabels.every(l => iframeLabelSet.has(l));
+    if (allMatch) {
+      console.log(
+        `[Lockstep] all ${bundleLabels.length} labels match exactly ` +
+        `(iframe has ${iframeLabels.length} total)`
+      );
+      return true;
+    }
+
+    // Position-based remap: bundle has N steps, iframe has >= N labels.
+    // Assume the Nth storyboard step corresponds to the Nth GSAP label.
+    if (bundleLabels.length <= iframeLabels.length) {
+      console.log(
+        `[Lockstep] remapping ${bundleLabels.length} labels by position: ` +
+        `[${bundleLabels.slice(0, 3).join(",")}] → [${iframeLabels.slice(0, 3).join(",")}]`
+      );
+      for (let i = 0; i < frame.steps.length && i < iframeLabels.length; i++) {
+        frame.steps[i].label = iframeLabels[i];
+      }
+      return true;
+    }
+
+    // More bundle steps than iframe labels — can't remap reliably
+    console.log(
+      `[Lockstep] label count mismatch: ` +
+      `bundle=${bundleLabels.length} iframe=${iframeLabels.length}`
+    );
+    return false;
+  }
+
+  private queryLabelsFromIframe(): Promise<string[]> {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (labels: string[]) => {
+        if (done) return;
+        done = true;
+        window.removeEventListener("message", handler);
+        clearTimeout(timer);
+        resolve(labels);
+      };
+      const handler = (e: MessageEvent) => {
+        if (e.data?.event === "labelsResponse" && Array.isArray(e.data.labels)) {
+          finish(e.data.labels);
+        }
+      };
+      window.addEventListener("message", handler);
+      this.sendToIframe({ action: "queryLabels" });
+      const timer = setTimeout(() => finish([]), QUERY_LABELS_TIMEOUT_MS);
+    });
+  }
+
+  /**
+   * Fallback for old iframe templates: seek to a label, wait for stepChanged.
+   * Sends seekToStep twice — first to a dummy position to reset the dedup
+   * tracker, then to the actual label.
+   */
+  private verifyLabelBySeek(firstLabel: string): Promise<boolean> {
     if (!firstLabel) return Promise.resolve(false);
     return new Promise((resolve) => {
       let done = false;
@@ -205,7 +281,6 @@ export class LockstepEngine {
           e.data?.event === "stepChanged" &&
           e.data.label === firstLabel
         ) {
-          console.log(`[Lockstep] label "${firstLabel}" VERIFIED — lockstep mode`);
           finish(true);
         }
       };
@@ -213,9 +288,8 @@ export class LockstepEngine {
       this.sendToIframe({ action: "seekToStep", label: firstLabel });
 
       const timer = setTimeout(() => {
-        console.log(`[Lockstep] label "${firstLabel}" NOT FOUND — free-play mode`);
         finish(false);
-      }, LABEL_VERIFY_TIMEOUT_MS);
+      }, QUERY_LABELS_TIMEOUT_MS);
     });
   }
 
@@ -241,15 +315,6 @@ export class LockstepEngine {
     });
   }
 
-  /**
-   * Play the animation forward until the target label is reached.
-   *
-   * @param targetLabel    GSAP label (or video step) to play toward
-   * @param transitionMs   Expected duration of the transition in ms (from
-   *                       anim_time difference between steps). The timeout
-   *                       is set to this + a margin so the animation has
-   *                       time to actually reach the label.
-   */
   private animateToStep(
     targetLabel: string,
     transitionMs: number = ANIMATE_TO_STEP_DEFAULT_TIMEOUT_MS,
@@ -342,8 +407,6 @@ export class LockstepEngine {
       /* already stopped */
     }
     this.currentSource = null;
-    // Pause the old iframe animation so it doesn't fire stale stepChanged
-    // events that could set iframeReady=true before the new frame loads.
     this.sendToIframe({ action: "pause" });
     if (this.resumeWaiter) {
       this.resumeWaiter.resolve();

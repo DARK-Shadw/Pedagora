@@ -6,6 +6,8 @@ import logging
 import time
 
 from app.agents.animation_v2.gemini_client import GeminiClient, MODEL_ID as GEMINI_MODEL_ID
+from app.agents.animation_v2.groq_client import GroqCodeClient
+from app.agents.animation_v2.nvidia_client import NvidiaClient
 from app.agents.animation_v2.generator import generate_frame_visual, route_frame
 from app.config import get_settings
 from app.services.supabase import get_supabase
@@ -33,9 +35,17 @@ async def regenerate_single_frame(
     sb = get_supabase()
     settings = get_settings()
     keys = settings.get_gemini_api_keys()
-    if not keys:
-        raise RuntimeError("No Gemini API keys configured")
-    gemini = GeminiClient(keys)
+    if keys:
+        gemini = GeminiClient(
+            keys,
+            paid_key=settings.gemini_paid_api_key or None,
+            paid_model=settings.gemini_paid_model or None,
+        )
+    else:
+        try:
+            gemini = NvidiaClient()
+        except (ValueError, Exception):
+            raise RuntimeError("No animation API keys configured (Gemini or NVIDIA)")
 
     # Load the frame from the course plan
     cp = sb.table("course_plans").select("lesson_plans").eq("goal_id", goal_id).single().execute()
@@ -133,13 +143,31 @@ async def generate_lesson_visuals(
     """Generate all visual assets for one lesson's VisualFrames."""
     sb = get_supabase()
     settings = get_settings()
+
+    # Provider chain: Gemini 3 Flash → NVIDIA DeepSeek → Groq
     keys = settings.get_gemini_api_keys()
-    if not keys:
-        raise RuntimeError(
-            "No Gemini API keys configured — set GEMINI_API_KEYS (comma-separated) "
-            "or GOOGLE_API_KEY in backend/.env"
+    if keys:
+        gemini = GeminiClient(
+            keys,
+            paid_key=settings.gemini_paid_api_key or None,
+            paid_model=settings.gemini_paid_model or None,
         )
-    gemini = GeminiClient(keys)
+        provider_name = f"Gemini {GEMINI_MODEL_ID}"
+        if settings.gemini_paid_api_key:
+            provider_name += f" + paid fallback ({settings.gemini_paid_model})"
+    else:
+        try:
+            gemini = NvidiaClient()
+            provider_name = "NVIDIA DeepSeek V4 Flash"
+        except (ValueError, Exception):
+            try:
+                gemini = GroqCodeClient()
+                provider_name = "Groq openai/gpt-oss-120b"
+            except (ValueError, Exception):
+                raise RuntimeError(
+                    "No animation API keys configured — set GEMINI_API_KEYS, "
+                    "NVIDIA_API_KEY, or GROQ_API_KEY in backend/.env"
+                )
     pipeline_start = time.time()
 
     def _log(msg: str, level: str = "info"):
@@ -252,9 +280,9 @@ async def generate_lesson_visuals(
         5,
     )
     _log(
-        f"[{lesson_id}] Gemini pool: {len(keys)} key(s) · "
+        f"[{lesson_id}] {provider_name} (pool: {gemini.pool_size}) · "
         f"animating {len(frames_to_process)} frames "
-        f"({browser_count} browser, {manim_count} manim) via {GEMINI_MODEL_ID}"
+        f"({browser_count} browser, {manim_count} manim)"
         f"{resume_suffix}"
     )
     if manim_count:
@@ -327,12 +355,12 @@ async def generate_lesson_visuals(
         return r
 
     # --- Pass 1: semaphore-bounded concurrent generation ---
-    # Replaces fixed-batch scheduling. CONCURRENCY = BATCH_SIZE slots; as
-    # soon as any frame finishes, its slot is released and the next queued
-    # frame starts — no waiting for slow siblings (e.g. a 300s Manim render)
-    # to finish before starting new browser work.
+    # NvidiaClient: 4 concurrent, GeminiClient: 3 concurrent, Groq: sequential
+    concurrency = gemini.pool_size if hasattr(gemini, 'pool_size') else BATCH_SIZE
+    if isinstance(gemini, GroqCodeClient):
+        concurrency = 1
     work_total = max(1, len(frames_to_process))
-    sem = asyncio.Semaphore(BATCH_SIZE)
+    sem = asyncio.Semaphore(concurrency)
     completed_counter = 0
 
     async def _bounded_main(frame: dict):
@@ -352,7 +380,7 @@ async def generate_lesson_visuals(
     if frames_to_process:
         _log(
             f"[{lesson_id}] Starting {len(frames_to_process)} frames "
-            f"(concurrency={BATCH_SIZE})"
+            f"(concurrency={concurrency})"
         )
         await asyncio.gather(
             *[_bounded_main(f) for f in frames_to_process],

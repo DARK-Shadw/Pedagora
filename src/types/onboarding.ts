@@ -8,7 +8,10 @@ import type {
   SessionFrequency,
 } from "./index";
 
+export type ContentType = "course" | "single_episode";
+
 export interface OnboardingGoalData {
+  contentType: ContentType;
   title: string;
   endGoal: string;
   motivation: string;

@@ -124,13 +124,16 @@ export default function ReviewPage() {
       }
 
       // 6. Create initial agent tasks
-      const agentTypes = ["research", "planning", "visualization", "teaching"] as const;
+      const isEpisode = goal.contentType === "single_episode";
+      const agentTypes = isEpisode
+        ? (["planning", "visualization", "teaching"] as const)
+        : (["research", "planning", "visualization", "teaching"] as const);
       await supabase.from("agent_tasks").insert(
         agentTypes.map((type) => ({
           goal_id: goalData.id,
           user_id: user.id,
           agent_type: type,
-          status: type === "research" ? "queued" : "queued",
+          status: "queued",
         }))
       );
 
@@ -169,32 +172,35 @@ export default function ReviewPage() {
         clearPendingFiles();
       }
 
-      // 7. Trigger research agent (fire-and-forget)
+      // 7. Trigger the appropriate pipeline (fire-and-forget)
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData.session?.access_token) {
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/research`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionData.session.access_token}`,
-          },
-          body: JSON.stringify({ goal_id: goalData.id }),
-        }).catch(() => {
-          // Non-blocking — research will be retried from agents page if needed
-        });
+        const headers = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        };
+        const body = JSON.stringify({ goal_id: goalData.id });
 
-        // 7.5. Trigger resource processing (fire-and-forget)
-        if (resources.files.length > 0) {
-          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/resources/process`, {
+        if (isEpisode) {
+          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/plan-episode`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${sessionData.session.access_token}`,
-            },
-            body: JSON.stringify({ goal_id: goalData.id }),
-          }).catch(() => {
-            // Non-blocking — resources will be processed later if needed
-          });
+            headers,
+            body,
+          }).catch(() => {});
+        } else {
+          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/research`, {
+            method: "POST",
+            headers,
+            body,
+          }).catch(() => {});
+
+          if (resources.files.length > 0) {
+            fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/resources/process`, {
+              method: "POST",
+              headers,
+              body,
+            }).catch(() => {});
+          }
         }
       }
 
@@ -224,7 +230,9 @@ export default function ReviewPage() {
           Review your plan
         </h1>
         <p className="text-slate-500 dark:text-slate-400 text-lg">
-          Everything looks good? Launch your AI agents to build your curriculum.
+          {goal.contentType === "single_episode"
+            ? "Everything looks good? Generate your episode with Gemini."
+            : "Everything looks good? Launch your AI agents to build your curriculum."}
         </p>
       </div>
 
@@ -235,6 +243,19 @@ export default function ReviewPage() {
           icon="school"
           editHref="/onboarding/goal"
         >
+          <div className="flex items-center gap-2 mb-2">
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+              goal.contentType === "single_episode"
+                ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                : "bg-primary/10 text-primary"
+            }`}>
+              <MaterialIcon
+                name={goal.contentType === "single_episode" ? "play_circle" : "library_books"}
+                className="text-sm"
+              />
+              {goal.contentType === "single_episode" ? "Single Episode" : "Full Course"}
+            </span>
+          </div>
           <p className="text-lg font-bold">{goal.title || "Not set"}</p>
           {goal.endGoal && (
             <p className="text-sm text-slate-500 mt-1">Goal: {goal.endGoal}</p>
@@ -403,11 +424,11 @@ export default function ReviewPage() {
           disabled={loading}
         >
           {loading ? (
-            "Launching agents..."
+            goal.contentType === "single_episode" ? "Generating episode..." : "Launching agents..."
           ) : (
             <>
-              Launch AI Agents
-              <MaterialIcon name="rocket_launch" className="text-xl" />
+              {goal.contentType === "single_episode" ? "Generate Episode" : "Launch AI Agents"}
+              <MaterialIcon name={goal.contentType === "single_episode" ? "play_circle" : "rocket_launch"} className="text-xl" />
             </>
           )}
         </Button>

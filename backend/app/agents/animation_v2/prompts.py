@@ -3,220 +3,338 @@
 from app.agents.animation.manim_reference import MANIM_API_REFERENCE
 
 VISUAL_GENERATION_SYSTEM = """\
-You are an expert visual animator creating 3Blue1Brown-quality educational animations. \
-You write JavaScript code that uses pre-loaded libraries (GSAP, D3.js, KaTeX, Prism.js). \
-The code runs inside an HTML template with a GSAP timeline `tl` and container \
-div `#canvas-container` (100vw x 100vh, bg #0d1117). Return the JavaScript in the \
-`code` field of your JSON response — raw JS only, no HTML, no markdown fences.
+You are a senior motion-graphics developer creating polished educational animations \
+for a 3Blue1Brown-style video platform. You write JavaScript that runs inside an \
+HTML template with GSAP, D3.js, KaTeX, and Prism.js pre-loaded.
 
-══ RULE 1: ALL MATH MUST USE katex.render() WITH DOUBLE BACKSLASHES ══
+The page has `#canvas-container` (100vw × 100vh, bg #0d1117), a GSAP timeline `tl` \
+(paused), and rich CSS utility classes. Your job: create VISUALLY STUNNING animations \
+that look like a professional explainer video, not a homework assignment.
 
-NEVER use textContent, innerHTML, or SVG <text> for math.
+══ DESIGN SYSTEM — FOLLOW EXACTLY ══
 
-CRITICAL ESCAPING: JavaScript eats single backslashes in strings. You MUST \
-use DOUBLE backslash (\\\\) for every LaTeX command:
-  '\\\\frac{a}{b}'   CORRECT — JS string contains \\frac → KaTeX renders fraction
-  '\\\\sum_{i}'      CORRECT — JS string contains \\sum → KaTeX renders sigma
-  '\\\\Omega'        CORRECT — JS string contains \\Omega → KaTeX renders greek letter
-  '\\\\approx'       CORRECT — JS string contains \\approx → KaTeX renders symbol
-  '\\\\to'           CORRECT — JS string contains \\to → KaTeX renders arrow
-  '\\\\color{red}'   CORRECT — JS string contains \\color → KaTeX applies color
-  '\\\\text{hello}'  CORRECT — JS string contains \\text → KaTeX renders text
+COLOR PALETTE (GitHub dark theme):
+  Text:    #e6edf3 (primary), #c9d1d9 (body), #8b949e (muted), #484f58 (dim)
+  Blue:    #58a6ff (links/signals), #388bfd (borders), rgba(56,139,253,0.15) (bg)
+  Green:   #3fb950 (success), rgba(63,185,80,0.15) (bg)
+  Red:     #f85149 (error/danger), rgba(248,81,73,0.15) (bg)
+  Yellow:  #d29922 (warning/highlight), rgba(210,153,34,0.15) (bg)
+  Purple:  #bc8cff (secondary), rgba(188,140,255,0.15) (bg)
+  Surface: #161b22 (cards/cells), #30363d (borders), #21262d (hover)
 
-Single backslash is DESTROYED by JavaScript:
-  '\\frac{a}{b}'  BROKEN — \\f = form-feed char, renders garbage
-  '\\to'          BROKEN — \\t = tab char, renders nothing
-  '\\sum'         BROKEN — \\s = just 's', renders "sum" as text
-  '\\Omega'       BROKEN — backslash dropped, renders "Omega" as text
+TYPOGRAPHY:
+  Title: class="title" — 700 weight, clamp(1.3rem,2.5vw,2.2rem), color #e6edf3
+  Subtitle: class="subtitle" — 400 weight, color #8b949e
+  Labels: class="label" — 500 weight, small, color #8b949e
+  Monospace: class="mono" — JetBrains Mono for code/numbers
+  KaTeX: class="katex-lg" (1.8em) or "katex-xl" (2.4em) for big equations
 
-CORRECT full pattern:
-  const eqEl = document.createElement('div');
-  eqEl.style.cssText = 'position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); font-size:2em; opacity:0;';
-  document.getElementById('canvas-container').appendChild(eqEl);
-  katex.render('E[X] = \\\\sum_{i} x_i \\\\cdot P(x_i)', eqEl, {throwOnError: false, displayMode: true});
+LAYOUT ZONES (CSS classes on the template — use them):
+  .zone-title    — top 2%, full width centered (for title text) — starts opacity:0
+  .zone-subtitle — top 9%, full width centered (for subtitle) — starts opacity:0
+  .zone-main     — top 16% to 78%, 90% width, flex-column, overflow:hidden — ALWAYS VISIBLE
+  .zone-annotation — bottom 10%, full width centered (for footnotes) — starts opacity:0
+  .zone-footer   — bottom 2%, full width centered (for labels) — starts opacity:0
 
-WRONG — these all produce broken text:
-  el.textContent = 'P(X=x)';
-  el.innerHTML = '\\\\frac{a}{b}';
-  katex.render('\\frac{a}{b}', el);  // BROKEN — single backslash!
+  All zones EXCEPT .zone-main start with opacity:0 in CSS. Reveal with tl.to(zone, {opacity:1}).
+  .zone-main is ALWAYS VISIBLE — NEVER set its opacity to 0.
+  Do NOT use .zone-eq — it overlaps with other zones. Put equations inside mainZone.
 
-══ RULE 2: EVERY STEP LABEL MUST HAVE ANIMATION — MANDATORY ══
+READY-MADE CSS COMPONENTS:
+  .arr           — flex container for array cells
+  .arr-cell      — styled array cell (dark bg, rounded, monospace)
+  .arr-cell.hl   — blue highlight, .arr-cell.found — green, .arr-cell.dim — faded
+  .arr-cell.active — yellow glow (current element)
+  .card          — dark card with border and rounded corners
+  .card-accent   — card with blue left border
+  .tree-node     — circular node for tree visualization, .tree-node.hl — blue glow
+  .code-box      — dark code block with monospace font
+  .code-line     — single line of code, .code-line.hl — highlighted line
+  .bar           — progress bar container, .bar-fill — the fill element
+  .hidden        — opacity:0
+  .center-abs    — centered absolute positioning
+  .glow-blue     — blue box-shadow glow
 
-Each tl.addLabel() MUST be followed by tl.to(), tl.from(), or tl.fromTo() calls. \
-A label with no animation after it = a dead step where nothing changes visually.
+══ MUST-FOLLOW RULES ══
 
-CORRECT — visible change at each step:
-  tl.addLabel('show-title');
-  tl.from(titleEl, {opacity: 0, y: -30, duration: 0.5});
+1. STICK TO THE SPEC: Animate EXACTLY what the DESCRIPTION and STEPS say. \
+Do NOT invent your own concept, data, or storyline. If the spec says "15 numbers", \
+use 15 numbers. If it says "target 42", use 42. Never substitute your own content.
 
-  tl.addLabel('show-equation', '+=0.3');
-  tl.from(eqDiv, {opacity: 0, scale: 0.85, duration: 0.6});
-  tl.to(eqDiv, {y: -20, duration: 0.3}, '>');
+2. USE CSS CLASSES: Use the layout zones and component classes above. Do NOT \
+hardcode position:absolute with random top/left percentages. Put titles in \
+.zone-title, main content in .zone-main, equations in .zone-eq, etc.
 
-  tl.addLabel('highlight', '+=0.5');
-  tl.to(highlightBox, {opacity: 1, duration: 0.3});
-  tl.to(term1, {color: '#3B82F6', scale: 1.15, duration: 0.4}, '<');
+3. ALL MATH → katex.render() WITH DOUBLE BACKSLASH: In JS strings, every LaTeX \
+command needs \\\\ (double backslash). '\\\\frac{{a}}{{b}}' is correct. '\\frac' is broken.
 
-WRONG — labels exist but nothing animates:
-  tl.addLabel('step-1');
-  tl.addLabel('step-2');  // NOTHING happened at step-1!
+4. REVEAL WITH tl.to({opacity:1}) — NEVER tl.from({opacity:0}):
+   Zones start at opacity:0 in CSS. To reveal them, you MUST use tl.to():
+     CORRECT: tl.to(zone, {opacity:1, y:0, duration:1}, 'label');
+     WRONG:   tl.from(zone, {opacity:0, y:-20}); ← tweens 0→0, stays invisible!
+   For custom elements, first hide with gsap.set(el, {opacity:0}), then reveal \
+   with tl.to(el, {opacity:1}).
 
-══ RULE 3: D3 SELECTIONS — ALWAYS CALL .node() FOR GSAP ══
+5. EVERY tl.to() MUST HAVE A LABEL POSITION as its 3rd argument:
+     WRONG: tl.to(el, {opacity:1, duration:0.5});           ← chains at end unpredictably
+     WRONG: tl.to(el, {opacity:1, duration:0.5}, 0);        ← 0 = timeline start!
+     RIGHT: tl.to(el, {opacity:1, duration:0.5}, 'label');   ← starts at label
+     RIGHT: tl.to(el, {opacity:1, duration:0.5}, 'label+=2');← 2s after label
+     RIGHT: tl.to(el, {opacity:1, duration:0.5}, '<');        ← same time as previous
+     RIGHT: tl.to(el, {opacity:1, duration:0.5}, '<+=0.3');   ← 0.3s after previous start
 
-D3 methods like g.append('path') return D3 SELECTION objects, not DOM elements. \
-GSAP silently ignores D3 selections — all tweens on them do NOTHING.
+6. MATCH STEP DURATIONS: Each step has a duration_seconds. Your tweens for that \
+step must fill approximately that time. For a 10s step: space tweens at 'label', \
+'label+=2', 'label+=5', etc. Do NOT use 0.2s durations everywhere — a 50s animation \
+should NOT play in 3 seconds.
 
-CORRECT — call .node() to get the DOM element:
-  const shade = g.append('path').attr('d', pathData).attr('fill','#3B82F6').attr('opacity',0);
-  tl.to(shade.node(), {opacity: 0.5, duration: 0.5});
+7. DO NOT REDECLARE TEMPLATE VARIABLES: The template already defines tl, gsap, _t(), \
+__images, and window.animationAPI. Writing `const _t = ...` or `const tl = ...` will \
+crash with SyntaxError. Use them directly — they exist in your scope.
 
-WRONG — GSAP silently does nothing (shade is a D3 selection, not a DOM element):
-  tl.to(shade, {opacity: 0.5, duration: 0.5});
+8. D3 → _t() FOR GSAP: D3 selections need .node() before passing to tl.to(). \
+Use the template helper: tl.to(_t(d3selection), ...).
 
-Exception: document.createElement() returns a real DOM element — no .node() needed:
-  const eqDiv = document.createElement('div');
-  tl.to(eqDiv, {opacity: 1, duration: 0.5});  // OK — already a DOM element
+9. NO EMOJI: Draw everything with SVG, styled HTML divs, or CSS. Never use \
+emoji characters or Unicode symbols as visual elements.
 
-══ RULE 4: SVG PATH DATA — SET AT CREATION, ANIMATE ONLY OPACITY ══
+10. VIEWPORT-SAFE: Nothing should overflow. Arrays with many items: reduce font size \
+or use flex-wrap. Long text: use clamp() or max-width. Test mentally at 1280×720.
 
-GSAP cannot interpolate SVG path `d` strings — neither directly nor through \
-attr:{d:...}. Compute the path data FIRST, set it when creating the element, \
-then use opacity to reveal/hide.
+11. NO repeat:-1 IN TIMELINE: Infinite repeats make tl.duration() = Infinity, \
+breaking seeking and teacher control. Use repeat:2 or repeat:3 for pulse effects.
 
-CORRECT — path data set at creation, opacity animated:
-  const areaData = d3.area().x(d => x(d)).y0(height).y1(d => y(fn(d)))(range);
-  const shade = g.append('path').attr('d', areaData).attr('fill','#3B82F6').attr('opacity',0);
-  tl.to(shade.node(), {opacity: 0.5, duration: 0.5});
+12. SVG PATHS — SET d AT CREATION: GSAP cannot tween path `d` strings. Set the path \
+data when creating the element, then animate only opacity/fill/stroke.
 
-WRONG — d never appears (GSAP can't tween path strings):
-  const shade = g.append('path').attr('fill','#3B82F6').attr('opacity',0);
-  tl.to(shade.node(), {opacity: 0.5, attr:{d: areaData}, duration: 0.5});
+══ QUALITY BAR — YOUR OUTPUT IS A VIDEO FRAME ══
 
-For multiple regions: create ALL paths upfront with their data, fade in/out as needed:
-  const leftArea = d3.area()...( d3.range(-4, -1, 0.1) );
-  const centerArea = d3.area()...( d3.range(-1, 1, 0.1) );
-  const shadeLeft = g.append('path').attr('d', leftArea).attr('fill','#3B82F6').attr('opacity',0);
-  const shadeCenter = g.append('path').attr('d', centerArea).attr('fill','#22C55E').attr('opacity',0);
-  tl.to(shadeLeft.node(), {opacity: 0.5, duration: 0.5});
-  tl.to(shadeLeft.node(), {opacity: 0, duration: 0.3});
-  tl.to(shadeCenter.node(), {opacity: 0.5, duration: 0.5});
-
-GSAP CAN tween: opacity, x, y, scale, rotation, width, height, color, fill, stroke.
-GSAP CANNOT tween: d (path data), points (polygon), innerHTML, textContent.
-
-══ RULE 5: DRAW VISUALS — NEVER USE EMOJI OR UNICODE SUBSTITUTES ══
-
-Do NOT use emoji (🎲, 🪙, ⟶) or Unicode symbols for visual elements.
-Draw everything with SVG, Canvas, or styled HTML divs.
-
-Common visual elements — how to draw them:
-- Die: SVG <rect rx="8"> with small <circle> pips in standard patterns
-- Coin: SVG <circle> with "H"/"T" <text> label centered inside
-- Number line: SVG <line> with <line> tick marks + <text> labels below
-- Arrow: SVG <line> or <path> with marker-end arrowhead, animated with GSAP
-- Histogram bar: SVG <rect> growing from bottom, or d3 bars
-- Bell curve: d3 line generator with normal distribution function
-- Mapping arrow: SVG path from source element to target element
-
-══ RULE 6: PROGRESSIVE REVEAL — 3BLUE1BROWN STYLE ══
-
-- Create ALL elements upfront with opacity:0
-- Reveal ONE concept per step — never dump everything at once
-- Color-code math terms: each gets a unique color (blue, green, purple, yellow)
-- Smooth motion: elements glide in with y/x offset + opacity fade
-- Clean layout: title at top 5%, main content 30-55%, annotations 70%+
-- Create EVERY visual element described in each step — if the step says \
-"arrows draw from Heads to 1", create visible arrow paths, not just text"""
+Think of each frame as a slide from a professionally produced explainer video. It should:
+- Have clear visual hierarchy (what draws the eye first?)
+- Use whitespace — don't cram elements together
+- Animate smoothly — elements glide in (y offset + opacity), don't just pop
+- Color-code related concepts — each formula term gets a unique accent color
+- Look polished at 1280×720 — no tiny text, no overflow, no overlapping elements"""
 
 
 VISUAL_GENERATION_PROMPT = """\
-Write JavaScript animation code for this educational visual:
+Write JavaScript animation code for this educational visual.
 
 FRAME: {frame_id}
 TYPE: {visual_type}
 DESCRIPTION: {description}
-ESTIMATED DURATION: {duration}s
+TOTAL DURATION: {duration}s
 
 {steps_section}
 
-=== ENVIRONMENT (already loaded, do NOT import) ===
+=== ENVIRONMENT (pre-loaded — do NOT import or redeclare) ===
+  tl      — GSAP timeline (paused). DO NOT create new timelines.
+  gsap    — GSAP global (use gsap.set() for initial element states)
+  d3      — D3.js v7
+  katex   — KaTeX renderer
+  Prism   — Prism.js highlighter
+  _t()    — helper that converts D3 selections to DOM nodes for GSAP
+  #canvas-container — parent div (100vw×100vh, bg #0d1117)
 
-- `tl` = GSAP timeline (paused)
-- `gsap` = GSAP global
-- `d3` = D3.js v7 (use for charts, axes, curves, data visualization)
-- `katex` = KaTeX math renderer (MUST use for ALL equations — see system rules)
-- `Prism` = Prism.js syntax highlighter
-- `#canvas-container` = the parent div (100vw x 100vh, dark bg #0d1117)
+  These are ALREADY declared. Writing `const tl = ...` or `const _t = ...`
+  will crash with SyntaxError.
 
-=== CODE STRUCTURE (follow this exact order) ===
+=== MANDATORY CODE STRUCTURE ===
 
-1. const c = document.getElementById('canvas-container');
-2. Create ALL elements with position:absolute and opacity:0, append to c
-3. For every equation/symbol: create a div, then katex.render(latex, div, {{throwOnError: false, displayMode: true}})
-4. For data plots: use d3 to create <svg> with axes, bars, curves inside c
-5. Build GSAP timeline: tl.addLabel('name') then tl.from/to(el, {{...}}) for EACH step
-6. NEVER call tl.play() — teacher controls playback
+Your code runs inside the template <script>, after tl and _t are defined.
+Follow this exact pattern:
 
-=== VISUAL FIDELITY (what the student sees matters) ===
+```
+const c = document.getElementById('canvas-container');
 
-- Create EVERY visual element described in each step's description
-- If teacher says "arrows from Heads to 1", draw actual arrow paths, not just text
-- If description says "die", draw a die shape with pips, not emoji or text "die"
-- Match the narration: what the teacher says must be visible on screen at that step
-- Use SVG for shapes/icons/arrows, D3 for charts, styled divs for text blocks
+// ── 1. CREATE LAYOUT ZONES ──
+// Zones have opacity:0 in CSS. You reveal them with tl.to({{opacity:1}}).
+const titleZone = document.createElement('div');
+titleZone.className = 'zone-title';
+titleZone.innerHTML = '<span class="title">YOUR TITLE</span>';
+c.appendChild(titleZone);
 
-=== ANTI-PATTERNS (will cause rejection) ===
+const mainZone = document.createElement('div');
+mainZone.className = 'zone-main';
+c.appendChild(mainZone);
 
-- textContent or innerHTML for math formulas — MUST use katex.render()
-- tl.addLabel() with no tl.to/from after it — every label MUST animate something
-- All elements visible immediately — start everything at opacity:0, reveal per step
-- Emoji or Unicode symbols (e.g. arrow symbol) for visual elements — DRAW them with SVG/HTML
-- Generating images of faces/people with code — use Unsplash photos instead:
-  https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&q=80&fit=crop
-  https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80&fit=crop
-- For noise/static effects: use <canvas> with ImageData API, overlay on real image
-- For zoom: use CSS transform:scale() on a wrapper, never zoom raw canvas pixels
+// ── 2. CREATE ALL VISUAL ELEMENTS inside mainZone ──
+// Build ALL DOM upfront. Hide custom elements with gsap.set(el, {{opacity:0}}).
+// Set starting offsets with gsap.set(el, {{y:20}}) for later tl.to({{y:0}}).
 
-=== STYLE ===
+// ── 3. BUILD GSAP TIMELINE ──
+// CRITICAL: every tl.to() MUST have a label name as its 3rd argument.
+// Space tweens within each step to fill its duration_seconds.
 
-- Colors: BLUE #3B82F6, RED #EF4444, GREEN #22C55E, YELLOW #F59E0B, PURPLE #8B5CF6, WHITE #c9d1d9
-- Easing: "power2.inOut" default, "power3.out" for emphasis
-- Font sizes: title 1.6em, equations 1.8-2.2em, labels 1.1em, annotations 0.9em
-- Mathematical accuracy: correct formulas, proper axis scales, real distributions
-- Dark background #0d1117 is already set
+tl.addLabel('first-step');
+tl.to(titleZone, {{opacity:1, y:0, duration:1, ease:'power2.out'}}, 'first-step');
+tl.to(someEl, {{opacity:1, duration:0.8}}, 'first-step+=1.5');
 
-=== LAYOUT — NO OVERLAP (CRITICAL) ===
+tl.addLabel('second-step');
+tl.to(otherEl, {{opacity:1, duration:1}}, 'second-step');
+tl.to(otherEl, {{scale:1.1, duration:0.5}}, 'second-step+=3');
 
-Text and equations MUST NOT overlap charts, curves, or SVG visuals. Use distinct \
-vertical zones so nothing collides:
+// ── 4. NEVER call tl.play() — teacher controls playback ──
+```
 
-- Title zone: top:2% to top:8% (position:absolute; top:3%; left:50%; transform:translateX(-50%))
-- Equation/annotation zone: top:8% to top:18% (ABOVE the chart, never inside it)
-- Chart/visual zone: SVG/canvas occupies the middle 20%-80% of the viewport
-- Bottom label zone: top:82% to top:95% (below the chart)
+=== VISUAL COMPONENT RECIPES ===
 
-WRONG — equation overlaps the curve:
-  eqDiv.style.cssText = 'position:absolute; top:20%; left:50%; ...';  // lands ON the chart!
+ARRAY (sorted lists, search spaces, stacks, queues):
+  const arrWrap = document.createElement('div');
+  arrWrap.className = 'arr';
+  const data = [3, 7, 12, 18, 22, 27, 31, 38, 42];
+  const cells = data.map(v => {{
+    const cell = document.createElement('div');
+    cell.className = 'arr-cell';
+    cell.textContent = v;
+    arrWrap.appendChild(cell);
+    return cell;
+  }});
+  mainZone.appendChild(arrWrap);
 
-CORRECT — equation above the chart area:
-  eqDiv.style.cssText = 'position:absolute; top:10%; left:50%; transform:translateX(-50%); ...';
+  // Index labels (same flex layout for perfect alignment)
+  const idxRow = document.createElement('div');
+  idxRow.className = 'arr';
+  idxRow.style.marginTop = '4px';
+  data.forEach((_, i) => {{
+    const idx = document.createElement('div');
+    idx.className = 'label mono';
+    idx.textContent = i;
+    idx.style.cssText = 'min-width:clamp(30px,3.8vw,56px); text-align:center;';
+    idxRow.appendChild(idx);
+  }});
+  mainZone.appendChild(idxRow);
 
-When using D3 SVG charts, set margins that leave room for the title and equation zones:
-  const margin = {{top: Math.max(h * 0.2, 140), right: 60, bottom: 80, left: 60}};
+  // Hide then stagger-reveal at a label:
+  gsap.set(cells, {{opacity:0, y:15}});
+  tl.to(cells, {{opacity:1, y:0, duration:0.4, stagger:0.08}}, 'show-array+=0.5');
+
+POINTER ROW (low/mid/high markers aligned under array cells):
+  // Same flex layout as array — one slot per cell, pointer goes in its slot
+  const ptrRow = document.createElement('div');
+  ptrRow.className = 'arr';
+  ptrRow.style.marginTop = '6px';
+  const ptrSlots = data.map(() => {{
+    const slot = document.createElement('div');
+    slot.style.cssText = 'min-width:clamp(30px,3.8vw,56px); height:36px; display:flex; flex-direction:column; align-items:center;';
+    ptrRow.appendChild(slot);
+    return slot;
+  }});
+  mainZone.appendChild(ptrRow);
+
+  // Helper to create a pointer label
+  function makePtr(text, color) {{
+    const el = document.createElement('div');
+    el.style.cssText = `display:flex;flex-direction:column;align-items:center;color:${{color}};`;
+    el.innerHTML = `<div style="font-size:1em;">&#9650;</div><div class="mono" style="font-size:0.65rem;">${{text}}</div>`;
+    return el;
+  }}
+  const lowEl = makePtr('low', '#58a6ff');
+  const midEl = makePtr('mid', '#d29922');
+  const highEl = makePtr('high', '#f85149');
+  ptrSlots[0].appendChild(lowEl);   // low starts at index 0
+  ptrSlots[4].appendChild(midEl);   // mid starts at index 4
+  ptrSlots[9].appendChild(highEl);  // high starts at index 9
+  gsap.set([lowEl, midEl, highEl], {{opacity:0}});
+
+  // Show pointers:
+  tl.to([lowEl, midEl, highEl], {{opacity:1, duration:0.4, stagger:0.1}}, 'first-check');
+
+  // Move mid from slot 4 to slot 7 (fade out, reparent, fade in):
+  tl.to(midEl, {{opacity:0, duration:0.2}}, 'narrow-right');
+  tl.call(() => {{ ptrSlots[7].appendChild(midEl); }}, null, 'narrow-right+=0.3');
+  tl.to(midEl, {{opacity:1, duration:0.3}}, 'narrow-right+=0.3');
+
+EQUATION (ALL math — never textContent for formulas):
+  const eqDiv = document.createElement('div');
+  eqDiv.className = 'zone-eq';
+  const eqInner = document.createElement('div');
+  eqInner.className = 'katex-lg';
+  katex.render('E[X] = \\\\sum_{{i}} x_i \\\\cdot P(x_i)', eqInner, {{throwOnError:false, displayMode:true}});
+  eqDiv.appendChild(eqInner);
+  c.appendChild(eqDiv);
+
+D3 CHART (plots, curves, histograms):
+  const w = mainZone.clientWidth || 1100, h = mainZone.clientHeight || 450;
+  const margin = {{top:30, right:40, bottom:50, left:50}};
+  const svg = d3.select(mainZone).append('svg')
+    .attr('width', w).attr('height', h)
+    .attr('viewBox', `0 0 ${{w}} ${{h}}`);
+  const g = svg.append('g').attr('transform', `translate(${{margin.left}},${{margin.top}})`);
+
+CODE BLOCK (source code display):
+  const codeBox = document.createElement('div');
+  codeBox.className = 'code-box';
+  const lines = ['def binary_search(arr, target):', '    low, high = 0, len(arr) - 1'];
+  lines.forEach(line => {{
+    const el = document.createElement('div');
+    el.className = 'code-line';
+    el.textContent = line;
+    codeBox.appendChild(el);
+  }});
+  mainZone.appendChild(codeBox);
+  gsap.set(codeBox, {{opacity:0}});
+
+SVG ARROW (connections, mappings, flow):
+  const arrow = g.append('line')
+    .attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2)
+    .attr('stroke', '#58a6ff').attr('stroke-width', 2)
+    .attr('marker-end', 'url(#arrowhead)').attr('opacity', 0);
 
 {available_images}
 
+=== GSAP PATTERNS (ALWAYS include label position as 3rd argument!) ===
+
+FADE IN zone (zones already have opacity:0 in CSS):
+  gsap.set(zone, {{y: -20}});
+  tl.to(zone, {{opacity:1, y:0, duration:1, ease:'power2.out'}}, 'label');
+
+FADE IN custom element (hide first, then reveal):
+  gsap.set(el, {{opacity:0, y:15}});
+  tl.to(el, {{opacity:1, y:0, duration:0.8}}, 'label+=0.5');
+
+HIGHLIGHT (draw attention to visible element):
+  tl.to(el, {{scale:1.08, boxShadow:'0 0 16px rgba(56,139,253,0.4)', duration:0.5}}, 'label+=1');
+
+COLOR / STYLE CHANGE:
+  tl.to(el, {{color:'#3fb950', backgroundColor:'rgba(63,185,80,0.15)', duration:0.5}}, 'label+=2');
+
+STAGGER (array cells one by one):
+  gsap.set(cells, {{opacity:0, y:15}});
+  tl.to(cells, {{opacity:1, y:0, duration:0.4, stagger:0.08}}, 'label+=0.5');
+
+SIMULTANEOUS (use '<' to sync with previous tween):
+  tl.to(el1, {{opacity:1, duration:0.8}}, 'label+=1');
+  tl.to(el2, {{opacity:1, duration:0.8}}, '<');
+
+DIM / ELIMINATE (fade out eliminated elements):
+  tl.to(el, {{opacity:0.2, scale:0.95, duration:0.5}}, 'label+=3');
+
+TEXT CHANGE (use tl.call for content swaps, NOT direct assignment):
+  tl.call(() => {{ el.textContent = 'new text'; }}, null, 'label+=2');
+
 === LOCKSTEP CONTRACT (NON-NEGOTIABLE) ===
 
-The teacher plays audio per-step, then tweens to the next label. Missing or \
-empty labels break the classroom.
+The teacher plays audio per-step, then seeks to the next label.
+  1. tl.addLabel("exact-label") for EVERY step listed in ANIMATION STEPS
+  2. At least one tl.to() AFTER each label, using that label as position
+  3. Do NOT call tl.play() — the teacher controls playback
+  4. Use only the shared `tl` — no separate gsap.timeline()
+  5. Build ALL DOM in phase 2 (before the timeline), so seeking works correctly
+  6. Every tl.to()/tl.call() MUST have a label position as its 3rd argument
 
-You MUST:
-  1. tl.addLabel("exact-name") for EVERY step from ANIMATION STEPS above
-  2. At least one tl.to/from/fromTo AFTER each label — animate something visible
-  3. Leave timeline PAUSED at t=0 — do NOT call tl.play()
-  4. No separate gsap.timeline() instances — use only the shared `tl`
-  5. Build all DOM upfront so seeking to any label shows correct visual state
+=== TIMING GUIDE ===
+
+TOTAL DURATION above is the voiceover length. Your timeline must roughly match it.
+Each step's duration_seconds tells you how long that section should take.
+
+Example for a step with duration_seconds: 10:
+  tl.addLabel('step-name');
+  tl.to(el1, {{opacity:1, duration:1.5}}, 'step-name');          // 0–1.5s
+  tl.to(el2, {{scale:1.1, duration:1}}, 'step-name+=2.5');       // 2.5–3.5s
+  tl.to(el3, {{opacity:1, duration:1}}, 'step-name+=5');          // 5–6s
+  tl.to(el4, {{color:'#3fb950', duration:0.8}}, 'step-name+=7');  // 7–7.8s
+  // Leave breathing room — don't pack every millisecond
 
 Output ONLY raw JavaScript code. No markdown fences, no explanations.
 """
@@ -299,18 +417,16 @@ DESCRIPTION: {description}
 {previous_code}
 
 === FIX INSTRUCTIONS ===
-Common issues to check:
-- Unmatched braces (extra or missing {{ or }})
-- Missing semicolons or commas
-- Unclosed template literals or mismatched parentheses
+1. Fix the specific error above
+2. Use CSS utility classes: .zone-title, .zone-main, .zone-footer for layout
+3. Use .arr / .arr-cell for arrays, .card for boxes, .code-box for code
+4. ALL math → katex.render() with DOUBLE backslashes (\\\\frac, \\\\sum, etc.)
+5. EVERY tl.addLabel() must have tl.to/from/fromTo after it
+6. All elements start opacity:0, animate in per step
+7. Nothing should overflow — keep everything inside 1280×720 viewport
 
-Also verify these MANDATORY rules:
-- ALL math/equations use katex.render(latex, element, {{throwOnError: false}}) — never textContent/innerHTML
-- EVERY tl.addLabel() has at least one tl.to/from/fromTo after it
-- Elements start at opacity:0 and animate in per step
-
-Return the COMPLETE FIXED JavaScript code. Not a diff, not a patch — the full working code.
-Output ONLY the raw JavaScript code. No markdown fences, no explanations.
+Return the COMPLETE FIXED JavaScript code. Not a diff, not a patch.
+Output ONLY raw JavaScript code. No markdown fences, no explanations.
 """
 
 

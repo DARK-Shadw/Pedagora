@@ -10,13 +10,19 @@ What this catches that pure JS syntax checking can't:
 Returns a `RuntimeReport` with hard failures (`blocking`), advisories,
 captured screenshots (one per step label), and the labels actually present
 in the timeline. Generator wraps this in its retry loop.
+
+Uses Playwright's SYNC API in asyncio.to_thread() to avoid the
+`asyncio.create_subprocess_exec` NotImplementedError on Python 3.14 +
+uvicorn on Windows.
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import tempfile
+import time as _time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -54,7 +60,6 @@ class RuntimeReport:
         }
 
 
-# Tiny JS payload that asks the running animation what it knows about itself.
 _INSPECT_JS = r"""
 () => {
     if (!window.animationAPI) {
@@ -74,6 +79,93 @@ _INSPECT_JS = r"""
 """
 
 
+def _run_validation_sync(
+    file_url: str,
+    expected: list[str],
+    capture_screenshots: bool,
+    timeout: float,
+) -> RuntimeReport:
+    """Run Playwright sync API in a thread. Uses subprocess.Popen internally
+    (not asyncio.create_subprocess_exec), so it works on any event loop."""
+    from playwright.sync_api import sync_playwright
+    import time
+
+    report = RuntimeReport()
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        try:
+            context = browser.new_context(viewport={"width": 1280, "height": 720})
+            page = context.new_page()
+
+            page.on("pageerror", lambda exc: report.page_errors.append(str(exc)))
+
+            def _on_console(msg):
+                if msg.type == "error":
+                    report.console_errors.append(msg.text)
+
+            page.on("console", _on_console)
+
+            try:
+                page.goto(file_url, timeout=timeout * 1000)
+            except Exception:
+                report.blocking.append("page goto timed out")
+                return report
+
+            try:
+                page.wait_for_load_state("networkidle", timeout=10_000)
+            except Exception:
+                report.advisory.append("networkidle timed out (CDN slow?)")
+
+            time.sleep(0.5)
+
+            inspect = page.evaluate(_INSPECT_JS)
+            if not inspect.get("ok"):
+                report.blocking.append(
+                    f"animation contract broken: {inspect.get('reason', 'unknown')}"
+                )
+                return report
+
+            report.labels_in_timeline = list(inspect.get("labels") or [])
+            if not report.labels_in_timeline:
+                report.blocking.append(
+                    "no GSAP labels registered (tl.addLabel never called)"
+                )
+
+            if expected:
+                missing = [l for l in expected if l not in report.labels_in_timeline]
+                report.missing_labels = missing
+                if missing:
+                    report.blocking.append(
+                        f"missing labels: {', '.join(missing[:5])}"
+                        + (f" (+{len(missing)-5} more)" if len(missing) > 5 else "")
+                    )
+
+            if capture_screenshots and report.labels_in_timeline:
+                for label in report.labels_in_timeline:
+                    try:
+                        page.evaluate(
+                            "(label) => window.animationAPI.seekToStep(label)",
+                            label,
+                        )
+                        time.sleep(0.15)
+                        png = page.screenshot(full_page=False)
+                        report.screenshots_b64.append(base64.b64encode(png).decode("ascii"))
+                        report.step_labels_for_screenshots.append(label)
+                    except Exception as e:
+                        report.advisory.append(f"screenshot at '{label}' failed: {e}")
+
+            if report.page_errors:
+                report.blocking.append(
+                    f"pageerror: {report.page_errors[0][:200]}"
+                )
+
+        finally:
+            browser.close()
+
+    return report
+
+
 async def validate_animation_runtime(
     html: str,
     expected_labels: list[str] | None = None,
@@ -82,110 +174,33 @@ async def validate_animation_runtime(
 ) -> RuntimeReport:
     """Load `html` in headless Chromium and check the lockstep contract.
 
-    Steps:
-      1. Write HTML to a temp file (Playwright needs a URL)
-      2. Goto + wait for networkidle
-      3. Hook pageerror + console.error
-      4. Inspect `window.animationAPI` and `tl.labels`
-      5. Compare against `expected_labels` if provided
-      6. Capture a screenshot at each label by seeking and waiting
-
-    On success: `passed == True` and `screenshots_b64` is one screenshot per
-    label in source order. On failure: `blocking` lists the issues so the
-    generator's retry loop can inject them as feedback.
+    Runs Playwright's sync API in a background thread via asyncio.to_thread()
+    to avoid the create_subprocess_exec issue on Python 3.14 + uvicorn Windows.
     """
-    from playwright.async_api import async_playwright
-    import time as _time
-
     report = RuntimeReport()
     expected = expected_labels or []
     t_start = _time.time()
 
-    # Write HTML to a temp file so the browser can load it via file://
     tmp_dir = Path(tempfile.mkdtemp(prefix="pedagora_anim_validate_"))
     tmp_html = tmp_dir / "frame.html"
     tmp_html.write_text(html, encoding="utf-8")
     file_url = "file:///" + str(tmp_html.resolve()).replace("\\", "/")
 
     try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            try:
-                context = await browser.new_context(viewport={"width": 1280, "height": 720})
-                page = await context.new_page()
-
-                page.on("pageerror", lambda exc: report.page_errors.append(str(exc)))
-
-                def _on_console(msg):
-                    if msg.type == "error":
-                        report.console_errors.append(msg.text)
-
-                page.on("console", _on_console)
-
-                try:
-                    await asyncio.wait_for(page.goto(file_url), timeout=timeout)
-                except asyncio.TimeoutError:
-                    report.blocking.append("page goto timed out")
-                    return report
-
-                try:
-                    await page.wait_for_load_state("networkidle", timeout=10_000)
-                except Exception:
-                    report.advisory.append("networkidle timed out (CDN slow?)")
-
-                # Brief tick for the GSAP timeline to register labels
-                await asyncio.sleep(0.5)
-
-                # Inspect timeline state
-                inspect = await page.evaluate(_INSPECT_JS)
-                if not inspect.get("ok"):
-                    report.blocking.append(
-                        f"animation contract broken: {inspect.get('reason', 'unknown')}"
-                    )
-                    return report
-
-                report.labels_in_timeline = list(inspect.get("labels") or [])
-                if not report.labels_in_timeline:
-                    report.blocking.append(
-                        "no GSAP labels registered (tl.addLabel never called)"
-                    )
-
-                if expected:
-                    missing = [l for l in expected if l not in report.labels_in_timeline]
-                    report.missing_labels = missing
-                    if missing:
-                        report.blocking.append(
-                            f"missing labels: {', '.join(missing[:5])}"
-                            + (f" (+{len(missing)-5} more)" if len(missing) > 5 else "")
-                        )
-
-                # Capture screenshots at each available label
-                if capture_screenshots and report.labels_in_timeline:
-                    import base64
-                    for label in report.labels_in_timeline:
-                        try:
-                            await page.evaluate(
-                                "(label) => window.animationAPI.seekToStep(label)",
-                                label,
-                            )
-                            await asyncio.sleep(0.15)
-                            png = await page.screenshot(full_page=False)
-                            report.screenshots_b64.append(base64.b64encode(png).decode("ascii"))
-                            report.step_labels_for_screenshots.append(label)
-                        except Exception as e:
-                            report.advisory.append(f"screenshot at '{label}' failed: {e}")
-
-                if report.page_errors:
-                    # Page errors are blocking by default — surface the first one
-                    report.blocking.append(
-                        f"pageerror: {report.page_errors[0][:200]}"
-                    )
-
-            finally:
-                await browser.close()
+        report = await asyncio.to_thread(
+            _run_validation_sync,
+            file_url,
+            expected,
+            capture_screenshots,
+            timeout,
+        )
     except Exception as e:
-        report.blocking.append(f"validator crashed: {e}")
-        logger.exception(f"[AnimValidator] crashed: {e}")
+        import traceback
+        tb = traceback.format_exc()
+        report.blocking.append(
+            f"validator crashed: {type(e).__name__}: {e or 'no message'}\n{tb[-500:]}"
+        )
+        logger.error(f"[AnimValidator] crashed: {type(e).__name__}: {e}\n{tb}")
     finally:
         try:
             tmp_html.unlink(missing_ok=True)

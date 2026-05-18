@@ -179,6 +179,7 @@ export default function ClassroomV2Page() {
         },
       },
       () => useClassroomStore.getState().iframeReady,
+      () => useClassroomStore.getState().iframeLabels,
     );
 
     setStarted(true);

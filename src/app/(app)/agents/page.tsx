@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/shared/material-icon";
 import { createClient } from "@/lib/supabase/client";
 import { useAgentStore } from "@/stores/agent-store";
@@ -31,23 +32,87 @@ async function handleContinuePipeline(goalId: string): Promise<string | null> {
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session?.access_token) return "Not authenticated";
 
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/continue-pipeline`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-      },
-      body: JSON.stringify({ goal_id: goalId }),
-    }
-  );
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/continue-pipeline`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ goal_id: goalId }),
+      }
+    );
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    return err.detail || "Failed to resume pipeline";
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return err.detail || "Failed to resume pipeline";
+    }
+    return null;
+  } catch {
+    return "Backend unavailable — is the server running?";
   }
-  return null;
+}
+
+async function handleRetryEpisode(goalId: string): Promise<string | null> {
+  const supabase = createClient();
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session?.access_token) return "Not authenticated";
+
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/plan-episode`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ goal_id: goalId }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return err.detail || "Failed to retry episode";
+    }
+    return null;
+  } catch {
+    return "Backend unavailable — is the server running?";
+  }
+}
+
+async function handleStartClassroom(
+  goalId: string
+): Promise<{ sessionId: string } | { error: string }> {
+  const supabase = createClient();
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session?.access_token)
+    return { error: "Not authenticated" };
+
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/teacher/sessions`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ goal_id: goalId, lesson_id: "mod1-les1" }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { error: err.detail || "Failed to create session" };
+    }
+    const data = await res.json();
+    return { sessionId: data.session_id };
+  } catch {
+    return { error: "Backend unavailable — is the server running?" };
+  }
 }
 
 async function handleRetryResearch(goalId: string): Promise<string | null> {
@@ -55,23 +120,27 @@ async function handleRetryResearch(goalId: string): Promise<string | null> {
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session?.access_token) return "Not authenticated";
 
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/research`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-      },
-      body: JSON.stringify({ goal_id: goalId }),
-    }
-  );
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/research`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ goal_id: goalId }),
+      }
+    );
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    return err.detail || "Failed to retry research";
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return err.detail || "Failed to retry research";
+    }
+    return null;
+  } catch {
+    return "Backend unavailable — is the server running?";
   }
-  return null;
 }
 
 // ── Elapsed time component ────────────────────────────────────────────────────
@@ -228,6 +297,8 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
   const [continuing, setContinuing] = useState(false);
   const [continueError, setContinueError] = useState<string | null>(null);
+  const [startingClassroom, setStartingClassroom] = useState(false);
+  const router = useRouter();
 
   // Subscribe to realtime updates for the active goal only
   useAgentRealtime(activeGoalId);
@@ -310,6 +381,15 @@ export default function AgentsPage() {
     setContinuing(false);
   }
 
+  async function onRetryEpisode() {
+    if (!activeGoalId || continuing) return;
+    setContinuing(true);
+    setContinueError(null);
+    const err = await handleRetryEpisode(activeGoalId);
+    if (err) setContinueError(err);
+    setContinuing(false);
+  }
+
   async function onRetryResearch() {
     if (!activeGoalId || continuing) return;
     setContinuing(true);
@@ -319,22 +399,51 @@ export default function AgentsPage() {
     setContinuing(false);
   }
 
+  async function onClearLogs() {
+    if (!activeGoalId) return;
+    const supabase = createClient();
+    await supabase
+      .from("agent_tasks")
+      .update({ logs: [] })
+      .eq("goal_id", activeGoalId);
+    setTasks(tasks.map((t) => ({ ...t, logs: [] })));
+  }
+
+  async function onStartClassroom() {
+    if (!activeGoalId || startingClassroom) return;
+    setStartingClassroom(true);
+    setContinueError(null);
+    const result = await handleStartClassroom(activeGoalId);
+    if ("error" in result) {
+      setContinueError(result.error);
+      setStartingClassroom(false);
+    } else {
+      router.push(`/classroom/v2/${result.sessionId}`);
+    }
+  }
+
   const researchTask = tasks.find((t) => t.agent_type === "research");
   const planningTask = tasks.find((t) => t.agent_type === "planning");
   const visualizationTask = tasks.find((t) => t.agent_type === "visualization");
   const researchFailed = researchTask?.status === "failed";
   const anyFailed = tasks.some((t) => t.status === "failed");
   const anyActive = tasks.some((t) => t.status === "active");
+  const isEpisodeMode = !researchTask;
   // Show "Continue Pipeline" when:
   //  - something downstream failed (but not research — that needs full retry), OR
   //  - planning completed but visualization hasn't run yet (storyboards done, no animations)
   const planningCompleted = planningTask?.status === "completed";
   const visualizationIncomplete = visualizationTask?.status !== "completed";
+  const planningFailed = planningTask?.status === "failed";
   const showContinue =
     !anyActive &&
     !researchFailed &&
+    !isEpisodeMode &&
     (anyFailed || (planningCompleted && visualizationIncomplete));
+  const showRetryEpisode = !anyActive && isEpisodeMode && (planningFailed || planningTask?.status === "queued" || (planningCompleted && visualizationIncomplete));
   const showRetryResearch = !anyActive && researchFailed;
+  const visualizationCompleted = visualizationTask?.status === "completed";
+  const showStartClassroom = !anyActive && visualizationCompleted;
 
   if (loading) {
     return (
@@ -403,7 +512,7 @@ export default function AgentsPage() {
       </div>
 
       {/* Action Bar — goal-level pipeline controls */}
-      {(showContinue || showRetryResearch) && (
+      {(showContinue || showRetryResearch || showRetryEpisode || showStartClassroom) && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {showContinue && (
             <button
@@ -420,6 +529,25 @@ export default function AgentsPage() {
                 <>
                   <MaterialIcon name="play_circle" className="text-base" />
                   Continue Pipeline
+                </>
+              )}
+            </button>
+          )}
+          {showRetryEpisode && (
+            <button
+              onClick={onRetryEpisode}
+              disabled={continuing}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {continuing ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Retrying…
+                </>
+              ) : (
+                <>
+                  <MaterialIcon name="refresh" className="text-base" />
+                  Retry Episode
                 </>
               )}
             </button>
@@ -443,6 +571,25 @@ export default function AgentsPage() {
               )}
             </button>
           )}
+          {showStartClassroom && (
+            <button
+              onClick={onStartClassroom}
+              disabled={startingClassroom}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {startingClassroom ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Starting…
+                </>
+              ) : (
+                <>
+                  <MaterialIcon name="play_lesson" className="text-base" />
+                  Start Classroom
+                </>
+              )}
+            </button>
+          )}
           {continueError && (
             <p className="text-sm text-red-400 font-medium">{continueError}</p>
           )}
@@ -450,8 +597,8 @@ export default function AgentsPage() {
       )}
 
       {/* Agent Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {tasks.map((task) => {
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${tasks.length <= 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-6`}>
+        {tasks.map((task, idx) => {
           const config = agentConfig[task.agent_type];
           if (!config) return null;
           const isWaiting = task.status === "queued" && task.progress_percentage === 0;
@@ -470,7 +617,7 @@ export default function AgentsPage() {
                   className={`text-3xl ${isFailed ? "text-red-400" : "text-primary"}`}
                 />
                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Step {config.step}
+                  Step {idx + 1}
                 </span>
               </div>
               <h2 className="text-lg font-bold mb-1">
@@ -635,9 +782,19 @@ export default function AgentsPage() {
 
       {/* Execution Logs — rolling window (DB caps at 25 per task) */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 px-1">
-          System Execution Logs
-        </h3>
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+            System Execution Logs
+          </h3>
+          {allLogs.length > 0 && (
+            <button
+              onClick={onClearLogs}
+              className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-red-400 transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
         <div className="bg-slate-900 dark:bg-black p-6 rounded-lg border border-primary/20 font-mono text-[11px] leading-relaxed text-primary/80 overflow-y-auto max-h-48">
           {allLogs.length > 0 ? (
             allLogs.map((log, i) => (

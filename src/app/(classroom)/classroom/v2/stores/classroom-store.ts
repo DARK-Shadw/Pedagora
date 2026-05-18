@@ -44,11 +44,8 @@ interface ClassroomState {
   frameTitle: string;
   fallbackDescription: string;
 
-  // Iframe readiness — true once the animation iframe has fired its first
-  // stepChanged event (proving the GSAP timeline + notifier are alive).
-  // Resets to false on every URL change. The lockstep engine polls this to
-  // decide whether to send seek/play commands or degrade to audio-only.
   iframeReady: boolean;
+  iframeLabels: string[];
 
   // Teacher
   teacherSpeech: string;
@@ -83,6 +80,7 @@ interface ClassroomState {
   setFrameTitle: (title: string) => void;
   setFallbackDescription: (desc: string) => void;
   setIframeReady: (ready: boolean) => void;
+  setIframeLabels: (labels: string[]) => void;
   setTeacherSpeech: (text: string, speechType?: string) => void;
   clearTeacherSpeech: () => void;
   setIsSpeaking: (speaking: boolean) => void;
@@ -110,6 +108,7 @@ const initialState = {
   frameTitle: "",
   fallbackDescription: "",
   iframeReady: false,
+  iframeLabels: [] as string[],
 
   teacherSpeech: "",
   isSpeaking: false,
@@ -149,6 +148,8 @@ export const useClassroomStore = create<ClassroomState>((set) => ({
   setFallbackDescription: (desc) => set({ fallbackDescription: desc }),
 
   setIframeReady: (ready) => set({ iframeReady: ready }),
+
+  setIframeLabels: (labels) => set({ iframeLabels: labels }),
 
   setTeacherSpeech: (text, speechType = "narration") =>
     set({ teacherSpeech: text, speechType }),

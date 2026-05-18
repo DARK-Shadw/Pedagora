@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const goalSchema = z.object({
+  contentType: z.enum(["course", "single_episode"]),
   title: z.string().min(3, "Please describe what you want to learn"),
   endGoal: z.string(),
   motivation: z.string(),

@@ -15,8 +15,9 @@ import os
 import time
 
 from app.agents.animation_v2.gemini_client import GeminiClient, GeminiPoolExhausted
+from app.agents.animation_v2.prompt_composer import compose as compose_prompt
 from app.agents.animation_v2.prompts import (
-    build_generation_prompt, build_fix_prompt, VISUAL_GENERATION_SYSTEM,
+    build_fix_prompt, VISUAL_GENERATION_SYSTEM,
     build_manim_generation_prompt, build_manim_fix_prompt, MANIM_GENERATION_SYSTEM,
 )
 from app.agents.animation_v2.template import FRAME_HTML_TEMPLATE, VIDEO_HTML_TEMPLATE
@@ -31,13 +32,99 @@ logger = logging.getLogger(__name__)
 MAX_BROWSER_RETRY_ATTEMPTS = 3  # initial gen + 2 retries
 MAX_MANIM_RETRY_ATTEMPTS = 3    # initial gen + 2 retries (mirror of browser path)
 
-# Gemini 2.5 Flash produces dramatically richer Manim code (175 lines vs 55)
-# compared to Flash Lite. 20 RPD free tier — budget is tight but worth it for
-# 3D scenes that are the visual differentiator.
+# When using NvidiaClient, model is set internally (moonshotai/kimi-k2.6).
+# This constant is only used as a Gemini override — NvidiaClient ignores it.
 MANIM_MODEL = "gemini-2.5-flash"
 
+# Pollinations deepseek as unlimited fallback when Gemini pool is exhausted.
+# 283 lines, correct ThreeDScene usage, renders first-try in testing.
+FALLBACK_MODEL = "deepseek"
+FALLBACK_API_URL = "https://gen.pollinations.ai/v1/chat/completions"
 
-# ══���════════════════════════════════════════════════════════
+
+async def _generate_code_via_pollinations(
+    *,
+    prompt: str,
+    system_prompt: str,
+    temperature: float = 0.2,
+    max_tokens: int = 4096,
+) -> tuple[str, dict]:
+    """Fallback code generation via Pollinations deepseek.
+
+    Called only when all Gemini API keys are exhausted. Same interface as
+    GeminiClient.generate_code: returns (code, meta).
+
+    Raises RuntimeError on empty/unparseable responses.
+    """
+    import httpx
+
+    settings = get_settings()
+    api_key = settings.pollinations_api_key
+    if not api_key:
+        raise RuntimeError("No pollinations_api_key configured for fallback")
+
+    payload = {
+        "model": FALLBACK_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": False,
+    }
+
+    t0 = time.time()
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        resp = await client.post(
+            FALLBACK_API_URL,
+            json=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+        )
+        resp.raise_for_status()
+
+    elapsed = time.time() - t0
+    data = resp.json()
+    content = data["choices"][0]["message"]["content"]
+    usage = data.get("usage", {})
+
+    # Extract code — model may return JSON {"code": "..."} or markdown-fenced Python
+    code = None
+    try:
+        parsed = json.loads(content)
+        code = (parsed.get("code") or "").strip()
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        pass
+
+    if not code:
+        code = extract_python(content)
+    if not code:
+        code = content.strip()
+
+    if not code or "class AnimationScene" not in code:
+        raise RuntimeError(
+            f"Pollinations {FALLBACK_MODEL} returned unusable code "
+            f"({len(code)} chars): {code[:200]!r}"
+        )
+
+    meta = {
+        "elapsed_seconds": round(elapsed, 2),
+        "model": f"pollinations:{FALLBACK_MODEL}",
+        "key_index": "fallback",
+        "tokens_in": usage.get("prompt_tokens"),
+        "tokens_out": usage.get("completion_tokens"),
+    }
+    logger.info(
+        f"[AnimV2] Pollinations fallback OK in {elapsed:.1f}s "
+        f"({meta['tokens_in']}->{meta['tokens_out']} tok, {len(code)} chars)"
+    )
+    return code, meta
+
+
+# ════════════════════════════════════════════════════════════
 # Routing — decide browser vs Manim per frame
 # ═══════════════════════════════════════════════════════════
 
@@ -130,20 +217,64 @@ def fix_katex_escaping(js_code: str) -> str:
 def fix_gsap_targets(js_code: str) -> str:
     """Wrap GSAP tween targets with _t() to convert D3 selections to DOM elements.
 
-    Gemini consistently passes D3 selections (from g.append(...)) directly to
-    tl.to/from/fromTo.  GSAP silently ignores non-DOM targets.  The template
-    defines _t(el) which calls .node() on D3 selections and passes through
-    DOM elements unchanged.
+    Only activates when D3 selections are detected (d3.select, .append, .selectAll).
+    Without D3 usage, wrapping is unnecessary and can interfere with GSAP.
     """
+    if 'd3.select' not in js_code and '.append(' not in js_code:
+        return js_code
+    if 'document.createElement' in js_code and 'd3.select' not in js_code:
+        return js_code
+
     import re as _re
-    # Match tl.to( / tl.from( / tl.fromTo( followed by the first argument + comma
-    # Skip if already wrapped with _t(
-    js_code = _re.sub(
-        r'tl\.(to|from|fromTo)\((?!_t\()([^,]+),',
-        r'tl.\1(_t(\2),',
-        js_code,
-    )
-    return js_code
+
+    PATTERN = _re.compile(r'tl\.(to|from|fromTo)\(')
+
+    def _find_first_arg_end(code: str, start: int) -> int:
+        """Return index of the comma that ends the first argument, or -1."""
+        depth_paren = 0
+        depth_bracket = 0
+        depth_brace = 0
+        i = start
+        while i < len(code):
+            ch = code[i]
+            if ch == '(':
+                depth_paren += 1
+            elif ch == ')':
+                if depth_paren == 0:
+                    return -1
+                depth_paren -= 1
+            elif ch == '[':
+                depth_bracket += 1
+            elif ch == ']':
+                depth_bracket -= 1
+            elif ch == '{':
+                depth_brace += 1
+            elif ch == '}':
+                depth_brace -= 1
+            elif ch == ',' and depth_paren == 0 and depth_bracket == 0 and depth_brace == 0:
+                return i
+            i += 1
+        return -1
+
+    result = []
+    last_end = 0
+    for m in PATTERN.finditer(js_code):
+        arg_start = m.end()
+        arg_text_before = js_code[arg_start:arg_start + 3]
+        if arg_text_before.startswith('_t(') or arg_text_before.startswith('['):
+            continue
+
+        comma_idx = _find_first_arg_end(js_code, arg_start)
+        if comma_idx == -1:
+            continue
+
+        target = js_code[arg_start:comma_idx]
+        result.append(js_code[last_end:arg_start])
+        result.append(f'_t({target})')
+        last_end = comma_idx
+
+    result.append(js_code[last_end:])
+    return ''.join(result)
 
 
 def fix_svg_d_in_tweens(js_code: str) -> str:
@@ -334,13 +465,14 @@ async def _generate_browser_visual_once(
 
     if is_fix:
         prompt = build_fix_prompt(frame, previous_code, previous_error)
+        system_prompt = VISUAL_GENERATION_SYSTEM
     else:
-        prompt = build_generation_prompt(frame, available_images=image_data)
+        system_prompt, prompt = compose_prompt(frame, available_images=image_data)
 
     try:
         js_code, meta = await gemini.generate_code(
             prompt=prompt,
-            system_prompt=VISUAL_GENERATION_SYSTEM,
+            system_prompt=system_prompt,
         )
         js_code = (js_code or "").strip()
 
@@ -738,17 +870,123 @@ async def _generate_manim_once(
         }
 
     except GeminiPoolExhausted as e:
-        logger.error(
-            f"[AnimV2] {frame_id}: Gemini pool exhausted (manim): {e}",
-            exc_info=True,
+        # --- Fallback: Pollinations deepseek (unlimited) ---
+        logger.warning(
+            f"[AnimV2] {frame_id}: Gemini pool exhausted, falling back to "
+            f"Pollinations {FALLBACK_MODEL}: {e}"
         )
         if progress_fn:
-            progress_fn(f"[{frame_id}] Pool exhausted")
+            progress_fn(
+                f"[{frame_id}] Gemini exhausted, switching to {FALLBACK_MODEL}..."
+            )
+        try:
+            py_code_raw, meta = await _generate_code_via_pollinations(
+                prompt=prompt,
+                system_prompt=MANIM_GENERATION_SYSTEM,
+            )
+            gen_elapsed = meta.get("elapsed_seconds", 0.0)
+            py_code = fix_manim_api_errors(py_code_raw)
+
+            if progress_fn:
+                progress_fn(
+                    f"[{frame_id}] Fallback generated {len(py_code)} chars "
+                    f"({gen_elapsed:.1f}s), validating..."
+                )
+
+            # Continue with the same validate → render → upload pipeline.
+            # (Falls through to the validation/render code below via a
+            #  recursive call so we don't duplicate 200 lines of render logic.)
+        except Exception as fb_err:
+            logger.error(
+                f"[AnimV2] {frame_id}: Pollinations fallback also failed: {fb_err}"
+            )
+            if progress_fn:
+                progress_fn(f"[{frame_id}] Both Gemini and fallback failed")
+            return {
+                "frame_id": frame_id,
+                "status": "failed",
+                "error": f"Gemini exhausted + fallback failed: {fb_err}",
+            }
+
+        # Validate + render the fallback code using the same pipeline
+        code_error = validate_manim_code(py_code)
+        if code_error:
+            return {
+                "frame_id": frame_id,
+                "status": "failed",
+                "error": f"Fallback code error: {code_error}",
+                "failed_code": py_code,
+            }
+
+        # Render with Manim (same logic as the primary path)
+        settings = get_settings()
+        output_dir = os.path.join(
+            settings.manim_output_dir,
+            frame.get("_goal_id", "local"),
+            frame.get("_lesson_id", "test"),
+            frame_id,
+        )
+        if progress_fn:
+            progress_fn(f"[{frame_id}] Rendering fallback code with Manim...")
+
+        mp4_path, render_error = await render_manim_scene(
+            code=py_code,
+            output_dir=output_dir,
+            quality=settings.animation_render_quality,
+            timeout=600,
+            use_opengl=settings.animation_use_opengl,
+        )
+
+        if render_error:
+            return {
+                "frame_id": frame_id,
+                "status": "failed",
+                "error": f"Fallback render error: {render_error}",
+                "failed_code": py_code,
+            }
+
+        if not mp4_path or not os.path.exists(mp4_path) or os.path.getsize(mp4_path) == 0:
+            return {
+                "frame_id": frame_id,
+                "status": "failed",
+                "error": "Fallback render produced empty MP4",
+                "failed_code": py_code,
+            }
+
+        mp4_size = os.path.getsize(mp4_path)
+        goal_id = frame.get("_goal_id", "")
+        lesson_id = frame.get("_lesson_id", "")
+        if goal_id and lesson_id:
+            try:
+                video_url = _upload_manim_mp4(mp4_path, goal_id, lesson_id, frame_id)
+            except Exception:
+                video_url = mp4_path
+        else:
+            video_url = mp4_path
+
+        title = frame.get("visual_spec", {}).get("description", "")[:60] or frame_id
+        steps = frame.get("steps", [])
+        html = build_video_html(video_url, title, steps)
+
+        logger.info(
+            f"[AnimV2] {frame_id}: Fallback render complete — "
+            f"{len(py_code)} chars, {mp4_size // 1024}KB MP4 via {FALLBACK_MODEL}"
+        )
         return {
             "frame_id": frame_id,
-            "status": "failed",
-            "error": f"Gemini pool exhausted: {e}",
+            "visual_type": visual_type,
+            "html": html,
+            "html_size": len(html),
+            "mp4_size": mp4_size,
+            "mp4_path": mp4_path,
+            "status": "completed",
+            "elapsed_seconds": gen_elapsed,
+            "renderer": "manim",
+            "key_index": "fallback",
+            "tokens_in": meta.get("tokens_in"),
+            "tokens_out": meta.get("tokens_out"),
         }
+
     except Exception as e:
         logger.error(
             f"[AnimV2] {frame_id}: Manim generation crashed: {e}",

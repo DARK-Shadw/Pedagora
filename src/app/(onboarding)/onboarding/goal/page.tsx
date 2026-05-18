@@ -25,6 +25,7 @@ export default function GoalPage() {
   } = useForm<GoalInput>({
     resolver: zodResolver(goalSchema),
     defaultValues: {
+      contentType: goal.contentType,
       title: goal.title,
       endGoal: goal.endGoal,
       motivation: goal.motivation,
@@ -35,13 +36,13 @@ export default function GoalPage() {
   });
 
   const isExamPrep = watch("isExamPrep");
+  const contentType = watch("contentType");
 
   function onSubmit(data: GoalInput) {
     setGoal({
+      contentType: data.contentType,
       title: data.title,
       endGoal: data.endGoal ?? "",
-      // motivation is no longer asked in onboarding — backend agents don't
-      // consume it. Kept on the type for store compatibility.
       motivation: goal.motivation ?? "",
       isExamPrep: data.isExamPrep,
       examName: data.examName ?? "",
@@ -60,15 +61,78 @@ export default function GoalPage() {
           What do you want to master?
         </h1>
         <p className="text-slate-500 dark:text-slate-400 text-lg">
-          Describe your learning goal in a few words.
+          Choose the format and describe your learning goal.
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {/* Content Type Selector */}
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setValue("contentType", "course")}
+            className={`relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all ${
+              contentType === "course"
+                ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
+            }`}
+          >
+            <div className={`flex items-center justify-center w-12 h-12 rounded-full transition-colors ${
+              contentType === "course"
+                ? "bg-primary/10 text-primary"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+            }`}>
+              <MaterialIcon name="library_books" className="text-2xl" />
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-sm">Full Course</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Multi-lesson curriculum with modules
+              </p>
+            </div>
+            {contentType === "course" && (
+              <div className="absolute top-3 right-3">
+                <MaterialIcon name="check_circle" className="text-primary text-lg" />
+              </div>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setValue("contentType", "single_episode")}
+            className={`relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all ${
+              contentType === "single_episode"
+                ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
+            }`}
+          >
+            <div className={`flex items-center justify-center w-12 h-12 rounded-full transition-colors ${
+              contentType === "single_episode"
+                ? "bg-primary/10 text-primary"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+            }`}>
+              <MaterialIcon name="play_circle" className="text-2xl" />
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-sm">Single Episode</p>
+              <p className="text-xs text-slate-500 mt-1">
+                One video covering a focused topic
+              </p>
+            </div>
+            {contentType === "single_episode" && (
+              <div className="absolute top-3 right-3">
+                <MaterialIcon name="check_circle" className="text-primary text-lg" />
+              </div>
+            )}
+          </button>
+        </div>
+
         <div className="w-full">
           <Textarea
             className="min-h-[140px] text-xl p-6 shadow-sm"
-            placeholder="e.g. The fundamentals of Quantum Physics, or Building modern web apps with Python..."
+            placeholder={contentType === "single_episode"
+              ? "e.g. Learn Binary Search, How Neural Networks Work, Understanding Recursion..."
+              : "e.g. The fundamentals of Quantum Physics, or Building modern web apps with Python..."}
             {...register("title")}
           />
           {errors.title && (

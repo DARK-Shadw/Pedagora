@@ -5,15 +5,11 @@ const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 export async function POST(request: Request) {
-  // Verify authentication
+  // Try to get session for auth header, but don't block if unavailable
   const supabase = await createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   const { goal, prerequisites, educationLevel } = await request.json();
 
@@ -25,13 +21,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Proxy to backend Claude-powered assessment endpoint
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+
     const response = await fetch(`${BACKEND_URL}/agents/generate-assessment`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      headers,
       body: JSON.stringify({
         goal_title: goal,
         education_level: educationLevel || "self_learner",

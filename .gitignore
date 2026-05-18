@@ -60,3 +60,9 @@ backend/generated_visuals/*_failed_code.js
 
 
 UIReference/
+
+# audio cache (TTS cache files generated at runtime)
+audio_cache/
+
+# test outputs
+backend/test_outputs/
