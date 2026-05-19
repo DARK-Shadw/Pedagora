@@ -673,62 +673,82 @@ async def _generate_manim_once(
     visual_type = frame.get("visual_type", "animation")
     is_fix = bool(previous_error and previous_code)
 
-    if progress_fn:
+    # --- Step 0: Check for cached code from a previous failed render ---
+    settings = get_settings()
+    cache_dir = os.path.join(
+        settings.manim_output_dir,
+        frame.get("_goal_id", "local"),
+        frame.get("_lesson_id", "test"),
+        frame_id,
+    )
+    cache_path = os.path.join(cache_dir, "cached_code.txt")
+    py_code = None
+
+    if not is_fix and os.path.exists(cache_path):
+        with open(cache_path, "r", encoding="utf-8") as f:
+            py_code = f.read().strip()
+        if py_code:
+            logger.info(
+                f"[AnimV2] {frame_id}: Using cached code ({len(py_code)} chars) "
+                f"from {cache_path}"
+            )
+            if progress_fn:
+                progress_fn(
+                    f"[{frame_id}] Using cached code ({len(py_code)} chars), "
+                    f"skipping Gemini call"
+                )
+
+    if progress_fn and not py_code:
         label = "Fixing" if is_fix else "Generating"
         progress_fn(f"[{frame_id}] {label} {visual_type} (manim)...")
 
-    # --- Step 1: Generate Python code via Gemini ---
-    if is_fix:
-        prompt = build_manim_fix_prompt(frame, previous_code, previous_error)
-    else:
-        prompt = build_manim_generation_prompt(frame, available_images=available_images)
-
     try:
-        py_code_raw, meta = await gemini.generate_code(
-            prompt=prompt,
-            system_prompt=MANIM_GENERATION_SYSTEM,
-            model=MANIM_MODEL,
-        )
-        gen_elapsed = meta.get("elapsed_seconds", 0.0)
-        py_code = extract_python(py_code_raw)
-        if py_code:
-            py_code = fix_manim_api_errors(py_code)
+        # --- Step 1: Generate Python code via Gemini (skip if cached) ---
         if not py_code:
-            # Dump the raw response so we can see what Gemini actually returned
-            # (whitespace-only? just a fence? a JSON envelope that escaped the
-            # structured-output parser?).
-            logger.error(
-                f"[AnimV2] {frame_id}: Gemini returned empty Python code.\n"
-                f"---- RAW GEMINI RESPONSE (first 1000 chars) ----\n"
-                f"{(py_code_raw or '')[:1000]}\n"
-                f"---- END RAW RESPONSE ----"
-            )
-            return {
-                "frame_id": frame_id,
-                "status": "failed",
-                "error": "Gemini returned empty Python code",
-            }
+            if is_fix:
+                prompt = build_manim_fix_prompt(frame, previous_code, previous_error)
+            else:
+                prompt = build_manim_generation_prompt(frame, available_images=available_images)
 
-        # Dump the generated code up-front so we can see EXACTLY what we'll
-        # validate / render — cheap to log and invaluable when things break.
-        logger.info(
-            f"[AnimV2] {frame_id}: Gemini generated {len(py_code)} chars Python "
-            f"({gen_elapsed:.1f}s, key#{meta.get('key_index')})\n"
-            f"---- GENERATED PYTHON (first 2000 chars) ----\n"
-            f"{py_code[:2000]}\n"
-            f"---- END GENERATED PYTHON ----"
-        )
-
-        if progress_fn:
-            progress_fn(
-                f"[{frame_id}] Code generated ({len(py_code)} chars, {gen_elapsed:.1f}s, "
-                f"key#{meta.get('key_index')}), validating..."
+            py_code_raw, meta = await gemini.generate_code(
+                prompt=prompt,
+                system_prompt=MANIM_GENERATION_SYSTEM,
+                model=MANIM_MODEL,
             )
+            gen_elapsed = meta.get("elapsed_seconds", 0.0)
+            py_code = extract_python(py_code_raw)
+            if py_code:
+                py_code = fix_manim_api_errors(py_code)
+            if not py_code:
+                logger.error(
+                    f"[AnimV2] {frame_id}: Gemini returned empty Python code.\n"
+                    f"---- RAW GEMINI RESPONSE (first 1000 chars) ----\n"
+                    f"{(py_code_raw or '')[:1000]}\n"
+                    f"---- END RAW RESPONSE ----"
+                )
+                return {
+                    "frame_id": frame_id,
+                    "status": "failed",
+                    "error": "Gemini returned empty Python code",
+                }
+
+            logger.info(
+                f"[AnimV2] {frame_id}: Gemini generated {len(py_code)} chars Python "
+                f"({gen_elapsed:.1f}s, key#{meta.get('key_index')})\n"
+                f"---- GENERATED PYTHON (first 2000 chars) ----\n"
+                f"{py_code[:2000]}\n"
+                f"---- END GENERATED PYTHON ----"
+            )
+
+            if progress_fn:
+                progress_fn(
+                    f"[{frame_id}] Code generated ({len(py_code)} chars, {gen_elapsed:.1f}s, "
+                    f"key#{meta.get('key_index')}), validating..."
+                )
 
         # --- Step 2: Validate Python syntax + class structure ---
         code_error = validate_manim_code(py_code)
         if code_error:
-            # Try auto-wrapping if it has construct() body but no class
             if "class AnimationScene" not in py_code and ("self.play" in py_code or "self.wait" in py_code):
                 py_code = (
                     "from manim import *\nimport numpy as np\n\n"
@@ -739,8 +759,6 @@ async def _generate_manim_once(
                 code_error = validate_manim_code(py_code)
 
             if code_error:
-                # Full code dump on syntax failure so we can see what Gemini
-                # actually produced (and line 1, which is where the error lives).
                 logger.error(
                     f"[AnimV2] {frame_id}: Manim code error: {code_error}\n"
                     f"---- FAILED PYTHON (full) ----\n{py_code}\n"
@@ -756,19 +774,18 @@ async def _generate_manim_once(
                     "raw_length": len(py_code),
                 }
 
+        # --- Step 2b: Cache the validated code for render retries ---
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cache_path, "w", encoding="utf-8") as f:
+            f.write(py_code)
+
         # --- Step 3: Render with Manim ---
-        settings = get_settings()
         renderer_label = "OpenGL" if settings.animation_use_opengl else "Cairo"
         if progress_fn:
             progress_fn(
-                f"[{frame_id}] Rendering with Manim ({renderer_label}, 1080p60)..."
+                f"[{frame_id}] Rendering with Manim ({renderer_label})..."
             )
-        output_dir = os.path.join(
-            settings.manim_output_dir,
-            frame.get("_goal_id", "local"),
-            frame.get("_lesson_id", "test"),
-            frame_id,
-        )
+        output_dir = cache_dir
 
         render_start = time.time()
 
@@ -788,9 +805,6 @@ async def _generate_manim_once(
         render_elapsed = time.time() - render_start
 
         if render_error:
-            # Full render stderr AND the Python that produced it. The code is
-            # the most important piece for diagnosing render timeouts
-            # (infinite self.wait, runaway run_time, bad loop, etc.).
             logger.error(
                 f"[AnimV2] {frame_id}: Manim render failed after {render_elapsed:.0f}s\n"
                 f"---- FULL RENDER ERROR ----\n{render_error}\n"
@@ -816,6 +830,12 @@ async def _generate_manim_once(
                 "failed_code": py_code,
             }
 
+        # Render succeeded — remove cached code
+        try:
+            os.unlink(cache_path)
+        except OSError:
+            pass
+
         mp4_size = os.path.getsize(mp4_path)
         if progress_fn:
             progress_fn(f"[{frame_id}] Rendered {mp4_size // 1024}KB MP4 in {render_elapsed:.0f}s")
@@ -831,21 +851,20 @@ async def _generate_manim_once(
                     progress_fn(f"[{frame_id}] MP4 uploaded to storage")
             except Exception as e:
                 logger.error(f"[AnimV2] {frame_id}: MP4 upload failed: {e}")
-                # Fall back to local path
                 video_url = mp4_path
         else:
-            # Local-only mode (testing)
             video_url = mp4_path
 
         title = frame.get("visual_spec", {}).get("description", "")[:60] or frame_id
         steps = frame.get("steps", [])
         html = build_video_html(video_url, title, steps)
 
+        gen_elapsed = locals().get("gen_elapsed", 0.0)
         total_elapsed = gen_elapsed + render_elapsed
         logger.info(
             f"[AnimV2] {frame_id}: Manim render complete — "
             f"{len(py_code)} chars Python, {mp4_size // 1024}KB MP4, "
-            f"{total_elapsed:.0f}s total (gen {gen_elapsed:.1f}s + render {render_elapsed:.0f}s)"
+            f"{total_elapsed:.0f}s total"
         )
 
         if progress_fn:
@@ -861,9 +880,6 @@ async def _generate_manim_once(
             "status": "completed",
             "elapsed_seconds": total_elapsed,
             "renderer": "manim",
-            "key_index": meta.get("key_index"),
-            "tokens_in": meta.get("tokens_in"),
-            "tokens_out": meta.get("tokens_out"),
         }
 
     except GeminiPoolExhausted as e:

@@ -22,7 +22,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 _TQDM_RE = re.compile(
-    r"Animation\s+(\d+):\s*(\d+)%\|[^|]*\|\s*(\d+)/(\d+)"
+    r"Animation\s+(\d+):.*?(\d+)%\|[^|]*\|\s*(\d+)/(\d+)"
 )
 
 
@@ -56,7 +56,7 @@ def _render_sync(
 
     proc = subprocess.Popen(
         cmd,
-        stdout=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         env=env,
     )
@@ -97,6 +97,13 @@ def _render_sync(
                         progress_callback(
                             f"Manim anim {anim_num}: {pct}% "
                             f"({cur}/{total} frames, {elapsed:.0f}s elapsed)"
+                        )
+                    elif "error" in line.lower() or "traceback" in line.lower():
+                        progress_callback(f"Manim: {line.strip()[:120]}")
+                    elif line.strip().startswith("Animation"):
+                        elapsed = time.time() - start
+                        progress_callback(
+                            f"Manim: {line.strip()[:80]} ({elapsed:.0f}s)"
                         )
         if buf.strip():
             stderr_chunks.append(buf)
@@ -166,7 +173,7 @@ async def render_manim_scene(
     os.makedirs(output_dir, exist_ok=True)
 
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".py", dir=output_dir, delete=False, encoding="utf-8",
+        mode="w", suffix=".py", delete=False, encoding="utf-8",
     ) as f:
         f.write(code)
         scene_file = f.name

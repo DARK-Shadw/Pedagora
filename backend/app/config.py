@@ -37,8 +37,8 @@ class Settings(BaseSettings):
     animation_model: str = "pollinations:kimi"
     animation_search_enabled: bool = True
     animation_max_retries: int = 3
-    animation_render_quality: str = "h"
-    animation_use_opengl: bool = True
+    animation_render_quality: str = "l"
+    animation_use_opengl: bool = False
     manim_output_dir: str = "media/animations"
     animation_storage_bucket: str = "animations"
 
