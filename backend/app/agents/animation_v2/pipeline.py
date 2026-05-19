@@ -1,12 +1,29 @@
-"""Animation Agent v2 pipeline — generates visual assets for lesson storyboards."""
+"""Animation Agent v2 pipeline — generates visual assets for lesson storyboards.
+
+PIPELINE STAGE 3 (see docs/architecture-flow.svg)
+
+Flow per lesson:
+  1. Load frames from course_plans (output of Episode Planner)
+  2. Route each frame: browser (GSAP/HTML) or Manim (Python → MP4)
+  3. Generate code via multi-provider LLM chain (Gemini → NVIDIA → Groq)
+  4. Validate in headless Playwright browser (labels, errors, screenshots)
+  5. On failure: feed error back into fix prompt, retry up to 2x
+  6. Upload completed HTML to Supabase Storage (public CDN URLs)
+  7. Save results to lesson_animations table
+
+Concurrency: frames processed in parallel (semaphore-bounded).
+Resume support: skips frames already completed from a previous run.
+"""
 
 import asyncio
 import datetime as _dt
 import logging
+import re
 import time
 
 from app.agents.animation_v2.gemini_client import GeminiClient, MODEL_ID as GEMINI_MODEL_ID
 from app.agents.animation_v2.groq_client import GroqCodeClient
+from app.agents.animation_v2.narration import generate_frame_narration
 from app.agents.animation_v2.nvidia_client import NvidiaClient
 from app.agents.animation_v2.generator import generate_frame_visual, route_frame
 from app.config import get_settings
@@ -133,6 +150,72 @@ def _upload_result(sb, goal_id, user_id, lesson_id, r: dict):
     }, on_conflict="goal_id,lesson_id,animation_id").execute()
 
     return public_url
+
+
+def _save_narrations_to_course_plan(
+    sb, goal_id: str, lesson_id: str,
+    frames: list[dict], results_map: dict[str, dict],
+) -> int:
+    """Write generated narrations back to course_plans.lesson_plans.
+
+    Updates each frame's steps[].narration_spoken with the pipeline-generated
+    narration so the Teacher Agent picks it up directly (no runtime Groq call).
+    Runs once after all frames are done — single DB read + write, no concurrency risk.
+
+    Returns the number of frames that had narration saved.
+    """
+    narration_map: dict[str, list[str]] = {}
+    for fid, result in results_map.items():
+        texts = result.get("narration_texts")
+        if texts and isinstance(texts, list) and result.get("status") == "completed":
+            narration_map[fid] = texts
+
+    if not narration_map:
+        return 0
+
+    try:
+        cp = sb.table("course_plans").select("lesson_plans").eq(
+            "goal_id", goal_id,
+        ).single().execute()
+        if not cp.data:
+            return 0
+
+        lesson_plans = cp.data["lesson_plans"]
+        lesson = lesson_plans.get(lesson_id, {})
+        db_frames = lesson.get("frames", [])
+
+        updated = 0
+        for frame in db_frames:
+            fid = frame.get("frame_id", "")
+            narrations = narration_map.get(fid)
+            if not narrations:
+                continue
+            steps = frame.get("steps", [])
+            if len(narrations) != len(steps):
+                logger.warning(
+                    f"[AnimV2] narration count mismatch for {fid}: "
+                    f"{len(narrations)} narrations vs {len(steps)} steps"
+                )
+                continue
+            for step, text in zip(steps, narrations):
+                step["narration_spoken"] = text
+            updated += 1
+
+        if updated:
+            lesson["frames"] = db_frames
+            lesson_plans[lesson_id] = lesson
+            sb.table("course_plans").update(
+                {"lesson_plans": lesson_plans},
+            ).eq("goal_id", goal_id).execute()
+            logger.info(
+                f"[AnimV2] Saved narrations for {updated}/{len(db_frames)} "
+                f"frames to course plan"
+            )
+
+        return updated
+    except Exception as e:
+        logger.error(f"[AnimV2] Failed to save narrations to course plan: {e}")
+        return 0
 
 
 async def generate_lesson_visuals(
@@ -453,6 +536,13 @@ async def generate_lesson_visuals(
                 f"({browser_completed} browser, {manim_completed} manim), "
                 f"{failed} failed, {elapsed:.0f}s total")
 
+    # --- Save generated narrations back to course_plans ---
+    narration_count = _save_narrations_to_course_plan(
+        sb, goal_id, lesson_id, frames, results_map,
+    )
+    if narration_count:
+        _log(f"[{lesson_id}] Saved narrations for {narration_count} frames to course plan")
+
     return {
         "lesson_id": lesson_id,
         "total_frames": len(frames),
@@ -460,6 +550,155 @@ async def generate_lesson_visuals(
         "failed": failed,
         "manim_completed": manim_completed,
         "browser_completed": browser_completed,
+        "narrations_saved": narration_count,
         "pipeline_seconds": round(elapsed, 1),
+        "results": results,
+    }
+
+
+# ════════════════════════════════════════════════════════════
+# Retry missing narrations — for frames that rendered OK but
+# narration failed (rate-limit, timeout, etc.)
+# ════════════════════════════════════════════════════════════
+
+MIN_NARRATION_AVG_LEN = 50  # chars — below this, narration needs regeneration
+
+
+async def _extract_gsap_labels_from_storage(
+    sb, goal_id: str, lesson_id: str, frame_id: str,
+) -> list[str]:
+    """Fetch the generated HTML from Supabase Storage and extract GSAP labels."""
+    import httpx
+
+    storage_path = f"visuals/{goal_id}/{lesson_id}/{frame_id}.html"
+    url = sb.storage.from_("animations").get_public_url(storage_path)
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                return []
+            html = resp.text
+    except Exception:
+        return []
+
+    return re.findall(r"tl\.addLabel\(['\"]([^'\"]+)", html)
+
+
+async def retry_missing_narrations(
+    goal_id: str, lesson_id: str,
+) -> dict:
+    """Find completed frames with missing/short narrations and regenerate them.
+
+    Scans the course plan for frames where the average narration_spoken length
+    is below MIN_NARRATION_AVG_LEN (indicating Episode Planner stubs or failed
+    pipeline narration). For each such frame, fetches validated GSAP labels from
+    the stored HTML and re-runs narration generation with animation context.
+
+    Uses the paid Gemini key (via max_key_rotations=1 fallback) to avoid
+    competing with any active pipeline runs on the free key pool.
+    """
+    sb = get_supabase()
+    settings = get_settings()
+
+    cp = sb.table("course_plans").select("lesson_plans").eq(
+        "goal_id", goal_id,
+    ).single().execute()
+    if not cp.data:
+        return {"error": "Course plan not found"}
+
+    lesson_plans = cp.data["lesson_plans"]
+    lesson = lesson_plans.get(lesson_id)
+    if not lesson:
+        return {"error": f"Lesson '{lesson_id}' not found"}
+
+    frames = lesson.get("frames", [])
+
+    # Find completed animations (have a URL in lesson_animations)
+    existing = (
+        sb.table("lesson_animations")
+        .select("animation_id,output_url")
+        .eq("goal_id", goal_id)
+        .eq("lesson_id", lesson_id)
+        .eq("status", "completed")
+        .execute()
+    )
+    completed_fids = {
+        row["animation_id"]
+        for row in (existing.data or [])
+        if row.get("output_url")
+    }
+
+    # Find frames that need narration
+    needs_narration: list[dict] = []
+    for frame in frames:
+        fid = frame.get("frame_id", "")
+        if fid not in completed_fids:
+            continue
+        steps = frame.get("steps", [])
+        if not steps:
+            continue
+        narrations = [s.get("narration_spoken", "") for s in steps]
+        avg_len = sum(len(n) for n in narrations) / max(1, len(narrations))
+        if avg_len < MIN_NARRATION_AVG_LEN:
+            needs_narration.append(frame)
+
+    if not needs_narration:
+        return {
+            "lesson_id": lesson_id,
+            "frames_checked": len(frames),
+            "frames_needing_narration": 0,
+            "message": "All frames have adequate narrations",
+        }
+
+    logger.info(
+        f"[NarrationRetry] {lesson_id}: {len(needs_narration)} frames need narration: "
+        f"{[f.get('frame_id') for f in needs_narration]}"
+    )
+
+    # Init Gemini client — paid key will handle it via max_key_rotations=1
+    gemini = GeminiClient(
+        settings.get_gemini_api_keys(),
+        paid_key=settings.gemini_paid_api_key or None,
+        paid_model=settings.gemini_paid_model or None,
+    )
+
+    updated_count = 0
+    results: list[dict] = []
+
+    for frame in needs_narration:
+        fid = frame.get("frame_id", "unknown")
+
+        # Fetch validated GSAP labels from the stored HTML
+        labels = await _extract_gsap_labels_from_storage(sb, goal_id, lesson_id, fid)
+        animation_context = {"validated_labels": labels} if labels else None
+
+        narrations = await generate_frame_narration(gemini, frame, animation_context)
+
+        if narrations and len(narrations) == len(frame.get("steps", [])):
+            for step, text in zip(frame["steps"], narrations):
+                step["narration_spoken"] = text
+            updated_count += 1
+            avg = sum(len(t) for t in narrations) // len(narrations)
+            results.append({"frame_id": fid, "status": "ok", "avg_chars": avg})
+            logger.info(f"[NarrationRetry] {fid}: OK — {len(narrations)} steps, avg {avg} chars")
+        else:
+            results.append({"frame_id": fid, "status": "failed"})
+            logger.warning(f"[NarrationRetry] {fid}: narration generation failed")
+
+    # Save updated narrations back to course plan
+    if updated_count:
+        lesson["frames"] = frames
+        lesson_plans[lesson_id] = lesson
+        sb.table("course_plans").update(
+            {"lesson_plans": lesson_plans},
+        ).eq("goal_id", goal_id).execute()
+        logger.info(f"[NarrationRetry] Saved {updated_count} frame narrations to course plan")
+
+    return {
+        "lesson_id": lesson_id,
+        "frames_checked": len(frames),
+        "frames_needing_narration": len(needs_narration),
+        "frames_updated": updated_count,
         "results": results,
     }

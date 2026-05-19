@@ -1,9 +1,16 @@
-"""Gemini 3.1 Flash Lite client with multi-key pool + structured output.
+"""Gemini client with multi-key pool, rate limiting, and paid fallback.
 
-Used by the Animation Agent v2 generator. Wraps the sync `google.genai` SDK in an
-async-friendly interface via `asyncio.to_thread`, enforces a 15 RPM throttle per
-key, rotates keys on 429 / 5xx / auth errors, and returns parsed code from
-Gemini's JSON structured-output response.
+Core LLM client for the Animation Pipeline (stage 3).
+
+Key design decisions:
+  - Round-robin key rotation: distributes load across free-tier API keys
+  - Per-key 15 RPM throttle: prevents hitting Gemini's per-key rate limit
+  - Automatic cooldown: 429→60s, auth error→10min, 5xx→10s
+  - Paid fallback: when all free keys exhaust, uses a paid Gemini key
+    (configurable model, e.g. gemini-2.5-flash) to avoid pipeline stalls
+  - Structured JSON output: forces {"code": "..."} schema so we get
+    the generated JS/Python directly without markdown extraction
+  - Truncation recovery: salvages code via regex when output is cut off
 """
 
 import asyncio

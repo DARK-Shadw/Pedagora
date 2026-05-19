@@ -1,11 +1,16 @@
-"""Headless-browser runtime validator for Animation v2 frames.
+"""Headless-browser runtime validator for generated animation HTML.
 
-What this catches that pure JS syntax checking can't:
-  * `pageerror` events (a `tl` is undefined, a CDN script 404'd, etc.)
-  * The animation HTML never exposes `window.animationAPI`
-  * `tl.labels` is empty — no GSAP labels were registered
-  * Seek-to-label fails for one of the planner's expected labels
-  * Visual blank: every screenshot at every step is the same (no animation)
+PIPELINE STAGE 3, quality gate (see docs/architecture-flow.svg)
+
+Loads each generated HTML file in a headless Playwright browser and
+checks that the animation actually works at runtime. This catches bugs
+that static analysis or LLM self-review cannot:
+
+  * JS errors: undefined variables, 404 CDN scripts, syntax errors
+  * Missing GSAP timeline: window.animationAPI not exposed
+  * Empty labels: no GSAP labels registered (lockstep sync needs these)
+  * Seek failures: label exists but seeking to it throws an error
+  * Visual blank: every screenshot identical (animation didn't render)
 
 Returns a `RuntimeReport` with hard failures (`blocking`), advisories,
 captured screenshots (one per step label), and the labels actually present

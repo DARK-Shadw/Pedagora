@@ -1,9 +1,22 @@
 """Per-frame visual generator — hybrid browser HTML + Manim MP4 rendering.
 
-Uses Gemini 3.1 Flash Lite via `GeminiClient` (multi-key pool with structured output)
-for both browser (JS) and Manim (Python) code generation. Each path has its own
-inner retry loop that feeds render/runtime errors back into the next attempt's
-fix prompt.
+PIPELINE STAGE 3, inner loop (see docs/architecture-flow.svg)
+
+Each frame goes through one of two rendering paths:
+
+  BROWSER PATH (most frames):
+    LLM → GSAP/JS code → wrap in HTML template → Playwright validation
+    Output: self-contained HTML file with GSAP timeline + labeled steps
+
+  MANIM PATH (complex math animations):
+    LLM → Python Manim code → subprocess render → MP4 → wrap in HTML video player
+    Output: HTML page embedding the rendered MP4
+
+Both paths retry up to 3 attempts. On validation failure, the runtime
+error is fed back into the LLM as a "fix prompt" for the next attempt.
+
+Uses GeminiClient (multi-key pool with structured JSON output) for code
+generation. Falls back to Pollinations deepseek when pool is exhausted.
 """
 
 import ast
@@ -15,6 +28,7 @@ import os
 import time
 
 from app.agents.animation_v2.gemini_client import GeminiClient, GeminiPoolExhausted
+from app.agents.animation_v2.narration import generate_frame_narration
 from app.agents.animation_v2.prompt_composer import compose as compose_prompt
 from app.agents.animation_v2.prompts import (
     build_fix_prompt, VISUAL_GENERATION_SYSTEM,
@@ -757,37 +771,20 @@ async def _generate_manim_once(
         )
 
         render_start = time.time()
-        # 600s (10 min) gives complex 3D scenes plenty of room. We emit
-        # periodic progress ticks at 60/150/300/450s so the user can see
-        # the render is still alive during long compiles — this messaging
-        # is promoted to System Execution Logs by pipeline.progress().
-        render_task = asyncio.create_task(render_manim_scene(
+
+        def _on_render_progress(msg: str):
+            logger.info(f"[AnimV2] [{frame_id}] {msg}")
+            if progress_fn:
+                progress_fn(f"[{frame_id}] {msg}")
+
+        mp4_path, render_error = await render_manim_scene(
             code=py_code,
             output_dir=output_dir,
             quality=settings.animation_render_quality,
-            timeout=600,
+            timeout=1800,
             use_opengl=settings.animation_use_opengl,
-        ))
-
-        render_tick_thresholds = [60, 150, 300, 450]
-        thresholds_hit: set[int] = set()
-        while not render_task.done():
-            done_set, _ = await asyncio.wait([render_task], timeout=15)
-            if done_set:
-                break
-            elapsed_now = time.time() - render_start
-            for threshold in render_tick_thresholds:
-                if elapsed_now >= threshold and threshold not in thresholds_hit:
-                    thresholds_hit.add(threshold)
-                    tick_msg = (
-                        f"[{frame_id}] Manim still rendering... "
-                        f"{elapsed_now:.0f}s elapsed (timeout 600s)"
-                    )
-                    logger.info(f"[AnimV2] {tick_msg}")
-                    if progress_fn:
-                        progress_fn(tick_msg)
-
-        mp4_path, render_error = await render_task
+            progress_callback=_on_render_progress,
+        )
         render_elapsed = time.time() - render_start
 
         if render_error:
@@ -929,12 +926,18 @@ async def _generate_manim_once(
         if progress_fn:
             progress_fn(f"[{frame_id}] Rendering fallback code with Manim...")
 
+        def _on_fallback_progress(msg: str):
+            logger.info(f"[AnimV2] [{frame_id}] fallback: {msg}")
+            if progress_fn:
+                progress_fn(f"[{frame_id}] fallback: {msg}")
+
         mp4_path, render_error = await render_manim_scene(
             code=py_code,
             output_dir=output_dir,
             quality=settings.animation_render_quality,
-            timeout=600,
+            timeout=1800,
             use_opengl=settings.animation_use_opengl,
+            progress_callback=_on_fallback_progress,
         )
 
         if render_error:
@@ -1019,6 +1022,10 @@ async def _generate_manim_visual(
     # --- Pre-generate images for steps that need them ---
     available_images = await _pregenerate_step_images(frame, progress_fn)
 
+    # Start narration gen early — it runs in parallel with the much-longer
+    # Manim render, so it's ready by the time any attempt succeeds.
+    narration_task = asyncio.create_task(generate_frame_narration(gemini, frame))
+
     last_result: dict = {}
     last_error: str | None = previous_error
     last_code: str | None = previous_code
@@ -1045,13 +1052,22 @@ async def _generate_manim_visual(
         last_result = result
 
         if result.get("status") == "completed":
+            # Collect narration (should be long done — render took minutes)
+            try:
+                narrations = await asyncio.wait_for(narration_task, timeout=90.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError, Exception) as e:
+                logger.warning(f"[AnimV2] {frame_id} manim narration failed: {e}")
+                narrations = None
+            if narrations:
+                result["narration_texts"] = narrations
+                logger.info(
+                    f"[AnimV2] {frame_id} manim narration OK: "
+                    f"{len(narrations)} steps"
+                )
             return result
 
-        # Feed the error + failing code into the next attempt's fix prompt.
         last_error = result.get("error") or "manim generation failed"
         last_code = result.get("failed_code") or last_code
-        # Full error to backend stdout so the developer can see why it failed
-        # without waiting for the pipeline to finish.
         logger.warning(
             f"[AnimV2] {frame_id} manim FAIL attempt "
             f"{attempt}/{MAX_MANIM_RETRY_ATTEMPTS}\n"
@@ -1059,8 +1075,7 @@ async def _generate_manim_visual(
             f"---- END ATTEMPT ERROR ----"
         )
 
-    # All attempts exhausted — return last failure so the lesson can still
-    # play with a placeholder for this frame.
+    narration_task.cancel()
     last_result["status"] = "failed"
     last_result.setdefault("error", last_error or "manim generation failed")
     return last_result
@@ -1165,9 +1180,9 @@ async def _generate_browser_visual(
             last_error = "empty HTML"
             continue
 
-        # ── Runtime validator ──
+        # ── Runtime validation first ──
         if progress_fn:
-            progress_fn(f"[{frame_id}] validating in headless browser...")
+            progress_fn(f"[{frame_id}] validating in browser...")
         runtime = await validate_animation_runtime(
             html=html,
             expected_labels=expected_labels,
@@ -1178,8 +1193,6 @@ async def _generate_browser_visual(
         if not runtime.passed:
             last_error = "; ".join(runtime.blocking)[:600] or "runtime validation failed"
             last_code = html
-            # Full blocking list to backend stdout for triage — the truncated
-            # version goes into the fix prompt, but the developer sees everything.
             full_blocking = "\n  - " + "\n  - ".join(runtime.blocking) if runtime.blocking else " (none captured)"
             logger.warning(
                 f"[AnimV2] {frame_id} runtime FAIL attempt "
@@ -1191,25 +1204,53 @@ async def _generate_browser_visual(
                 progress_fn(f"[{frame_id}] runtime FAIL: {last_error[:80]}")
             continue
 
-        # ── Visual critic (advisory) ──
+        # ── Narration + visual critic in parallel (after validation) ──
+        # Narration receives validated GSAP labels so it's tuned to the
+        # actual generated animation, not just storyboard descriptions.
+        if progress_fn:
+            progress_fn(f"[{frame_id}] generating narration + visual critique...")
+        animation_context = {
+            "validated_labels": runtime.labels_in_timeline,
+        }
+        narration_task = asyncio.create_task(
+            generate_frame_narration(gemini, frame, animation_context=animation_context)
+        )
+
+        critic_task = None
         if runtime.screenshots_b64:
-            try:
+            async def _run_critic():
                 vspec = frame.get("visual_spec", {})
                 description = (vspec.get("description") or "")[:400]
-                visual = await review_animation_screenshots(
+                return await review_animation_screenshots(
                     screenshots_b64=runtime.screenshots_b64,
                     step_labels=runtime.step_labels_for_screenshots,
                     visual_type=frame.get("visual_type", "animation"),
                     description=description,
                 )
+            critic_task = asyncio.create_task(_run_critic())
+
+        try:
+            narrations = await asyncio.wait_for(narration_task, timeout=90.0)
+        except (asyncio.TimeoutError, asyncio.CancelledError, Exception) as e:
+            logger.warning(f"[AnimV2] {frame_id} narration gen failed: {e}")
+            narrations = None
+        if narrations:
+            result["narration_texts"] = narrations
+            logger.info(
+                f"[AnimV2] {frame_id} narration OK: {len(narrations)} steps, "
+                f"avg {sum(len(t) for t in narrations) // len(narrations)} chars"
+            )
+
+        # ── Visual critic (advisory) ──
+        if critic_task:
+            try:
+                visual = await asyncio.wait_for(critic_task, timeout=30.0)
                 result["visual_critic"] = {
                     "score": visual.score,
                     "verdict": visual.verdict,
                     "issues": visual.issues,
                     "feedback": visual.feedback,
                 }
-                # Visual critic is advisory at this layer — don't reject; the
-                # final lesson critic will surface low-scoring frames.
                 if not visual.passed:
                     logger.info(
                         f"[AnimV2] {frame_id} visual critic advisory: "

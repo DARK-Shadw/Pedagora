@@ -1,9 +1,19 @@
-"""Frame Navigator — walks visual frames with step-locked sync.
+"""Frame Navigator — AI teacher that walks through visual frames.
 
-Replaces the segment-based DagNavigator for v2 lessons that have
-pre-generated VisualFrame storyboards. The key difference: animations
-NEVER auto-play. The teacher controls every step, ensuring perfect
-sync between speech and visuals.
+PIPELINE STAGE 4, backend (see docs/architecture-flow.svg)
+
+This is the core teaching loop. For each frame in the lesson:
+  1. Send ShowFrameMessage (frontend loads animation iframe)
+  2. Generate narration per step using Groq LLM
+  3. Synthesize audio via Piper TTS (server-side)
+  4. Send FrameBundleMessage with steps (label, audio, text, duration)
+  5. Wait for frontend acknowledgment (frame_done)
+  6. Handle interactions: quiz questions, raise hand, student responses
+
+The frontend's LockstepEngine receives the FrameBundle and orchestrates
+audio playback + GSAP animation seeking in perfect sync.
+
+Communication: WebSocket (async generator yields TeacherMessage objects).
 """
 
 import asyncio

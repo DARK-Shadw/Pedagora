@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAgentStore } from "@/stores/agent-store";
 import { useUser } from "@/hooks/use-user";
 import { useAgentRealtime } from "@/hooks/use-realtime";
-import type { AgentTask, AgentLog, ResearchResult } from "@/types/database";
+import type { AgentTask, AgentLog } from "@/types/database";
 
 const agentConfig: Record<
   string,
@@ -26,34 +26,6 @@ const statusLabels: Record<string, string> = {
   completed: "COMPLETED",
   failed: "FAILED",
 };
-
-async function handleContinuePipeline(goalId: string): Promise<string | null> {
-  const supabase = createClient();
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.access_token) return "Not authenticated";
-
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/continue-pipeline`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify({ goal_id: goalId }),
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return err.detail || "Failed to resume pipeline";
-    }
-    return null;
-  } catch {
-    return "Backend unavailable — is the server running?";
-  }
-}
 
 async function handleRetryEpisode(goalId: string): Promise<string | null> {
   const supabase = createClient();
@@ -115,34 +87,6 @@ async function handleStartClassroom(
   }
 }
 
-async function handleRetryResearch(goalId: string): Promise<string | null> {
-  const supabase = createClient();
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.access_token) return "Not authenticated";
-
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/agents/research`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify({ goal_id: goalId }),
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return err.detail || "Failed to retry research";
-    }
-    return null;
-  } catch {
-    return "Backend unavailable — is the server running?";
-  }
-}
-
 // ── Elapsed time component ────────────────────────────────────────────────────
 
 function ElapsedTime({
@@ -189,99 +133,6 @@ function ElapsedTime({
   );
 }
 
-// ── Research results panel ────────────────────────────────────────────────────
-
-function ResearchResultsPanel({ result }: { result: ResearchResult }) {
-  const topicTree = result.topic_tree as { topic_groups?: { name: string }[]; effort_tier?: string };
-  const synthesis = result.synthesis as {
-    learning_path?: string[];
-    key_themes?: string[];
-  };
-  const effortTier = topicTree.effort_tier;
-
-  const topicCount = topicTree.topic_groups?.length ?? 0;
-  const formulaCount = result.cross_topic_formulas?.length ?? 0;
-  const exerciseCount = result.coding_exercises?.length ?? 0;
-  const learningPath = synthesis.learning_path ?? [];
-  const keyThemes = synthesis.key_themes ?? [];
-
-  const stats = [
-    { icon: "topic", label: "Topics", value: topicCount },
-    { icon: "source", label: "Sources", value: result.source_count },
-    { icon: "function", label: "Formulas", value: formulaCount },
-    { icon: "code", label: "Exercises", value: exerciseCount },
-  ];
-
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-primary/10 shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-primary/5 flex items-center gap-3">
-        <MaterialIcon name="labs" className="text-primary text-xl" />
-        <h3 className="font-bold">Research Results</h3>
-        {effortTier && (
-          <span className={`ml-auto px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-            effortTier === "light" ? "bg-emerald-500/10 text-emerald-400"
-              : effortTier === "deep" ? "bg-amber-500/10 text-amber-400"
-              : "bg-primary/10 text-primary"
-          }`}>{effortTier} effort</span>
-        )}
-      </div>
-
-      <div className="p-6 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {stats.map((stat) => (
-            <div
-              key={stat.label}
-              className="flex flex-col items-center p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50"
-            >
-              <MaterialIcon name={stat.icon} className="text-primary text-2xl mb-1" />
-              <span className="text-2xl font-black text-primary">{stat.value}</span>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                {stat.label}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {learningPath.length > 0 && (
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
-              Learning Path
-            </h4>
-            <ol className="space-y-2">
-              {learningPath.map((topic, i) => (
-                <li key={i} className="flex items-center gap-3 text-sm">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0">
-                    {i + 1}
-                  </span>
-                  <span className="text-slate-700 dark:text-slate-300">{topic}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-
-        {keyThemes.length > 0 && (
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
-              Key Themes
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {keyThemes.map((theme, i) => (
-                <span
-                  key={i}
-                  className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
-                >
-                  {theme}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AgentsPage() {
@@ -291,12 +142,10 @@ export default function AgentsPage() {
     activeGoalId,
     setTasks,
     setActiveGoalId,
-    researchResult,
-    setResearchResult,
   } = useAgentStore();
   const [loading, setLoading] = useState(true);
-  const [continuing, setContinuing] = useState(false);
-  const [continueError, setContinueError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const [startingClassroom, setStartingClassroom] = useState(false);
   const router = useRouter();
 
@@ -341,18 +190,6 @@ export default function AgentsPage() {
 
       if (data && data.length > 0) {
         setTasks(data as AgentTask[]);
-
-        const researchTask = data.find(
-          (t: AgentTask) => t.agent_type === "research" && t.status === "completed"
-        );
-        if (researchTask) {
-          const { data: result } = await supabase
-            .from("research_results")
-            .select("*")
-            .eq("goal_id", researchTask.goal_id)
-            .single();
-          if (result) setResearchResult(result as ResearchResult);
-        }
       } else {
         setTasks([]);
       }
@@ -360,7 +197,7 @@ export default function AgentsPage() {
     }
 
     fetchTasks();
-  }, [user, setTasks, setActiveGoalId, setResearchResult]);
+  }, [user, setTasks, setActiveGoalId]);
 
   // Collect all logs from the current run's tasks (DB already caps at 25/task)
   const allLogs: AgentLog[] = tasks
@@ -372,31 +209,13 @@ export default function AgentsPage() {
   );
   const hasActive = activeTasks.length > 0;
 
-  async function onContinuePipeline() {
-    if (!activeGoalId || continuing) return;
-    setContinuing(true);
-    setContinueError(null);
-    const err = await handleContinuePipeline(activeGoalId);
-    if (err) setContinueError(err);
-    setContinuing(false);
-  }
-
   async function onRetryEpisode() {
-    if (!activeGoalId || continuing) return;
-    setContinuing(true);
-    setContinueError(null);
+    if (!activeGoalId || retrying) return;
+    setRetrying(true);
+    setRetryError(null);
     const err = await handleRetryEpisode(activeGoalId);
-    if (err) setContinueError(err);
-    setContinuing(false);
-  }
-
-  async function onRetryResearch() {
-    if (!activeGoalId || continuing) return;
-    setContinuing(true);
-    setContinueError(null);
-    const err = await handleRetryResearch(activeGoalId);
-    if (err) setContinueError(err);
-    setContinuing(false);
+    if (err) setRetryError(err);
+    setRetrying(false);
   }
 
   async function onClearLogs() {
@@ -412,37 +231,24 @@ export default function AgentsPage() {
   async function onStartClassroom() {
     if (!activeGoalId || startingClassroom) return;
     setStartingClassroom(true);
-    setContinueError(null);
+    setRetryError(null);
     const result = await handleStartClassroom(activeGoalId);
     if ("error" in result) {
-      setContinueError(result.error);
+      setRetryError(result.error);
       setStartingClassroom(false);
     } else {
       router.push(`/classroom/v2/${result.sessionId}`);
     }
   }
 
-  const researchTask = tasks.find((t) => t.agent_type === "research");
   const planningTask = tasks.find((t) => t.agent_type === "planning");
   const visualizationTask = tasks.find((t) => t.agent_type === "visualization");
-  const researchFailed = researchTask?.status === "failed";
-  const anyFailed = tasks.some((t) => t.status === "failed");
   const anyActive = tasks.some((t) => t.status === "active");
-  const isEpisodeMode = !researchTask;
-  // Show "Continue Pipeline" when:
-  //  - something downstream failed (but not research — that needs full retry), OR
-  //  - planning completed but visualization hasn't run yet (storyboards done, no animations)
   const planningCompleted = planningTask?.status === "completed";
-  const visualizationIncomplete = visualizationTask?.status !== "completed";
   const planningFailed = planningTask?.status === "failed";
-  const showContinue =
-    !anyActive &&
-    !researchFailed &&
-    !isEpisodeMode &&
-    (anyFailed || (planningCompleted && visualizationIncomplete));
-  const showRetryEpisode = !anyActive && isEpisodeMode && (planningFailed || planningTask?.status === "queued" || (planningCompleted && visualizationIncomplete));
-  const showRetryResearch = !anyActive && researchFailed;
   const visualizationCompleted = visualizationTask?.status === "completed";
+  const visualizationIncomplete = visualizationTask?.status !== "completed";
+  const showRetryEpisode = !anyActive && (planningFailed || planningTask?.status === "queued" || (planningCompleted && visualizationIncomplete));
   const showStartClassroom = !anyActive && visualizationCompleted;
 
   if (loading) {
@@ -511,35 +317,16 @@ export default function AgentsPage() {
         )}
       </div>
 
-      {/* Action Bar — goal-level pipeline controls */}
-      {(showContinue || showRetryResearch || showRetryEpisode || showStartClassroom) && (
+      {/* Action Bar */}
+      {(showRetryEpisode || showStartClassroom) && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {showContinue && (
-            <button
-              onClick={onContinuePipeline}
-              disabled={continuing}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {continuing ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Resuming…
-                </>
-              ) : (
-                <>
-                  <MaterialIcon name="play_circle" className="text-base" />
-                  Continue Pipeline
-                </>
-              )}
-            </button>
-          )}
           {showRetryEpisode && (
             <button
               onClick={onRetryEpisode}
-              disabled={continuing}
+              disabled={retrying}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {continuing ? (
+              {retrying ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Retrying…
@@ -548,25 +335,6 @@ export default function AgentsPage() {
                 <>
                   <MaterialIcon name="refresh" className="text-base" />
                   Retry Episode
-                </>
-              )}
-            </button>
-          )}
-          {showRetryResearch && (
-            <button
-              onClick={onRetryResearch}
-              disabled={continuing}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {continuing ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Retrying…
-                </>
-              ) : (
-                <>
-                  <MaterialIcon name="refresh" className="text-base" />
-                  Retry Research
                 </>
               )}
             </button>
@@ -590,8 +358,8 @@ export default function AgentsPage() {
               )}
             </button>
           )}
-          {continueError && (
-            <p className="text-sm text-red-400 font-medium">{continueError}</p>
+          {retryError && (
+            <p className="text-sm text-red-400 font-medium">{retryError}</p>
           )}
         </div>
       )}
@@ -676,9 +444,6 @@ export default function AgentsPage() {
           );
         })}
       </div>
-
-      {/* Research Results Panel */}
-      {researchResult && <ResearchResultsPanel result={researchResult} />}
 
       {/* Pipeline Table */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-primary/10 overflow-hidden shadow-sm">

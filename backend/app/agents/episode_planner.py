@@ -1,14 +1,27 @@
 """Single Episode Planner — one Gemini call → visual storyboard.
 
-Skips research entirely. Generates a single-lesson storyboard using
-Gemini 2.5 Flash, then wraps it in a minimal 1-module/1-lesson
-CourseStructure so downstream Animation + Teacher agents work unchanged.
+PIPELINE STAGE 2 (see docs/architecture-flow.svg)
+
+Flow:
+  1. Load student profile (goal, preferences) from Supabase
+  2. Call Gemini 2.5 Flash with a strict storyboard prompt
+  3. Parse JSON response into frames with GSAP-labeled steps
+  4. Wrap in 1-module/1-lesson CourseStructure (shared schema)
+  5. Save to course_plans table
+  6. Auto-trigger Animation Pipeline (stage 3)
+
+The storyboard prompt enforces hard constraints:
+  - 12+ frames, 15+ minutes, 3+ interactions
+  - 3-6 labeled steps per frame (used by lockstep engine)
+  - 3Blue1Brown narration style (short sentences, concrete nouns)
+  - Real code examples, step-by-step visual breakdowns
+
+Fallback: Gemini → Groq if all Gemini keys exhausted.
 """
 
 import asyncio
 import json
 import logging
-import os
 import time
 from datetime import datetime, timezone
 

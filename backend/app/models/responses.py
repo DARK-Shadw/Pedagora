@@ -1,18 +1,6 @@
 from pydantic import BaseModel
 
 
-class ResearchAccepted(BaseModel):
-    message: str = "Research pipeline started"
-    goal_id: str
-    task_id: str
-
-
-class CoursePlanAccepted(BaseModel):
-    message: str = "Course planner pipeline started"
-    goal_id: str
-    task_id: str
-
-
 class AnimateLessonAccepted(BaseModel):
     message: str = "Animation pipeline started"
     goal_id: str

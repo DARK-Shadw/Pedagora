@@ -1,5 +1,9 @@
 /**
- * Lockstep sync engine for animation + audio.
+ * Lockstep sync engine — audio + animation sync (stage 4, frontend).
+ * See docs/architecture-flow.svg for where this fits in the pipeline.
+ *
+ * Receives FrameBundle from backend via WebSocket and orchestrates
+ * audio playback + GSAP animation seeking in perfect sync.
  *
  * Three playback modes, chosen per-frame at runtime:
  *

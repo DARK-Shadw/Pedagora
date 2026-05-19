@@ -4,7 +4,7 @@ from app.services.supabase import get_supabase
 
 
 async def fetch_onboarding_data(goal_id: str, user_id: str) -> dict:
-    """Fetch all onboarding data needed by the research agent."""
+    """Fetch all onboarding data needed by agents."""
     sb = get_supabase()
 
     goal = (
@@ -111,13 +111,11 @@ async def update_agent_task(
     if metadata is not None:
         update_data["metadata"] = metadata
 
-    # Update fields (excluding logs — those use atomic append)
     if update_data:
         sb.table("agent_tasks").update(update_data).eq("goal_id", goal_id).eq(
             "agent_type", agent_type
         ).execute()
 
-    # Append to logs via atomic RPC (no read-modify-write race)
     if log_message is not None:
         sb.rpc(
             "append_agent_task_log",
@@ -134,108 +132,20 @@ async def update_agent_task(
         ).execute()
 
 
-async def save_research_sources(
-    goal_id: str, user_id: str, sources: list[dict]
-) -> None:
-    """Save research sources to the database."""
-    if not sources:
-        return
-
-    sb = get_supabase()
-
-    rows = []
-    for s in sources:
-        # Build extracted_content JSONB from the nested model
-        extracted = s.get("extracted_content") or {}
-        formulas = extracted.get("formulas", []) if extracted else []
-        code_snippets = extracted.get("code_snippets", []) if extracted else []
-        numerical_examples = extracted.get("numerical_examples", []) if extracted else []
-        difficulty_level = extracted.get("difficulty_level") if extracted else None
-
-        rows.append(
-            {
-                "goal_id": goal_id,
-                "user_id": user_id,
-                "topic_group": s.get("topic_group", "general"),
-                "source_type": s.get("source_type", "article"),
-                "title": s.get("title", "Untitled"),
-                "url": s.get("url"),
-                "author": s.get("author"),
-                "summary": s.get("summary"),
-                "key_concepts": s.get("key_concepts", []),
-                "relevance_score": s.get("relevance_score", 0),
-                "credibility_score": s.get("credibility_score", 0),
-                "content_extract": s.get("content_extract"),
-                "metadata": s.get("metadata", {}),
-                # v2 columns
-                "extracted_content": extracted,
-                "formulas": formulas,
-                "code_snippets": code_snippets,
-                "numerical_examples": numerical_examples,
-                "difficulty_level": difficulty_level,
-            }
-        )
-
-    sb.table("research_sources").insert(rows).execute()
+# ─── Course Plan helpers (used by episode planner + teacher) ───
 
 
-async def save_research_results(
-    goal_id: str, user_id: str, topic_tree: dict, synthesis: dict, source_count: int
-) -> None:
-    """Save or update the full research result for a goal."""
-    sb = get_supabase()
-
-    sb.table("research_results").upsert(
-        {
-            "goal_id": goal_id,
-            "user_id": user_id,
-            "topic_tree": topic_tree,
-            "synthesis": synthesis,
-            "source_count": source_count,
-            # v2 columns
-            "teaching_notes": synthesis.get("teaching_notes", {}),
-            "demo_codebases": synthesis.get("demo_codebases", []),
-            "coding_exercises": synthesis.get("coding_exercises", []),
-            "cross_topic_formulas": synthesis.get("cross_topic_formulas", []),
-            "version": 2,
-        },
-        on_conflict="goal_id",
-    ).execute()
-
-
-async def cleanup_previous_research(goal_id: str) -> None:
-    """Remove previous research data for retry scenarios."""
-    sb = get_supabase()
-    sb.table("research_sources").delete().eq("goal_id", goal_id).execute()
-    sb.table("research_results").delete().eq("goal_id", goal_id).execute()
-
-
-# ─── Course Planner helpers ───
-
-
-async def fetch_research_results(goal_id: str) -> dict | None:
-    """Fetch completed research results for the course planner."""
+async def fetch_course_plan(goal_id: str) -> dict | None:
+    """Fetch the course plan for a goal."""
     sb = get_supabase()
     result = (
-        sb.table("research_results")
+        sb.table("course_plans")
         .select("*")
         .eq("goal_id", goal_id)
         .single()
         .execute()
     )
     return result.data
-
-
-async def fetch_research_sources(goal_id: str) -> list[dict]:
-    """Fetch all research sources for a goal."""
-    sb = get_supabase()
-    result = (
-        sb.table("research_sources")
-        .select("*")
-        .eq("goal_id", goal_id)
-        .execute()
-    )
-    return result.data or []
 
 
 async def save_course_plan(
@@ -266,26 +176,7 @@ async def save_course_plan(
     ).execute()
 
 
-async def cleanup_previous_course_plan(goal_id: str) -> None:
-    """Remove previous course plan for retry scenarios."""
-    sb = get_supabase()
-    sb.table("course_plans").delete().eq("goal_id", goal_id).execute()
-
-
-# ─── Animation Agent helpers ───
-
-
-async def fetch_course_plan(goal_id: str) -> dict | None:
-    """Fetch the course plan for a goal."""
-    sb = get_supabase()
-    result = (
-        sb.table("course_plans")
-        .select("*")
-        .eq("goal_id", goal_id)
-        .single()
-        .execute()
-    )
-    return result.data
+# ─── Animation helpers ───
 
 
 async def save_animation_result(
@@ -332,11 +223,3 @@ async def get_lesson_animations(goal_id: str, lesson_id: str) -> list[dict]:
         .execute()
     )
     return result.data or []
-
-
-async def cleanup_lesson_animations(goal_id: str, lesson_id: str) -> None:
-    """Remove previous animation results for a lesson (retry scenario)."""
-    sb = get_supabase()
-    sb.table("lesson_animations").delete().eq(
-        "goal_id", goal_id
-    ).eq("lesson_id", lesson_id).execute()

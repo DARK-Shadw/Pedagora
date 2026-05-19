@@ -2,75 +2,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.models.requests import ResearchRequest, CoursePlanRequest, AnimateLessonRequest, RegenerateFrameRequest
-from app.models.responses import ResearchAccepted, CoursePlanAccepted, AnimateLessonAccepted, RegenerateFrameAccepted, AgentStatusResponse
-from app.services.agent_task import get_agent_task, update_agent_task, cleanup_previous_research, fetch_research_results, fetch_course_plan, get_lesson_animations
-from app.agents.research_v3 import run_research_v3
-from app.agents.course_planner.pipeline_v4 import run_course_planner_v4
-from app.agents.pipeline_orchestrator import run_full_pipeline, resume_pipeline, ensure_storyboard_and_animate
+from app.models.requests import CoursePlanRequest, AnimateLessonRequest, RegenerateFrameRequest
+from app.models.responses import AnimateLessonAccepted, RegenerateFrameAccepted, AgentStatusResponse
+from app.services.agent_task import get_agent_task, update_agent_task, fetch_course_plan, get_lesson_animations
 from app.agents.episode_planner import run_episode_planner
 
 router = APIRouter()
-
-
-@router.post("/research", status_code=status.HTTP_202_ACCEPTED, response_model=ResearchAccepted)
-async def trigger_research(
-    request: ResearchRequest,
-    background_tasks: BackgroundTasks,
-    user: dict = Depends(get_current_user),
-):
-    """Trigger the FULL pipeline (research → course planner → animations).
-
-    Returns 202 immediately. The full chain runs in the background as one task.
-    Each stage updates its own agent_tasks row, so the frontend reflects
-    accurate state via Supabase realtime.
-    """
-    user_id = user["sub"]
-    goal_id = request.goal_id
-
-    # Verify the research task exists and belongs to user
-    task = await get_agent_task(goal_id, "research")
-
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Research task not found for this goal",
-        )
-
-    if task.get("user_id") != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to trigger this task",
-        )
-
-    if task.get("status") not in ("queued", "failed"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Task is already {task.get('status')}. Only queued or failed tasks can be triggered.",
-        )
-
-    # Reset all downstream tasks too so a retry runs the full chain cleanly
-    if task.get("status") == "failed":
-        for agent_type in ("research", "planning", "visualization"):
-            try:
-                await update_agent_task(
-                    goal_id,
-                    agent_type,
-                    status="queued",
-                    progress=0,
-                    current_task=None,
-                    error_message=None,
-                    log_message=f"{agent_type} reset for retry",
-                    log_level="system",
-                )
-            except Exception:
-                # Ignore tasks that don't exist (some users may not have all 4 task rows)
-                pass
-
-    # Launch the full pipeline in background
-    background_tasks.add_task(run_full_pipeline, goal_id, user_id)
-
-    return ResearchAccepted(goal_id=goal_id, task_id=task["id"])
 
 
 @router.post("/plan-episode", status_code=status.HTTP_202_ACCEPTED)
@@ -127,112 +64,6 @@ async def trigger_episode_planner(
     return {"goal_id": goal_id, "task_id": task["id"], "message": "Episode planner started"}
 
 
-@router.post("/course-plan", status_code=status.HTTP_202_ACCEPTED, response_model=CoursePlanAccepted)
-async def trigger_course_plan(
-    request: CoursePlanRequest,
-    background_tasks: BackgroundTasks,
-    user: dict = Depends(get_current_user),
-):
-    """Trigger the course planner pipeline. Requires completed research."""
-    user_id = user["sub"]
-    goal_id = request.goal_id
-
-    # Verify the planning task exists and belongs to user
-    task = await get_agent_task(goal_id, "planning")
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Planning task not found for this goal",
-        )
-    if task.get("user_id") != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to trigger this task",
-        )
-    if task.get("status") not in ("queued", "failed"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Task is already {task.get('status')}. Only queued or failed tasks can be triggered.",
-        )
-
-    # Verify research is completed
-    research = await fetch_research_results(goal_id)
-    if not research:
-        raise HTTPException(
-            status_code=status.HTTP_412_PRECONDITION_FAILED,
-            detail="Research must be completed before running course planner",
-        )
-
-    # Reset task state for retries
-    if task.get("status") == "failed":
-        await update_agent_task(
-            goal_id,
-            "planning",
-            status="queued",
-            progress=0,
-            current_task=None,
-            error_message=None,
-            log_message="Task reset for retry",
-            log_level="system",
-        )
-
-    background_tasks.add_task(run_course_planner_v4, goal_id, user_id)
-    return CoursePlanAccepted(goal_id=goal_id, task_id=task["id"])
-
-
-@router.post("/continue-pipeline", status_code=status.HTTP_202_ACCEPTED)
-async def continue_pipeline_endpoint(
-    request: CoursePlanRequest,
-    background_tasks: BackgroundTasks,
-    user: dict = Depends(get_current_user),
-):
-    """Resume the pipeline from wherever it left off.
-
-    Inspects existing course_plans + lesson_animations to determine what's
-    already done, then runs only the missing steps in order:
-    storyboard(L) → animation(L) for each incomplete lesson.
-    """
-    goal_id = request.goal_id
-    user_id = user["sub"]
-
-    # Verify the goal belongs to the user
-    planning_task = await get_agent_task(goal_id, "planning")
-    if not planning_task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Planning task not found for this goal",
-        )
-    if planning_task.get("user_id") != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized",
-        )
-
-    # Don't resume if already actively running
-    if planning_task.get("status") == "active":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Pipeline is already running",
-        )
-
-    # Reset failed tasks to queued so the UI reflects the restart
-    for agent_type in ("planning", "visualization"):
-        t = await get_agent_task(goal_id, agent_type)
-        if t and t.get("status") in ("failed", "completed"):
-            await update_agent_task(
-                goal_id, agent_type,
-                status="queued",
-                progress=0,
-                current_task=None,
-                error_message=None,
-                log_message="Pipeline resumed by user",
-                log_level="system",
-            )
-
-    background_tasks.add_task(resume_pipeline, goal_id, user_id)
-    return {"goal_id": goal_id, "status": "resumed"}
-
-
 @router.post("/animate-lesson", status_code=status.HTTP_202_ACCEPTED, response_model=AnimateLessonAccepted)
 async def trigger_animate_lesson(
     request: AnimateLessonRequest,
@@ -240,11 +71,12 @@ async def trigger_animate_lesson(
     user: dict = Depends(get_current_user),
 ):
     """Trigger animation generation for a single lesson. Requires completed course plan."""
+    from app.agents.animation_v2.pipeline import generate_lesson_visuals
+
     user_id = user["sub"]
     goal_id = request.goal_id
     lesson_id = request.lesson_id
 
-    # Verify course plan exists
     course_plan = await fetch_course_plan(goal_id)
     if not course_plan:
         raise HTTPException(
@@ -252,7 +84,6 @@ async def trigger_animate_lesson(
             detail="Course plan must be completed before generating animations",
         )
 
-    # Verify lesson exists in the plan
     lesson_plans = course_plan.get("lesson_plans", {})
     if lesson_id not in lesson_plans:
         raise HTTPException(
@@ -260,7 +91,7 @@ async def trigger_animate_lesson(
             detail=f"Lesson '{lesson_id}' not found in course plan",
         )
 
-    background_tasks.add_task(ensure_storyboard_and_animate, goal_id, user_id, lesson_id)
+    background_tasks.add_task(generate_lesson_visuals, goal_id, user_id, lesson_id)
     return AnimateLessonAccepted(goal_id=goal_id, lesson_id=lesson_id)
 
 
@@ -278,7 +109,6 @@ async def trigger_regenerate_frame(
     lesson_id = request.lesson_id
     frame_id = request.frame_id
 
-    # Verify course plan exists and contains the frame
     course_plan = await fetch_course_plan(goal_id)
     if not course_plan:
         raise HTTPException(
@@ -301,6 +131,35 @@ async def trigger_regenerate_frame(
 
     background_tasks.add_task(regenerate_single_frame, goal_id, user_id, lesson_id, frame_id)
     return RegenerateFrameAccepted(goal_id=goal_id, lesson_id=lesson_id, frame_id=frame_id)
+
+
+class RetryNarrationsRequest(BaseModel):
+    goal_id: str
+    lesson_id: str = "mod1-les1"
+
+
+@router.post("/retry-narrations")
+async def retry_narrations(
+    request: RetryNarrationsRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
+    """Retry narration generation for frames that rendered but narration failed.
+
+    Detects completed frames with short/missing narrations and regenerates them
+    using the paid Gemini key. Runs in background.
+    """
+    from app.agents.animation_v2.pipeline import retry_missing_narrations
+
+    user_id = user["sub"]
+    course_plan = await fetch_course_plan(request.goal_id)
+    if not course_plan:
+        raise HTTPException(status_code=404, detail="Course plan not found")
+    if course_plan.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    background_tasks.add_task(retry_missing_narrations, request.goal_id, request.lesson_id)
+    return {"goal_id": request.goal_id, "lesson_id": request.lesson_id, "message": "Narration retry started"}
 
 
 @router.get("/course-plan/{goal_id}")
@@ -411,19 +270,20 @@ Return ONLY valid JSON:
 
 
 @router.get("/status/{goal_id}", response_model=AgentStatusResponse)
-async def get_research_status(
+async def get_agent_status(
     goal_id: str,
     user: dict = Depends(get_current_user),
 ):
-    """Get the current status of the research agent for a goal."""
+    """Get the current status of agent tasks for a goal."""
     user_id = user["sub"]
 
     task = await get_agent_task(goal_id, "research")
-
+    if not task:
+        task = await get_agent_task(goal_id, "planning")
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Research task not found for this goal",
+            detail="No agent task found for this goal",
         )
 
     if task.get("user_id") != user_id:
@@ -434,7 +294,7 @@ async def get_research_status(
 
     return AgentStatusResponse(
         goal_id=goal_id,
-        agent_type="research",
+        agent_type=task.get("agent_type", "planning"),
         status=task["status"],
         progress_percentage=task["progress_percentage"],
         current_task=task.get("current_task"),
